@@ -1,0 +1,73 @@
+/* Broadcast-inspired game layer: arena light, franchise HUD, and tactile controls. */
+:root{--ice:#b9d9e8;--ice-dim:#7393a6;--hud-bg:#07121de8;--hud-line:#86aec42b;--hud-glow:color-mix(in srgb,var(--team,var(--ui-control,#f5c44b)),transparent 77%)}
+html{scroll-behavior:smooth}
+body{background-color:#050b12;background-image:radial-gradient(ellipse at 53% 8%,#28435c55,transparent 43%),radial-gradient(ellipse at 50% 105%,#101f2c 0%,transparent 55%),linear-gradient(135deg,#050a10,#0b1722 54%,#060e16)}
+body[data-view="office"] .arena-masthead:before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(112deg,transparent 16%,#c3e9ff0a 35%,transparent 54%),repeating-linear-gradient(90deg,transparent 0 84px,#ffffff08 85px 86px,transparent 87px 168px);mask-image:linear-gradient(180deg,#000 0%,transparent 96%)}
+body[data-view="office"] .arena-masthead:after{background:linear-gradient(0deg,#071018 0%,#07101855 23%,#02071166 100%);}
+body[data-view="office"] .office-sidebar{background:linear-gradient(180deg,#07121df5,#050c13f5 64%,#0a1720f7);border-color:#8db2c324;box-shadow:8px 0 38px #0005,inset -1px 0 #ffffff08}
+body[data-view="office"] .club-switch{position:relative}
+body[data-view="office"] .club-switch:after{content:"FRANCHISE HUB";position:absolute;right:12px;top:14px;color:#89a5b5;font-size:7px;font-weight:800;letter-spacing:.14em;opacity:.8}
+body[data-view="office"] .sidebar-season{background:linear-gradient(145deg,#102232ed,#09141df0);border-color:#9dc4d02a;box-shadow:inset 0 1px #ffffff0b}
+body[data-view="office"] .office-nav{background:linear-gradient(180deg,#0d1b28f2,#07111af5);border-color:#9dc4d02a;box-shadow:0 6px 22px #0003,inset 0 1px #ffffff0c}
+body[data-view="office"] .office-nav button.active{background:linear-gradient(180deg,color-mix(in srgb,var(--ui-control),transparent 85%),#07111c55);text-shadow:0 0 16px color-mix(in srgb,var(--ui-control),transparent 45%)}
+body[data-view="office"] .workspace-context{min-height:39px;padding-inline:10px;background:linear-gradient(90deg,#0b1a25ad,transparent);border-left:2px solid var(--ui-control);margin:8px 0 12px;letter-spacing:.16em}
+body[data-view="office"] .fo-panel,body[data-view="office"] .home-card,body[data-view="office"] .home-feature,body[data-view="office"] .panel,body[data-view="office"] .stat-card{position:relative;border-color:#91b2c42b;background:linear-gradient(145deg,#122331f5,#09141ef8 76%);box-shadow:0 10px 28px #0003,inset 0 1px #ffffff0a}
+body[data-view="office"] .fo-panel:focus-within,body[data-view="office"] .home-card:focus-within{border-color:color-mix(in srgb,var(--ui-control),#8bb8cc 45%);box-shadow:0 0 0 1px color-mix(in srgb,var(--ui-control),transparent 82%),0 12px 30px #0004}
+body[data-view="office"] .home-hero{isolation:isolate;border-color:#a3cad043;box-shadow:0 16px 38px #0005,inset 0 1px #ffffff18}
+body[data-view="office"] .home-hero:after{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 27%,#cdefff0b 50%,transparent 69%),linear-gradient(90deg,var(--hud-glow),transparent 65%)}
+body[data-view="office"] .home-hero-title strong{letter-spacing:.09em;text-shadow:0 3px 18px #0008}
+body[data-view="office"] .home-hero-status{background:#06111ac9;border:1px solid #d5eafa25;border-radius:8px;padding:10px 13px;backdrop-filter:blur(8px)}
+body[data-view="office"] .home-next-card{overflow:hidden;border-top:2px solid var(--ui-control);background:radial-gradient(ellipse at 50% 47%,#29435780,transparent 65%),linear-gradient(150deg,#112231,#08131d 80%)}
+body[data-view="office"] .home-next-card:after{content:"";position:absolute;inset:44px 12% auto;height:1px;background:linear-gradient(90deg,transparent,#c4eaff35,transparent);pointer-events:none}
+body[data-view="office"] .home-matchup{position:relative;min-height:136px;align-items:center;padding:12px 8px;background:radial-gradient(circle at 50% 50%,#d8edfa12 0 2px,transparent 3px 27px,#d8edfa14 28px 29px,transparent 30px),linear-gradient(90deg,transparent 49.7%,#bbd9eb13 50%,transparent 50.3%)}
+body[data-view="office"] .home-matchup>span{min-width:0;position:relative;z-index:1}
+body[data-view="office"] .home-matchup>span strong{font:900 clamp(22px,2.8vw,36px)/1 var(--display);letter-spacing:.04em;text-shadow:0 3px 18px #0009}
+body[data-view="office"] .home-matchup>span small{letter-spacing:.12em}
+body[data-view="office"] .home-matchup>span .home-game-crest{width:76px;height:76px;filter:drop-shadow(0 7px 14px #0007)}
+body[data-view="office"] .home-matchup> b:not(.home-offseason-label){display:grid;place-items:center;width:39px;height:39px;border:1px solid #bdd5e62e;border-radius:50%;background:#07131c;color:#cfe5f3;font-size:10px;letter-spacing:.08em;box-shadow:0 0 20px #9acbe41a}
+body[data-view="office"] .home-primary-action{min-height:43px;border-radius:6px;background:linear-gradient(135deg,color-mix(in srgb,var(--ui-control),white 13%),var(--ui-control) 55%,color-mix(in srgb,var(--ui-control),#bb8024 18%));box-shadow:0 6px 22px var(--hud-glow),inset 0 1px #ffffff60;font-weight:900;letter-spacing:.1em;transition:filter .16s,transform .16s,box-shadow .16s}
+body[data-view="office"] .home-primary-action:hover{filter:brightness(1.12);transform:translateY(-2px);box-shadow:0 10px 30px var(--hud-glow),inset 0 1px #ffffff80}
+body[data-view="office"] .home-primary-action:active{transform:translateY(1px)}
+body[data-view="office"] .home-live-tag{border:1px solid #8db8ce24;background:#06111a99;border-radius:999px;padding:5px 9px;font-variant-numeric:tabular-nums}
+body[data-view="office"] .home-live-tag i{box-shadow:0 0 10px #56e5b5aa}
+body[data-view="office"] .home-record>span:first-child strong{color:var(--ui-control);font:900 27px/1 var(--display);text-shadow:0 0 18px var(--hud-glow)}
+body[data-view="office"] .home-team-extras>span{background:#07131d88;border:1px solid #aecfe018;border-radius:6px;padding:9px}
+body[data-view="office"] .home-standings-list>*{transition:background .14s,color .14s}
+body[data-view="office"] .home-standings-list>*:hover{background:#a7d9f010;color:#fff}
+body[data-view="office"] .pick-chip{position:relative;overflow:hidden;box-shadow:inset 0 1px #ffffff0a}
+body[data-view="office"] .pick-chip.selected{border-color:var(--ui-control);box-shadow:0 0 0 1px color-mix(in srgb,var(--ui-control),transparent 72%),0 0 16px var(--hud-glow)}
+body[data-view="office"] .offer-player-row:hover,.roster-table tbody tr:hover{background:#bde9ff0b}
+body[data-view="office"] .propose-trade:not(:disabled),body[data-view="office"] #advance-button:not(:disabled){box-shadow:0 6px 24px var(--hud-glow),inset 0 1px #ffffff55}
+body[data-view="office"] .propose-trade:not(:disabled):hover,body[data-view="office"] #advance-button:not(:disabled):hover{transform:translateY(-2px);filter:brightness(1.08)}
+body[data-view="office"] .office-bottom{border-top-color:#a9cfe01b;background:linear-gradient(180deg,#07111a00,#07111ae8 30%);backdrop-filter:blur(12px)}
+body[data-view="office"] .office-bottom #advance-button{min-height:47px;padding-inline:21px;border:1px solid color-mix(in srgb,var(--ui-control),transparent 24%);border-radius:6px;background:linear-gradient(135deg,color-mix(in srgb,var(--ui-control),white 12%),var(--ui-control));color:#111821;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
+body[data-view="office"] .trade-gm-meter-wrap,body[data-view="office"] .trade-result{font-variant-numeric:tabular-nums}
+body[data-view="office"] ::-webkit-scrollbar{width:10px;height:10px}body[data-view="office"] ::-webkit-scrollbar-track{background:#06111a}body[data-view="office"] ::-webkit-scrollbar-thumb{border:2px solid #06111a;border-radius:99px;background:#345064}body[data-view="office"] ::-webkit-scrollbar-thumb:hover{background:#54758a}
+@media(max-width:900px){body[data-view="office"] .home-matchup>span .home-game-crest{width:62px;height:62px}body[data-view="office"] .home-matchup{min-height:120px}}
+@media(max-width:600px){body[data-view="office"] .club-switch:after{display:none}body[data-view="office"] .workspace-context{padding-inline:7px;font-size:8px}body[data-view="office"] .home-matchup>span strong{font-size:24px}body[data-view="office"] .home-next-card{padding:13px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+
+/* The first new-career decision is a franchise archetype, followed by one direct launch. */
+body:not([data-view="office"]) .setup-grid{grid-template-columns:minmax(260px,.72fr) minmax(560px,1.55fr);align-items:stretch;gap:15px}
+body:not([data-view="office"]) .setup-card.gm-plan-card{grid-template-columns:44px minmax(0,1fr);align-content:start;gap:12px;padding:19px;border-top-color:var(--ui-control)}
+body:not([data-view="office"]) .gm-plan-icon{font-size:13px;font-weight:900;letter-spacing:-.06em}
+body:not([data-view="office"]) .gm-plan-heading h2{font-size:clamp(21px,2.2vw,28px);margin-bottom:5px}
+body:not([data-view="office"]) .gm-plan-heading p:not(.section-kicker){font-size:11px;margin:0}
+body:not([data-view="office"]) .gm-style-options{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:3px}
+body:not([data-view="office"]) .gm-style-choice{position:relative;min-width:0;min-height:194px;display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:14px 13px 12px;text-align:left;color:#eaf2f7;border:1px solid #8fb4c32b;border-top:2px solid #547081;background:linear-gradient(150deg,#122534,#09141df7);border-radius:8px;cursor:pointer;transition:transform .16s,border-color .16s,box-shadow .16s,background .16s}
+body:not([data-view="office"]) .gm-style-choice:hover{transform:translateY(-2px);border-color:#8eb4c5;background:linear-gradient(150deg,#1a3040,#0a1722);box-shadow:0 9px 22px #0004}
+body:not([data-view="office"]) .gm-style-choice.selected{border-color:color-mix(in srgb,var(--ui-control),white 14%);border-top-color:var(--ui-control);background:linear-gradient(150deg,color-mix(in srgb,var(--ui-control),#142331 91%),#09131d);box-shadow:0 0 0 1px color-mix(in srgb,var(--ui-control),transparent 77%),0 8px 22px #0004,inset 0 1px #ffffff12}
+body:not([data-view="office"]) .gm-style-choice.selected:after{content:"\u2713";position:absolute;right:11px;top:10px;color:var(--ui-control);font-size:14px;font-weight:900}
+body:not([data-view="office"]) .gm-style-number{font-size:8px;font-weight:850;letter-spacing:.14em;color:#a1bdcc}
+body:not([data-view="office"]) .gm-style-choice strong{font:900 clamp(20px,2.3vw,28px)/1 var(--display);letter-spacing:.015em;color:#fff}
+body:not([data-view="office"]) .gm-style-choice small{font-size:10px;line-height:1.5;color:#a9bac5}
+body:not([data-view="office"]) .gm-style-select{margin-top:auto;padding-top:9px;border-top:1px solid #a9c9d51b;color:#7f9bab;font-size:7px;font-weight:850;letter-spacing:.1em}
+body:not([data-view="office"]) .gm-style-choice.selected .gm-style-select{color:var(--ui-control)}
+body:not([data-view="office"]) .gm-career-window{grid-column:1/-1;margin:0;padding:9px 12px;font-size:14px;border:1px solid #a3c7d31c;border-radius:6px;background:#07131db8}
+body:not([data-view="office"]) .gm-career-window small{font-size:7px}
+body:not([data-view="office"]) .gm-philosophy-value{display:none!important}
+body:not([data-view="office"]) .setup-actions{align-items:center;gap:12px}
+body:not([data-view="office"]) .setup-actions #other-game-modes{margin-right:auto}
+body:not([data-view="office"]) .setup-actions #start-franchise{min-width:255px;min-height:49px;font-size:11px;box-shadow:0 8px 26px color-mix(in srgb,var(--ui-control),transparent 79%),inset 0 1px #ffffff55}
+@media(max-width:1100px){body:not([data-view="office"]) .setup-grid{grid-template-columns:1fr}body:not([data-view="office"]) .setup-card.gm-plan-card{min-height:0}}
+@media(max-width:640px){body:not([data-view="office"]) .gm-style-options{grid-template-columns:1fr}body:not([data-view="office"]) .gm-style-choice{min-height:135px}body:not([data-view="office"]) .gm-style-choice small{max-width:38ch}body:not([data-view="office"]) .setup-actions{align-items:stretch;flex-direction:column-reverse}body:not([data-view="office"]) .setup-actions #start-franchise{width:100%;min-width:0}body:not([data-view="office"]) .setup-actions #other-game-modes{width:100%;margin:0}}
