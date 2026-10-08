@@ -334,17 +334,56 @@ body[data-view="office"] .roster-table thead th,
 body[data-view="office"] .player-table th {
   background: rgba(0, 0, 0, 0.72) !important;
 }
+body[data-view="office"] .home-cap-track {
+  height: 8px !important;
+  background: #1a1408 !important;
+  border: 1px solid rgba(255, 184, 28, 0.45) !important;
+  border-radius: 6px !important;
+}
+body[data-view="office"] .home-cap-track i {
+  background: #FFB81C !important;
+  border: 0 !important;
+}
+body[data-view="office"] .home-card > header .home-more {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+body:not([data-view="office"]) #team-screen .screen-footer {
+  position: static !important;
+  margin-top: 18px !important;
+  z-index: 1 !important;
+}
 
 body[data-view="office"] #sidebar-nav {
   background: rgba(0, 0, 0, 0.62) !important;
   border: 1px solid rgba(255, 184, 28, 0.7) !important;
   backdrop-filter: blur(8px);
+  overflow: hidden !important;
 }
 body[data-view="office"] #sidebar-nav button,
 body[data-view="office"] #sidebar-nav #sidebar-frontoffice {
   background: transparent !important;
   box-shadow: none !important;
   border: 0 !important;
+  display: flex !important;
+  flex: 1 1 0 !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 0 !important;
+  min-height: 52px !important;
+  padding: 6px 4px !important;
+  gap: 2px !important;
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+  line-height: 1.15 !important;
+  white-space: normal !important;
+  text-align: center !important;
+  overflow: hidden !important;
 }
 body[data-view="office"] #sidebar-nav button.active,
 body[data-view="office"] #sidebar-nav #sidebar-frontoffice.active {
@@ -382,8 +421,8 @@ body[data-view="office"] .home-grades b {
 }
 body[data-view="office"] .home-grades small {
   color: #ddd !important;
-  font-size: 10px !important;
-  letter-spacing: .04em;
+  font-size: 9px !important;
+  letter-spacing: 0 !important;
   line-height: 1.15;
   text-align: center;
   background: transparent !important;
