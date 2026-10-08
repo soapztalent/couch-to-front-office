@@ -236,3 +236,38 @@ body .live-rink .live-rink-actions .lv-left{color:var(--t-muted)}
 
 /* ---------- focus rings ---------- */
 :where(button,a,select,input,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--t-gold2);outline-offset:2px}
+
+/* ---------- QA polish: one office, readable names, quiet scrollbars ---------- */
+html body[data-view="office"]{scrollbar-width:thin;scrollbar-color:#3a444e #07090b}
+.office-content,.player-table-wrap,.chart-player-list,.office-nav,.sidebar-nav{scrollbar-width:thin;scrollbar-color:#3a444e transparent}
+.office-content .button,.sidebar-nav button,.office-nav button,.home-primary-action{transition:background .16s ease,color .16s ease,border-color .16s ease}
+.chart-lines-grid{grid-template-columns:repeat(2,minmax(220px,1fr));gap:10px}
+.chart-pairs-grid{grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px}
+.ls-line-slots,.chart-lines-grid .ls-line-slots{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ls-player-copy,.chart-player-copy{min-width:0}
+.ls-player-copy strong,.ls-line-slots .ls-player-copy strong,.chart-slot-button strong,.chart-player-copy strong{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15;font-size:13px;letter-spacing:0}
+.ls-player-copy small,.ls-line-slots .ls-player-copy small,.chart-player-copy small{white-space:normal;overflow:visible;text-overflow:clip;font-size:10px;line-height:1.25;letter-spacing:.04em}
+.resign-contract{min-width:0}
+.resign-contract strong,.resign-contract small,.resign-status{white-space:normal;overflow:visible;text-overflow:clip}
+.free-agent-card small,.fa-player small,.fa-meta,.offer-player-row small{white-space:normal;overflow:visible}
+.office-content .ovr{min-width:34px;height:26px;padding:0 5px;font-variant-numeric:tabular-nums;letter-spacing:0}
+.home-standing-row strong,.home-standing-row .team-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.front-office-hub{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.front-office-card{min-height:148px;text-align:left;align-items:flex-start}
+.stats-scope-nav{margin:0 0 12px}
+@media (max-width:1280px){
+  .chart-lines-grid,.chart-pairs-grid{grid-template-columns:1fr}
+  .chart-special-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:1100px){
+  .office-layout{padding:7px 12px 0}
+  .arena-tools{right:12px;gap:6px}
+  .club-switch{max-width:100%}
+  .club-switch::after,.club-switch:after{display:none}
+  .sidebar-nav{flex-wrap:wrap}
+  .sidebar-nav button{min-height:36px;padding:0 8px;letter-spacing:.06em}
+  .office-nav{flex-wrap:wrap}
+  .office-bottom{flex-wrap:wrap;gap:8px}
+  .home-standing-row,.home-standings-head{grid-template-columns:16px 18px minmax(88px,1fr) 22px 48px 24px}
+  .workspace-context{letter-spacing:.1em}
+}

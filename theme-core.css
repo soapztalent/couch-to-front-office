@@ -1271,3 +1271,32 @@ body .live-rink .live-rink-actions button.on{border-color:var(--t-gold) !importa
 body .live-rink .live-rink-actions button.gold{border-color:var(--t-gold) !important;background:var(--t-gold) !important;color:#000 !important}
 body .live-rink .live-rink-actions .lv-left{color:var(--t-muted) !important}
 :where(button,a,select,input,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--t-gold2) !important;outline-offset:2px !important}
+html body[data-view="office"]{scrollbar-width:thin !important;scrollbar-color:#3a444e #07090b !important}
+html body[data-view="office"] .office-content,html body[data-view="office"] .player-table-wrap,html body[data-view="office"] .chart-player-list,html body[data-view="office"] .office-nav,html body[data-view="office"] .sidebar-nav{scrollbar-width:thin !important;scrollbar-color:#3a444e transparent !important}
+html body[data-view="office"] .office-content .button,html body[data-view="office"] .sidebar-nav button,html body[data-view="office"] .office-nav button,html body[data-view="office"] .home-primary-action{transition:background .16s ease,color .16s ease,border-color .16s ease !important}
+html body[data-view="office"] .chart-lines-grid{grid-template-columns:repeat(2,minmax(220px,1fr)) !important;gap:10px !important}
+html body[data-view="office"] .chart-pairs-grid{grid-template-columns:repeat(3,minmax(180px,1fr)) !important;gap:10px !important}
+html body[data-view="office"] .ls-line-slots,html body[data-view="office"] .chart-lines-grid .ls-line-slots{grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:8px !important}
+html body[data-view="office"] .ls-player-copy,html body[data-view="office"] .chart-player-copy{min-width:0 !important}
+html body[data-view="office"] .ls-player-copy strong,html body[data-view="office"] .ls-line-slots .ls-player-copy strong,html body[data-view="office"] .chart-slot-button strong,html body[data-view="office"] .chart-player-copy strong{white-space:normal !important;overflow:visible !important;text-overflow:clip !important;line-height:1.15 !important;font-size:13px !important;letter-spacing:0 !important}
+html body[data-view="office"] .ls-player-copy small,html body[data-view="office"] .ls-line-slots .ls-player-copy small,html body[data-view="office"] .chart-player-copy small{white-space:normal !important;overflow:visible !important;text-overflow:clip !important;font-size:10px !important;line-height:1.25 !important;letter-spacing:.04em !important}
+html body[data-view="office"] .resign-contract{min-width:0 !important}
+html body[data-view="office"] .resign-contract strong,html body[data-view="office"] .resign-contract small,html body[data-view="office"] .resign-status{white-space:normal !important;overflow:visible !important;text-overflow:clip !important}
+html body[data-view="office"] .free-agent-card small,html body[data-view="office"] .fa-player small,html body[data-view="office"] .fa-meta,html body[data-view="office"] .offer-player-row small{white-space:normal !important;overflow:visible !important}
+html body[data-view="office"] .office-content .ovr{min-width:34px !important;height:26px !important;padding:0 5px !important;font-variant-numeric:tabular-nums !important;letter-spacing:0 !important}
+html body[data-view="office"] .home-standing-row strong,html body[data-view="office"] .home-standing-row .team-name{min-width:0 !important;overflow:hidden !important;text-overflow:ellipsis !important}
+html body[data-view="office"] .front-office-hub{display:grid !important;grid-template-columns:repeat(auto-fit,minmax(240px,1fr)) !important;gap:12px !important}
+html body[data-view="office"] .front-office-card{min-height:148px !important;text-align:left !important;align-items:flex-start !important}
+html body[data-view="office"] .stats-scope-nav{margin:0 0 12px !important}
+@media (max-width:1280px){html body[data-view="office"] .chart-lines-grid,html body[data-view="office"] .chart-pairs-grid{grid-template-columns:1fr !important}
+html body[data-view="office"] .chart-special-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}}
+@media (max-width:1100px){html body[data-view="office"] .office-layout{padding:7px 12px 0 !important}
+html body[data-view="office"] .arena-tools{right:12px !important;gap:6px !important}
+html body[data-view="office"] .club-switch{max-width:100% !important}
+html body[data-view="office"] .club-switch::after,html body[data-view="office"] .club-switch:after{display:none !important}
+html body[data-view="office"] .sidebar-nav{flex-wrap:wrap !important}
+html body[data-view="office"] .sidebar-nav button{min-height:36px !important;padding:0 8px !important;letter-spacing:.06em !important}
+html body[data-view="office"] .office-nav{flex-wrap:wrap !important}
+html body[data-view="office"] .office-bottom{flex-wrap:wrap !important;gap:8px !important}
+html body[data-view="office"] .home-standing-row,html body[data-view="office"] .home-standings-head{grid-template-columns:16px 18px minmax(88px,1fr) 22px 48px 24px !important}
+html body[data-view="office"] .workspace-context{letter-spacing:.1em !important}}
