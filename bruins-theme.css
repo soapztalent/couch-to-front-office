@@ -66,15 +66,15 @@ body[data-view="office"] .club-switch::after {
   color: #FFB81C !important;
 }
 
-/* Every office surface. */
+/* Text stays light. Backgrounds stay see-through so the rink shows. */
 body[data-view="office"] .office-content,
 body[data-view="office"] .office-content *,
 body[data-view="office"] .workspace-dialog,
 body[data-view="office"] .workspace-dialog * {
-  background-color: #000 !important;
+  background-color: transparent !important;
   background-image: none !important;
-  color: #f2f2f2 !important;
-  border-color: #3a2e10 !important;
+  color: #f4f4f4 !important;
+  border-color: transparent !important;
 }
 body[data-view="office"] .office-content :is(
   .home-card, .fo-panel, .panel, .stat-card, .detail-panel,
@@ -89,9 +89,11 @@ body[data-view="office"] .office-content :is(
   .history-item, .future-pick, .fa-player, .division-standings, .leader-card,
   .roster-search, .inline-select, select, textarea
 ) {
-  background: #000 !important;
+  background: rgba(6, 6, 6, 0.58) !important;
   background-image: none !important;
-  border: 1px solid #FFB81C !important;
+  border: 1px solid rgba(255, 184, 28, 0.72) !important;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 184, 28, 0.22) !important;
+  backdrop-filter: blur(8px);
   color: #f4f4f4 !important;
 }
 body[data-view="office"] .office-content :is(h1, h2, h3, h4, .section-kicker, .home-card-label, th, .workspace-page-heading h2) {
@@ -283,4 +285,107 @@ body:not([data-view="office"]) .gm-style-choice.selected {
   background: #111 !important;
   border-color: #FFB81C !important;
   box-shadow: inset 0 0 0 1px #FFB81C !important;
+}
+
+/* Glass board. The rink stays visible behind every panel. */
+body[data-view="office"] .office-main,
+body[data-view="office"] .office-content,
+body[data-view="office"] .home-dashboard,
+body[data-view="office"][data-page="overview"] .home-dashboard {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+body[data-view="office"] .home-card,
+body[data-view="office"][data-page="overview"] .home-card {
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.72), rgba(0, 0, 0, 0.46)) !important;
+  border: 1px solid rgba(255, 184, 28, 0.78) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 184, 28, 0.14) !important;
+  backdrop-filter: blur(10px);
+}
+body[data-view="office"] .home-card:before,
+body[data-view="office"][data-page="overview"] .home-card:before {
+  height: 2px !important;
+  background: linear-gradient(90deg, #FFB81C, transparent 70%) !important;
+}
+body[data-view="office"] .home-card-label {
+  color: #FFB81C !important;
+  letter-spacing: .16em !important;
+}
+body[data-view="office"] .home-standing-row,
+body[data-view="office"] .home-schedule-item,
+body[data-view="office"] .home-news-item,
+body[data-view="office"] .home-task-row,
+body[data-view="office"] .home-prospect {
+  background: rgba(0, 0, 0, 0.28) !important;
+  border: 1px solid rgba(255, 184, 28, 0.22) !important;
+  border-radius: 4px !important;
+}
+body[data-view="office"] .office-content button {
+  background: rgba(0, 0, 0, 0.45) !important;
+}
+body[data-view="office"] .roster-table tbody tr,
+body[data-view="office"] .player-table tbody tr {
+  background: rgba(0, 0, 0, 0.35) !important;
+}
+body[data-view="office"] .roster-table thead th,
+body[data-view="office"] .player-table th {
+  background: rgba(0, 0, 0, 0.72) !important;
+}
+
+body[data-view="office"] #sidebar-nav {
+  background: rgba(0, 0, 0, 0.62) !important;
+  border: 1px solid rgba(255, 184, 28, 0.7) !important;
+  backdrop-filter: blur(8px);
+}
+body[data-view="office"] #sidebar-nav button,
+body[data-view="office"] #sidebar-nav #sidebar-frontoffice {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+body[data-view="office"] #sidebar-nav button.active,
+body[data-view="office"] #sidebar-nav #sidebar-frontoffice.active {
+  background: #FFB81C !important;
+  color: #000 !important;
+  border-radius: 4px !important;
+}
+body[data-view="office"] .home-grades {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 12px;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body[data-view="office"] .home-grades span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  padding: 6px 2px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 184, 28, 0.45) !important;
+  border-radius: 4px;
+}
+body[data-view="office"] .home-grades b {
+  color: #FFB81C !important;
+  font-size: 22px !important;
+  line-height: 1;
+  background: transparent !important;
+  border: 0 !important;
+}
+body[data-view="office"] .home-grades small {
+  color: #ddd !important;
+  font-size: 10px !important;
+  letter-spacing: .04em;
+  line-height: 1.15;
+  text-align: center;
+  background: transparent !important;
+  border: 0 !important;
 }
