@@ -125,17 +125,15 @@
   }
   /* h7: home hub */
   function home7Rows(id){return (typeof databaseReady!=='undefined'&&databaseReady&&importedRows)?importedRows.filter(function(p){return p.team===id&&!isReserveRow(p);}):[];}
-  function home7Known(rows){return rows.length>0&&rows.filter(function(p){return p.salary!=null;}).length>=rows.length*0.6;}
   function home7Cap(){return typeof leagueCapCeiling==='function'?leagueCapCeiling(2026):104000000;}
   function home7ClubSummary(id,rows,payroll){
     var cap=home7Cap(),room=cap-payroll,el=function(k){return document.getElementById(k);};if(!el('selected-capspace'))return;
-    var known=home7Known(rows);
-    el('selected-capspace').textContent=known?(room<0?'-':'')+shortMoney(Math.abs(room)):'TBD';el('selected-capspace').className=known?(room<0?'neg':'pos'):'';
-    if(!known){el('selected-payroll').textContent='TBD';el('selected-payroll').title='Most contracts for this club are not in the starting snapshot; they are set when the career starts.';}else el('selected-payroll').title='';
+    el('selected-capspace').textContent=(room<0?'-':'')+shortMoney(Math.abs(room));el('selected-capspace').className=room<0?'neg':'pos';
+    el('selected-payroll').title='';
     var ages=rows.map(function(p){return Number(p.age);}).filter(function(a){return a>0;});
     el('selected-avgage').textContent=ages.length?(ages.reduce(function(a,b){return a+b;},0)/ages.length).toFixed(1):'—';
-    var bar=el('selected-capbar');bar.style.width=known?Math.min(100,Math.max(0,payroll/cap*100)).toFixed(1)+'%':'0%';bar.className=room<0?'over':'';
-    el('selected-caplabel').textContent=known?'Cap '+shortMoney(cap)+' · '+Math.round(payroll/cap*100)+'% used':'Cap '+shortMoney(cap)+' · contracts set at career start';
+    var bar=el('selected-capbar');bar.style.width=Math.min(100,Math.max(0,payroll/cap*100)).toFixed(1)+'%';bar.className=room<0?'over':'';
+    el('selected-caplabel').textContent='Cap '+shortMoney(cap)+' · '+Math.round(payroll/cap*100)+'% used';
     var ovr=function(p){return Number(p.overall!=null?p.overall:p.ovr)||0;},rated=rows.filter(function(p){return ovr(p)>0;}).length>=rows.length*0.6,top=(rated?rows.slice().sort(function(a,b){return ovr(b)-ovr(a);}):rows).slice(0,4);
     if(el('selected-key-title'))el('selected-key-title').textContent=rated?'Key players':'Roster preview · ratings set at career start';
     el('selected-key').innerHTML=top.length?top.map(function(p){var o=ovr(p);return '<li><em>'+esc(p.position||p.pos||'')+'</em><span>'+esc(p.name||'')+'</span><small>'+(p.age?esc(String(p.age)):'')+'</small>'+(rated?'<b class="'+(o>=85?'elite':'')+'">'+(o||'—')+'</b>':'<i></i>')+'</li>';}).join(''):'<li class="h7-empty">Roster loads with the starting data.</li>';
@@ -145,8 +143,8 @@
     var divs=[['Atlantic','Eastern'],['Metro','Eastern'],['Central','Western'],['Pacific','Western']];
     host.innerHTML = divs.map(function(d){var list=teams.filter(function(t){return t.division===d[0];});
       return '<div class="h7-div" role="group" aria-label="'+esc(d[0])+' Division"><h3>'+esc(d[0]==='Metro'?'Metropolitan':d[0])+'<small>'+d[1]+' · '+list.length+'</small></h3>'+list.map(function (t) {
-        var sel=t.id === current.selected,rows=home7Rows(t.id),pay=rows.reduce(function(s,p){return s+(p.salary==null?925000:p.salary);},0),room=cap-pay;
-        var sub=esc(t.id)+(rows.length?(home7Known(rows)?' · <b class="'+(room<0?'neg':'')+'">'+(room<0?'-':'')+shortMoney(Math.abs(room))+'</b> room':' · '+rows.length+' players'):'');
+        var sel=t.id === current.selected,rows=home7Rows(t.id),pay=rows.reduce(function(s,p){return s+(Number(p.salary)||0);},0),room=cap-pay;
+        var sub=esc(t.id)+(rows.length?' · <b class="'+(room<0?'neg':'')+'">'+(room<0?'-':'')+shortMoney(Math.abs(room))+'</b> room':'');
         return '<button type="button" class="team-tile h7-tile ' + (sel ? 'selected' : '') + '" data-team="' + t.id + '" style="--accent:' + t.color + '" aria-pressed="' + sel + '" aria-label="' + esc(t.name) + (sel?' (selected)':'') + '">' + logoMarkup(t.id,'team-logo') + '<span class="team-label"><strong>' + esc(t.name) + '</strong><small>' + sub + '</small></span><i class="h7-check" aria-hidden="true">✓</i></button>';
       }).join('')+'</div>';}).join('');
     host.querySelectorAll('[data-team]').forEach(function (button) { button.addEventListener('click', function () { selectTeam(button.getAttribute('data-team')); }); });
@@ -1960,7 +1958,7 @@
   function ordinal(n){var value=Number(n)||0,lastTwo=value%100,suffix=lastTwo>=11&&lastTwo<=13?'th':value%10===1?'st':value%10===2?'nd':value%10===3?'rd':'th';return value+suffix;}
   function respondToGmOffer(action){var g=current.game,d=prepareTradeDraft(g);if(action==='accept'){d.callScene=false;proposeTrade();return;}if(action==='counter'){d.callScene=false;d.gmInitiated=false;d.acceptedPending=false;d.callResult={decision:'counter',text:'The opening offer is on the table. Adjust either side to build a counteroffer, then send it back.'};persist();renderOffice();return;}d.callScene=false;d.gmInitiated=false;d.acceptedPending=false;d.callStarted=false;d.userPlayers=[];d.marketPlayers=[];d.userPicks=[];d.marketPicks=[];d.callResult={decision:'declined',text:'You passed on '+team(d.target).name+'’s opening proposal. No assets moved.'};persist();renderOffice();}
   function askPlayerForTradeList(){var g=current.game,d=prepareTradeDraft(g),club=leagueClub(g,d.target),userPlayer=g.roster.find(function(x){return x.id===d.awaitingTradeList;}),marketPlayer=club&&club.roster.find(function(x){return x.id===d.awaitingTradeList;}),p=userPlayer||marketPlayer;if(!p)return;var list=simulatePlayerTradeList(p,userPlayer?g.team:d.target);p.tradeToTeams=list;p.tradeToTeamsSource='Simulated player response';var names=list.map(function(id){return team(id).name;});d.awaitingTradeList='';d.callResult={decision:'info',text:p.name+' provided '+names.length+' approved destinations: '+names.join(', ')+'. This list is generated for this career simulation, not sourced real-world contract data.'};persist();renderPage();}
-  function upgradeGame(g) { if(!g)return g;if(!g.team)g.team='BOS';if(!g.startYear)g.startYear=2026;if(!g.season)g.season=1;g.version='0.6';g.maxYears=g.maxYears||25;g.cap=g.cap||104000000;syncLeagueCap(g);g.transactionLog=g.transactionLog||[];g.aiLog=g.aiLog||[];g.retainedObligations=g.retainedObligations||[];g.reserveRoster=g.reserveRoster||[];g.orgProspects=g.orgProspects||[];g.freeAgents=g.freeAgents||[];seedCurrentFreeAgentMarket(g);g.userPicks=g.userPicks||makePicks(g.team,g.startYear+g.season,3);g.leagueTeams=g.leagueTeams||{};teams.filter(function(t){return t.id!==g.team;}).forEach(function(t){if(!g.leagueTeams[t.id])g.leagueTeams[t.id]=makeLeagueClub(t.id,g.startYear+g.season-1);var c=g.leagueTeams[t.id];c.retainedObligations=c.retainedObligations||[];c.reserveRoster=c.reserveRoster||[];c.orgProspects=c.orgProspects||[];c.picks=c.picks||makePicks(t.id,g.startYear+g.season,3);c.plan=c.plan||initialPlan(c.roster);});function normalizeRetention(roster){(roster||[]).forEach(function(p){if(p.retainedPercent>0&&p.retainedLayers==null)p.retainedLayers=1;else p.retainedLayers=Number(p.retainedLayers)||0;});}normalizeRetention(g.roster);normalizeRetention(g.reserveRoster);function refreshRatings(roster,id){(roster||[]).forEach(function(p){applyNhlRatings(p,id);if(g.startYear===2026&&g.season===1)applyNhlContract(p,id,false);});}refreshRatings(g.roster,g.team);refreshRatings(g.reserveRoster,g.team);var __seedRR=ratingReservesNeeded(g);if(__seedRR)g.reserveRoster=appendNhlRatingReserves(g.reserveRoster,g.roster,g.team,g);Object.keys(g.leagueTeams).forEach(function(id){var c=g.leagueTeams[id];normalizeRetention(c.roster);normalizeRetention(c.reserveRoster);refreshRatings(c.roster,id);refreshRatings(c.reserveRoster,id);if(__seedRR)c.reserveRoster=appendNhlRatingReserves(c.reserveRoster,c.roster,id,g);});g.standings=g.standings||{};g.seasonTeamStats=g.seasonTeamStats||{};teams.forEach(function(t){if(!g.standings[t.id])g.standings[t.id]={w:0,l:0,otl:0,rw:0,row:0,pts:0,gf:0,ga:0,headToHead:{}};});if(!g.startingSnapshot)g.startingSnapshot={id:'legacy-save',name:'Legacy save - starting data unknown',locked:true,realWorldCoverageVerified:false};g.ratingReservesSeeded=true;repairDuplicatePlayers(g);syncGeneratedNames(g);assignRoles(g);return g; }
+  function upgradeGame(g) { if(!g)return g;if(!g.team)g.team='BOS';if(!g.startYear)g.startYear=2026;if(!g.season)g.season=1;g.version='0.6';g.maxYears=g.maxYears||25;g.cap=g.cap||104000000;syncLeagueCap(g);g.transactionLog=g.transactionLog||[];g.aiLog=g.aiLog||[];g.retainedObligations=g.retainedObligations||[];g.reserveRoster=g.reserveRoster||[];g.orgProspects=g.orgProspects||[];g.freeAgents=g.freeAgents||[];seedCurrentFreeAgentMarket(g);g.userPicks=g.userPicks||makePicks(g.team,g.startYear+g.season,3);g.leagueTeams=g.leagueTeams||{};teams.filter(function(t){return t.id!==g.team;}).forEach(function(t){if(!g.leagueTeams[t.id])g.leagueTeams[t.id]=makeLeagueClub(t.id,g.startYear+g.season-1);var c=g.leagueTeams[t.id];c.retainedObligations=c.retainedObligations||[];c.reserveRoster=c.reserveRoster||[];c.orgProspects=c.orgProspects||[];c.picks=c.picks||makePicks(t.id,g.startYear+g.season,3);c.plan=c.plan||initialPlan(c.roster);});function normalizeRetention(roster){(roster||[]).forEach(function(p){if(p.retainedPercent>0&&p.retainedLayers==null)p.retainedLayers=1;else p.retainedLayers=Number(p.retainedLayers)||0;});}normalizeRetention(g.roster);normalizeRetention(g.reserveRoster);function refreshRatings(roster,id){(roster||[]).forEach(function(p){applyNhlRatings(p,id);if(g.startYear===2026&&g.season===1)applyNhlContract(p,id,false);});}refreshRatings(g.roster,g.team);refreshRatings(g.reserveRoster,g.team);var __seedRR=ratingReservesNeeded(g);if(__seedRR)g.reserveRoster=appendNhlRatingReserves(g.reserveRoster,g.roster,g.team,g);Object.keys(g.leagueTeams).forEach(function(id){var c=g.leagueTeams[id];normalizeRetention(c.roster);normalizeRetention(c.reserveRoster);refreshRatings(c.roster,id);refreshRatings(c.reserveRoster,id);if(__seedRR)c.reserveRoster=appendNhlRatingReserves(c.reserveRoster,c.roster,id,g);});g.standings=g.standings||{};g.seasonTeamStats=g.seasonTeamStats||{};teams.forEach(function(t){if(!g.standings[t.id])g.standings[t.id]={w:0,l:0,otl:0,rw:0,row:0,pts:0,gf:0,ga:0,headToHead:{}};});if(!g.startingSnapshot)g.startingSnapshot={id:'legacy-save',name:'Legacy save - starting data unknown',locked:true,realWorldCoverageVerified:false};g.ratingReservesSeeded=true;repairDuplicatePlayers(g);syncGeneratedNames(g);assignRoles(g);var __lc=leagueContractApi();if(__lc)__lc.migrateGame(g);return g; }
   function goHome(){current.game=null;current.page='overview';setScreen('team');$('top-season').textContent='2026–27 SEASON';refreshStartingBanner();updateTeamHeadings(current.selected);}
   function saveGame(){if(!current.game){setNotice('Start a game before saving.',true);return Promise.resolve(null);}setNotice('Saving franchise…');saveState.dirty=true;return flushSave().then(function(r){if(r&&r.ok)setNotice('Franchise saved in this browser ('+r.where+', '+saveSizeLabel(r.bytes)+'). Use Export to keep a portable copy.');else setNotice('Save failed: '+(r&&r.error||'unknown storage error')+'. Use Export to keep a copy of this franchise.',true);return r;});}
   function loadGame(){setNotice('Loading saved franchise…');return readStoredSave().then(function(found){if(!found||!found.game){setNotice('No saved franchise was found in this browser.',true);return false;}return openLoadedGame(found.game,function(g){return 'Saved '+team(g.team).name+' franchise loaded.';});}).catch(function(e){setNotice('The saved game could not be read.',true);return false;});}
@@ -2187,6 +2185,8 @@
     if(!rows.length&&!picks.length)throw new Error('No players or draft picks found in this file.');
     return {players:rows,picks:picks,metadata:metadata,transactions:transactions,warnings:warnings};
   }
+  /* League contracts for all 32 clubs live in league-contracts.js. */
+  function leagueContractApi(){return (typeof window!=='undefined'&&window.CTFO_LEAGUE_CONTRACTS)||null;}
   function ensureStartingDatabase() {
     if(databaseReady)return;
     if(!window.NHL_STARTER)throw new Error('starting-roster.js is missing. Extract all files into the same folder.');
@@ -2205,6 +2205,8 @@
       databasePersistent=false;
     }
     applyStartingDataCorrections();
+    /* League contracts for all 32 clubs live in league-contracts.js. */
+    var __lc=leagueContractApi();if(__lc)__lc.applyRows(importedRows);
     refreshStartingBanner();
   }
   function datasetPacket() {
@@ -2253,9 +2255,11 @@
     p.contractSource=row.salary==null?'Simulation estimate':(row.contractSource||'Unverified imported contract');
     p.potential=Math.max(p.ovr,Math.min(99,p.potential));p.potentialSource=row.potentialSource||'Simulation estimate';
     if(row.years!=null)p.years=row.years;
-    if(row.unsigned){p.years=0;p.salary=0;p.capHit=0;}
+    if(row.unsigned){p.years=0;p.salary=0;p.capHit=0;p.unsigned=true;}
     applyNhlRatings(p,id);
     applyNhlContract(p,id,true);
+    /* Replace the $925k estimate (and any impossible CapWages row) with the league book. */
+    var __lc=leagueContractApi();if(__lc)__lc.applyPlayer(p,id,{opening:true});
     return p;
   }
   function startingCoverage() {
@@ -2318,7 +2322,7 @@
     var setup=document.querySelector('#setup-screen .eyebrow');if(setup)setup.textContent='CHOOSE YOUR GM STYLE · '+tm.name.toUpperCase();
     $('setup-title').innerHTML='Shape your franchise <em>your way.</em>';
     var office=document.querySelector('#office-screen .eyebrow');if(office)office.textContent=tm.name.toUpperCase()+' - FRONT OFFICE';
-    if(databaseReady){var activeRows=importedRows.filter(function(p){return p.team===id&&!isReserveRow(p);}),payroll=activeRows.reduce(function(sum,p){return sum+(p.salary==null?925000:p.salary);},0);$('selected-active-count').textContent=activeRows.length;$('selected-payroll').textContent=shortMoney(payroll);$('payroll-amount').textContent=money(payroll);if(typeof home7ClubSummary==='function')home7ClubSummary(id,activeRows,payroll);}
+    if(databaseReady){var activeRows=importedRows.filter(function(p){return p.team===id&&!isReserveRow(p);}),payroll=activeRows.reduce(function(sum,p){return sum+(Number(p.salary)||0);},0);$('selected-active-count').textContent=activeRows.length;$('selected-payroll').textContent=shortMoney(payroll);$('payroll-amount').textContent=money(payroll);if(typeof home7ClubSummary==='function')home7ClubSummary(id,activeRows,payroll);}
   }
 
   // v0.9 FRONT OFFICE UI. Uses the existing career, roster and trade engine.
