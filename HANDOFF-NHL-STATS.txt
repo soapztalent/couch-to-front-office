@@ -1,0 +1,17 @@
+COACH TO GM — NHL STATS HANDOFF
+
+Historical player data
+- Bundled official NHL regular-season history in nhl-stats-history.js, snapshot date 2026-09-30.
+- Coverage: seasons 2023–24, 2024–25, and 2025–26; 1,328 NHL player IDs and 3,083 player-season rows across skaters and goalies.
+- Name matching includes safe unique aliases for shortened names and a team-aware tie-breaker. Of the 723 identities listed as active in the opening roster file, 701 match this three-season history. Players with no matched history remain blank rather than receiving invented stats.
+- The player card reads bundled history immediately, including on existing saves. NHL stats remain separate from franchise simulation totals.
+- Sources: NHL Stats REST skater and goalie regular-season summaries (https://api.nhle.com/stats/rest/en/skater/summary and https://api.nhle.com/stats/rest/en/goalie/summary).
+
+Refresh behavior
+- Fixed the historical query: the Stats REST feed rejects the previous leagueId filter, so the request now filters by regular-season game type and season only.
+- Player Stats > Refresh all 32 teams still requests live 2026–27 club feeds and refreshed historical data when a browser has NHL endpoint access. Current 2026–27 live lines are not included in the bundled historical file.
+- Historical requests were fetched successfully in this environment. Direct pre-bundling of all 32 live team feeds was rate-limited; the in-app refresh remains available.
+
+Verification status
+- app.js and nhl-stats-history.js pass Node syntax checks.
+- Visual browser review remains outstanding; the prior handoff's broader simulator review list is still pending.
