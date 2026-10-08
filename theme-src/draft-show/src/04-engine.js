@@ -6,6 +6,7 @@ var DUR={
  full:[['clock',1.5],['podium',2.3],['card',2.8],['walk',3.0],['jersey',1.8],['handshake',1.8],['photo',1.5],['board',1.5]],
  user:[['clock',2.2],['podium',3.2],['card',4.2],['walk',4.2],['jersey',2.6],['handshake',2.6],['photo',2.2],['question',Infinity],['debrief',Infinity],['result',3.2],['board',2.4]],
  talk:[['question',Infinity],['debrief',Infinity],['result',3.2]],
+ debrief:[['debrief',Infinity],['result',3.2]],
  userclock:[['clock',2.6]],quick:[['quick',1.4]],ticker:[['strip',0.2]]};
 var STAGE_SCENES={podium:1,walk:1,jersey:1,handshake:1,photo:1,question:1,debrief:1,result:1};
 function game(){var x=X(),c=x&&x.cur&&x.cur();return c&&c.game;}
@@ -20,7 +21,7 @@ function next(){if(cur)return;var it=queue.shift(),strip=false;
  if(it&&it.kind==='quick'&&queue.filter(function(x){return x.kind==='quick';}).length>12){it.kind='ticker';queue.forEach(function(x){if(x.kind==='quick')x.kind='ticker';});}
  while(it&&it.kind==='ticker'){addTick(it);strip=it;it=queue.shift();}
  if(!it){if(strip)showStrip(strip);else close();return;}
- cur=it;if(it.kind==='user'||it.kind==='talk'||it.kind==='userclock')S._ff=false;it.phases=DUR[it.kind].map(function(a){return {n:a[0],d:a[1]};});it.pi=0;open();enter();}
+ cur=it;if(it.kind==='user'||it.kind==='talk'||it.kind==='debrief'||it.kind==='userclock')S._ff=false;it.phases=DUR[it.kind].map(function(a){return {n:a[0],d:a[1]};});it.pi=0;open();enter();}
 function showStrip(it){cur={kind:'ticker',owner:it.owner,year:it.year,phases:[{n:'strip',d:0.2}],pi:0,p:it.p};open();root.dataset.scene='strip';root.querySelector('.cs-scene').innerHTML='';root.querySelector('.cs-lower').innerHTML='';renderTick();cur=null;close();}
 function needsStage(it){return it.phases.some(function(ph){return STAGE_SCENES[ph.n];});}
 function open(){if(stripTimer){clearTimeout(stripTimer);stripTimer=0;}if(!root){root=document.createElement('div');root.id='ctfo-show';root.className='cs-root';root.setAttribute('role','dialog');root.setAttribute('aria-label','NHL Draft broadcast');
@@ -30,7 +31,7 @@ function open(){if(stripTimer){clearTimeout(stripTimer);stripTimer=0;}if(!root){
  root.querySelector('.cs-year').textContent=it.year+' NHL DRAFT';syncCtrl();
  if(stage&&stage.kind==='2d'&&S._ready3d()){stage.dispose();stage=null;}if(needsStage(it)){if(!stage)stage=makeStage(root.querySelector('.cs-stage'));if(stage)stage.setInfo(it,c);}
  if(!raf){last=0;raf=requestAnimationFrame(loop);}}
-function syncCtrl(){if(!root)return;var s=S.settings(),it=cur||{},userish=it.kind==='user'||it.kind==='talk';root.querySelector('[data-cs="speed"]').textContent='Speed '+s.speed+'x';root.querySelector('[data-cs-pres]').value=s.mode;
+function syncCtrl(){if(!root)return;var s=S.settings(),it=cur||{},userish=it.kind==='user'||it.kind==='talk'||it.kind==='debrief';root.querySelector('[data-cs="speed"]').textContent='Speed '+s.speed+'x';root.querySelector('[data-cs-pres]').value=s.mode;
  var sk=root.querySelector('[data-cs="skip"]');sk.textContent=it.kind==='userclock'?'Make your pick':'Skip this pick';var ph=it.phases&&it.phases[it.pi];sk.hidden=userish&&ph&&/question|debrief/.test(ph.n);root.querySelector('[data-cs="ff"]').hidden=userish||it.kind==='userclock';}
 function close(){cur=null;if(!root)return;if(stage){try{stage.dispose();}catch(e){}stage=null;root.querySelector('.cs-stage').innerHTML='';}
  var stripOnly=root.dataset.kind==='ticker';if(raf){cancelAnimationFrame(raf);raf=0;}root.classList.add('cs-out');
@@ -40,13 +41,13 @@ function loop(ts){raf=requestAnimationFrame(loop);var dt=last?Math.min(0.1,(ts-l
  if(!paused)cur.t+=dt*S.settings().speed;var f=ph.d===Infinity?0:Math.min(1,cur.t/ph.d);if(hold&&hold.n===ph.n&&f>=hold.f&&!paused){paused=true;f=hold.f;cur.t=f*ph.d;S._held=ph.n;}
  try{update(ph,f,cur.t);if(stage&&STAGE_SCENES[ph.n])stage.render(ph.n,f,cur.t,dt,cur);}catch(e){console.error('draft show frame',e);finishItem();return;}
  if(f>=1&&!paused)advance();}
-function advance(){cur.pi++;if(cur.pi>=cur.phases.length){finishItem();return;}enter();}
+function advance(){var ph=cur&&cur.phases&&cur.phases[cur.pi];if(ph&&ph.n==='debrief'){var dp=cur.p,tk=dp&&dp.ctfoDraft&&dp.ctfoDraft.talk;if(tk&&tk.debriefPending){tk.debriefPending=false;try{X().persist();}catch(e){}}}cur.pi++;if(cur.pi>=cur.phases.length){finishItem();return;}enter();}
 function finishItem(){cur=null;paused=false;if(queue.length)next();else{S._ff=false;close();}}
 S._finish=finishItem;
 function jump(name){var i=cur.phases.findIndex(function(p){return p.n===name;});if(i>=0){cur.pi=i;enter();return true;}return false;}
 function enter(){var it=cur,ph=it.phases[it.pi];it.t=0;root.dataset.scene=ph.n;syncCtrl();var sc=root.querySelector('.cs-scene'),lo=root.querySelector('.cs-lower'),p=it.p,x=X(),tm=nmT(it.owner),user=it.kind==='user'||it.kind==='talk'||it.kind==='userclock';
  root.querySelector('.cs-stage').style.visibility=STAGE_SCENES[ph.n]&&stage?'visible':'hidden';lo.innerHTML='';sc.innerHTML='';lo.className='cs-lower';
- var gmLabel=user?'YOU · GENERAL MANAGER':'GENERAL MANAGER · '+tm.toUpperCase();
+ user=user||it.kind==='debrief';var gmLabel=user?'YOU · GENERAL MANAGER':'GENERAL MANAGER · '+tm.toUpperCase();
  if(ph.n==='clock'){var from=it.owner!==it.origin?'<small class="cs-from">Pick acquired from the '+esc(nmT(it.origin))+'</small>':'';sc.innerHTML='<div class="cs-clock"><div class="cs-crest">'+x.officeMark(it.owner,'cs-crest-mark')+'</div><p class="cs-kick">'+(it.kind==='userclock'?'YOU ARE ON THE CLOCK':'ON THE CLOCK')+'</p><h1>'+esc(tm)+'</h1><div class="cs-clock-meta"><span>ROUND '+it.round+'</span><b>PICK '+it.slot+'</b><span>'+ordinal(it.overall).toUpperCase()+' OVERALL</span></div>'+from+'<div class="cs-bar"><i></i></div><div class="cs-timer">2:30</div>'+(it.kind==='userclock'?'<button type="button" class="cs-btn cs-gold" data-cs="pick">Make your pick →</button>':'')+'</div>';}
  else if(ph.n==='podium'){lo.innerHTML=l3(gmLabel,tm);sc.innerHTML='<div class="cs-speech"><p class="cs-typed"></p><span class="cs-dots"><i></i><i></i><i></i></span></div>';it.line='With the '+ordinal(it.overall)+' pick in the '+it.year+' NHL Draft, the '+tm+' are proud to select\u2026';}
  else if(ph.n==='card'||ph.n==='quick'){sc.innerHTML=card(it,ph.n==='quick');if(ph.n==='card'||ph.n==='quick')addTick(it);}

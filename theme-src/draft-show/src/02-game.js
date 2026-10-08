@@ -17,8 +17,10 @@ S.qById=qById;
 S.resolve=function(g,p,ownerId,year,overall,q,ai,user){var ctx=S.context(g,p,ownerId,overall,year),t=S.traits(seedOf(g),p,ctx.lt,ctx.age),evs=S.evaluate(q,t,ctx),ev=evs[ai],r=rng(seedOf(g)+'|talk|'+p.id+'|'+year+'|'+ai),o=S.rollOutcome(r,user?ev:S.cpuEv(ev,ctx),ctx,!user),limit=false;
  if(o.outcome==='now'){var res=A().signElc(g,p,ownerId,year,true);if(res==='limit'){o={outcome:'later',weeks:2+Math.floor(r()*7)};limit=true;}}
  if(o.outcome==='unhappy'&&p.ctfoDraft)p.ctfoDraft.atRisk=true;
- var evr=user?ev:S.cpuEv(ev,ctx);var talk={v:1,qid:q.id,by:q.by,choice:ai,pBefore:+evr.pBefore.toFixed(4),pAfter:+evr.pAfter.toFixed(4),E:+ev.E.toFixed(3),outcome:o.outcome,weeks:o.weeks||0,limit:limit,verdict:user?S.verdict(ev,evs):null,year:year,owner:ownerId,overall:overall,user:!!user,pending:false};
+ var evr=user?ev:S.cpuEv(ev,ctx);var talk={v:1,qid:q.id,by:q.by,choice:ai,pBefore:+evr.pBefore.toFixed(4),pAfter:+evr.pAfter.toFixed(4),E:+ev.E.toFixed(3),outcome:o.outcome,weeks:o.weeks||0,limit:limit,verdict:user?S.verdict(ev,evs):null,year:year,owner:ownerId,overall:overall,user:!!user,pending:false,debriefPending:!!user};
  if(p.ctfoDraft)p.ctfoDraft.talk=talk;return {talk:talk,evs:evs,ev:ev,traits:t,ctx:ctx};};
+/* rebuild the debrief from the saved choice. Does not sign again. */
+S.replay=function(g,p){var t=p&&p.ctfoDraft&&p.ctfoDraft.talk,q=t&&S.qById(t.qid);if(!g||!t||t.choice==null||!q)return null;var ctx=S.context(g,p,t.owner,t.overall,t.year),traits=S.traits(seedOf(g),p,ctx.lt,ctx.age),evs=S.evaluate(q,traits,ctx),ev=evs[Number(t.choice)];if(!ev)return null;return {talk:t,evs:evs,ev:ev,traits:traits,ctx:ctx,q:q};};
 S.cpuDecide=function(g,p,row,year){try{var ctx=S.context(g,p,row.owner,row.overall,year),q=S.pickQuestion(g,p,ctx,false);if(!q)return;var t=S.traits(seedOf(g),p,ctx.lt,ctx.age),ai=S.policy(rng(seedOf(g)+'|cpugm|'+p.id),S.evaluate(q,t,ctx));S.resolve(g,p,row.owner,year,row.overall,q,ai,false);}catch(e){console.error('draft talk cpu',e);}};
 /* v9.1: CPU clubs' draft-night signings calibrated back to realistic rates (about Build Bot's: CHL 1-20 60%, 21-64 25%, 65+ 5%, Europe 1-15 35%, 16+ 4%, NCAA ~1%). The same personality model still decides who signs; only the CPU baseline shifts. User odds are unchanged. */
 S.CPU_ADJ={c1:-0.12,c2:-0.40,c3:-1.16,e1:-0.54,e2:-1.30,n:-1.77,nb:-1.49};S.CPU_LATER=0.35;
