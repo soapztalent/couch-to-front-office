@@ -1035,7 +1035,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     assignRoles(g);
     var sorted=g.roster.slice().sort(function(a,b){var order={C:0,LW:1,RW:2,D:3,G:4};return (order[a.pos]-order[b.pos])||b.ovr-a.ovr;});
     var forwardLabels=['LW','C','RW'],defenseLabels=['LD','RD'];
-    function selectMarkup(value,slot,pos){var eligible=g.roster.filter(function(p){return pos==='F'?(p.pos==='C'||p.pos==='LW'||p.pos==='RW'):pos==='D'?p.pos==='D':p.pos==='G';}).sort(function(a,b){return b.ovr-a.ovr;});return '<select class="inline-select line-select" data-slot="'+slot+'"><option value="">Open slot</option>'+eligible.map(function(p){return '<option value="'+esc(p.id)+'" '+(p.id===value?'selected':'')+'>'+esc(p.name)+' · '+p.pos+' · '+p.ovr+'</option>';}).join('')+'</select>';}
+    function selectMarkup(value,slot,pos){var eligible=g.roster.filter(function(p){return canPlayerPlayLineSlot(p,pos==='F'?'F':pos==='D'?'D':'G',String(slot).split('.')[0]==='goalies'?Number(String(slot).split('.')[1]):String(slot).split('.')[2]);}).sort(function(a,b){return b.ovr-a.ovr;});return '<select class="inline-select line-select" data-slot="'+slot+'"><option value="">Open slot</option>'+eligible.map(function(p){return '<option value="'+esc(p.id)+'" '+(p.id===value?'selected':'')+'>'+esc(p.name)+' · '+p.pos+' · '+p.ovr+'</option>';}).join('')+'</select>';}
     var lineRows=g.lines.forwards.map(function(line,i){return '<div class="line-combo-row"><b class="line-number">'+String(i+1).padStart(2,'0')+'</b>'+forwardLabels.map(function(pos){return '<label><span>'+pos+'</span>'+selectMarkup(line[pos],'forwards.'+i+'.'+pos,'F')+'</label>';}).join('')+'</div>';}).join('');
     var dRows=g.lines.defense.map(function(line,i){return '<div class="line-combo-row defense-combo-row"><b class="line-number">'+String(i+1).padStart(2,'0')+'</b>'+defenseLabels.map(function(pos){return '<label><span>'+pos+'</span>'+selectMarkup(line[pos],'defense.'+i+'.'+pos,'D')+'</label>';}).join('')+'</div>';}).join('');
     var goalieRow='<div class="line-combo-row goalie-combo-row">'+g.lines.goalies.map(function(id,i){var p=g.roster.find(function(x){return x.id===id;});return '<label><span>G'+(i+1)+'</span>'+selectMarkup(id,'goalies.'+i,'G')+(p?'<b class="line-ovr">'+p.ovr+'</b>':'')+'</label>';}).join('')+'</div>';
@@ -1365,6 +1365,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     var bits=String(slot||'').split('.'),group=bits[0],index=Number(bits[1]),pos=bits[2],target=group==='forwards'?g.lines.forwards[index]:group==='defense'?g.lines.defense[index]:g.lines.goalies;
     if(!target)return;var key=group==='goalies'?index:pos,oldId=group==='goalies'?target[index]:target[key];
     if(id===oldId)return;
+    if(id){var placed=g.roster.find(function(p){return p.id===id;}),slotName=group==='goalies'?index:pos,groupKey=group==='forwards'?'F':group==='defense'?'D':'G';if(!placed||!canPlayerPlayLineSlot(placed,groupKey,slotName)){if(!quiet)setNotice((placed?placed.name:'That player')+' cannot play '+(group==='goalies'?(index?'the backup net':'the starter net'):pos)+'.',true);return false;}}
     var duplicate=null;['forwards','defense'].forEach(function(gName){var rows=g.lines[gName]||[];rows.forEach(function(row,i){Object.keys(row).forEach(function(k){if(row[k]===id)duplicate={group:gName,index:i,key:k};});});});(g.lines.goalies||[]).forEach(function(v,i){if(v===id)duplicate={group:'goalies',index:i,key:i};});
     if(id&&duplicate){if(duplicate.group==='goalies')g.lines.goalies[duplicate.key]=oldId||'';else g.lines[duplicate.group][duplicate.index][duplicate.key]=oldId||'';}
     if(group==='goalies')target[index]=id||'';else target[key]=id||'';
@@ -1570,8 +1571,8 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     for(var i=0;i<4;i++){var l=fl[i]||{};lines.push(['LW','C','RW'].map(function(s){return take(l[s],simV2IsF);}));}
     for(var j=0;j<3;j++){var d=dl[j]||{};pairs.push(['LD','RD'].map(function(s){return take(d[s],function(p){return p.pos==='D';});}));}
     var spareF=roster.filter(function(p){return simV2IsF(p)&&simV2Healthy(p)&&!used[p.id];}).sort(function(a,b){return b.ovr-a.ovr;}),spareD=roster.filter(function(p){return p.pos==='D'&&simV2Healthy(p)&&!used[p.id];}).sort(function(a,b){return b.ovr-a.ovr;});
-    lines.forEach(function(l){for(var k=0;k<3;k++)if(!l[k]){var p=spareF.shift()||spareD.shift();if(p){used[p.id]=true;l[k]=p;}}});
-    pairs.forEach(function(pr){for(var k=0;k<2;k++)if(!pr[k]){var p=spareD.shift()||spareF.shift();if(p){used[p.id]=true;pr[k]=p;}}});
+    lines.forEach(function(l){for(var k=0;k<3;k++)if(!l[k]){var p=(k===1?spareF.filter(function(q){return q.pos==='C';}):spareF).find(function(q){return !used[q.id];});if(p){used[p.id]=true;l[k]=p;}}});
+    pairs.forEach(function(pr){for(var k=0;k<2;k++)if(!pr[k]){var p=spareD.find(function(q){return !used[q.id];});if(p){used[p.id]=true;pr[k]=p;}}});
     lines=lines.map(function(l){return l.filter(Boolean);});pairs=pairs.map(function(pr){return pr.filter(Boolean);});
     var skaters=[].concat.apply([],lines).concat([].concat.apply([],pairs)),dressed={};skaters.forEach(function(p){dressed[p.id]=true;});
     var st=club.specialTeams||{};
@@ -3225,7 +3226,7 @@ var rinkContent=active==='Special Teams & Goalies'?'<div class="ls-rink-special"
   function assignChartPlayer(slot,playerId){
     var g=current.game;if(!g)return false;ensureLineup(g);var parts=slot.split('.'),player=g.roster.find(function(p){return p.id===playerId;});if(!player)return false;
     if(parts[0]==='specialTeams'){if(player.pos==='G'||!g.specialTeams[parts[1]])return false;var unit=g.specialTeams[parts[1]],index=Number(parts[2]);if(!Number.isInteger(index)||index<0||index>=unit.length)return false;var previous=unit.indexOf(playerId);if(previous===index)return false;pushLineUndo(g);var displaced=unit[index];unit[index]=playerId;if(previous>=0)unit[previous]=displaced;return true;}
-    var valid=parts[0]==='forwards'?['C','LW','RW'].indexOf(player.pos)>=0:parts[0]==='defense'?player.pos==='D':parts[0]==='goalies'?player.pos==='G':false;if(!valid)return false;
+    var slotName=parts[0]==='goalies'?Number(parts[1]):parts[2],groupKey=parts[0]==='forwards'?'F':parts[0]==='defense'?'D':parts[0]==='goalies'?'G':'';if(!groupKey||!canPlayerPlayLineSlot(player,groupKey,slotName)){setNotice(player.name+' cannot play '+(parts[0]==='goalies'?(Number(parts[1])?'the backup net':'the starter net'):parts[2])+'.',true);return false;}
     var bits=slot.split('.'),old=bits[0]==='goalies'?g.lines.goalies[Number(bits[1])]:(g.lines[bits[0]]||[])[Number(bits[1])]&&g.lines[bits[0]][Number(bits[1])][bits[2]];if(old===playerId)return false;pushLineUndo(g);return setLinePlayer(g,slot,playerId,true);
   }
   function renderHomeDashboard(g){
