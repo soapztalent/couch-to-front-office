@@ -1354,7 +1354,7 @@
   }
   function randomGoalScorer(roster,g){var eligible=(roster||[]).filter(function(p){return p&&p.pos!=='G'&&p.injury<=0;});if(!eligible.length)return roster&&roster[0];var weights=eligible.map(function(p){var rating=Math.max(50,Math.min(99,Number(p.ovr)||70)),forward=['C','LW','RW'].indexOf(p.pos)>=0,projection=g&&typeof nhlPointProjection==='function'?nhlPointProjection(g,p):null,historyFactor=projection?Math.pow(clamp(projection.points/45,.55,2.2),.65):1,weight=Math.pow(1.085,rating-75)*(forward?1.12:0.82)*historyFactor;return Math.max(.18,weight);}),total=weights.reduce(function(sum,w){return sum+w;},0),roll=Math.random()*total;for(var i=0;i<eligible.length;i++){roll-=weights[i];if(roll<=0)return eligible[i];}return eligible[eligible.length-1];}
   function attributeChange(p,delta) {
-    var attrs=['skating','shooting','puck','defense'];var attr=attrs[Math.floor(Math.random()*attrs.length)];p.attributes[attr]=Math.max(45,Math.min(99,p.attributes[attr]+delta));p.ovr=Math.max(45,Math.min(99,p.ovr+delta));return attr;
+    var attrs=['skating','shooting','puck','defense'];var attr=attrs[Math.floor(Math.random()*attrs.length)];p.attributes[attr]=Math.max(45,Math.min(99,p.attributes[attr]+delta));return attr;
   }
   function updateStreaks(g) {
     var alerts=[];
@@ -1366,7 +1366,7 @@
         if(p.age<=21&&p.hot>=10&&!p.developmentChallenge){p.developmentChallenge=true;p.potential=Math.min(99,p.potential+3);alerts.push(p.name+' met the sustained-development challenge. Ceiling rises by 3.');}
         p.streakAttribute=attr;
       }
-      if(p.cold>=5){var coldAttr=attributeChange(p,-1);if(p.age===29&&!p.persistenceUsed){p.ovr=Math.min(99,p.ovr+1);p.persistenceUsed=true;alerts.push(p.name+' used the age-29 persistence hook to absorb one cold-streak drop.');}p.streakAttribute=coldAttr;}
+      if(p.cold>=5){var coldAttr=attributeChange(p,-1);if(p.age===29&&!p.persistenceUsed)p.persistenceUsed=true;p.streakAttribute=coldAttr;}
     });
     return alerts;
   }
