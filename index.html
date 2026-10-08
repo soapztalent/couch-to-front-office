@@ -566,7 +566,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
   var RATING_ROWS_RETIRED={anzekopitar:true};
   function canonPlayerName(name){var n=normalizedRatingName(name);return PLAYER_NAME_ALIASES[n]||n;}
   function posGroupOf(pos){return pos==='G'?'G':pos==='D'?'D':'F';}
-  function isGeneratedPlayer(p){return !!p&&(p.generated===true||/^draft-/.test(String(p.id||''))||/ Depth (C|LW|RW|D|G|F) \d{4}-\d+/.test(String(p.name||'')));}
+  function isGeneratedPlayer(p){if(!p)return false;if(p.real===true&&p.generated!==true)return false;return p.generated===true||/^draft-/.test(String(p.id||''))||/ Depth (C|LW|RW|D|G|F) \d{4}-\d+/.test(String(p.name||''));}
   var __ratingIndex=null;
   function ratingIndex(){if(__ratingIndex)return __ratingIndex;var idx={};Object.keys(window.NHL_RATINGS||{}).forEach(function(club){(window.NHL_RATINGS[club]||[]).forEach(function(raw){var parts=raw.split('|'),k=canonPlayerName(parts[0]);(idx[k]=idx[k]||[]).push({club:club,name:k,position:parts[1],overall:Number(parts[2]),potentialLabel:parts[3]||'',roleOverride:parts[4]||''});});});__ratingIndex=idx;return idx;}
   // League-wide rating lookup for a real player whose rating row sits under another club (e.g. traded in the summer).
@@ -619,7 +619,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     Object.keys(groups).forEach(function(k){var xs=groups[k];if(xs.length<2)return;
       // a real same-name pair that differs in position group is kept apart
       xs.sort(function(a,b){return keeperScore(b)-keeperScore(a);});var keep=xs[0];
-      xs.slice(1).forEach(function(x){var d=x.p,kp=keep.p;if(posGroupOf(d.pos)!==posGroupOf(kp.pos)&&d.birthDate&&kp.birthDate&&d.birthDate!==kp.birthDate)return;
+      xs.slice(1).forEach(function(x){var d=x.p,kp=keep.p,db=d.birthDate||d.ctfoDob||'',kb=kp.birthDate||kp.ctfoDob||'';if(db&&kb&&db!==kb)return;
         if(!(kp.nhlRatings&&kp.nhlRatings.source==='NHLRatings')&&d.nhlRatings&&d.nhlRatings.source==='NHLRatings'){kp.ovr=d.ovr;kp.potential=Math.max(Number(kp.potential)||0,Number(d.potential)||0,Number(d.ovr)||0);kp.nhlRatings=d.nhlRatings;kp.ratingSource=d.ratingSource;kp.dataSource=d.dataSource;if(d.potentialSource)kp.potentialSource=d.potentialSource;refreshNhlProgression(kp);}
         if(!kp.birthDate&&d.birthDate){kp.birthDate=d.birthDate;kp.age=d.age;}else if(!kp.birthDate&&/^ufa-2026-/.test(String(d.id))&&Number(d.age))kp.age=d.age;
         if(Number(d.games)>0&&!(Number(kp.games)>0)){['games','goals','assists','points','shots','plusMinus','penaltyMinutes','goalieStarts','goalieWins','goalieLosses','saves','shotsAgainst','goalsAgainst','shutouts'].forEach(function(f){if(d[f]!=null&&kp[f]==null||Number(kp[f])===0&&Number(d[f]))kp[f]=d[f];});}
