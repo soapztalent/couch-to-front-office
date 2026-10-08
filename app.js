@@ -57,7 +57,7 @@
 
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); }); }
   function money(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
-  function shortMoney(n) { return '$' + (n / 1000000).toFixed(1) + 'M'; }
+  function shortMoney(n) { var v=Number(n); if(!isFinite(v)) v=0; var body='$'+(Math.abs(v)/1000000).toFixed(2)+'M'; return v<0?'-'+body:body; }
   function team(id) { return teamMap[id] || teamMap.BOS; }
   function importClub(row,fallback) { var code=String(row.team||row.teamCode||row.club||fallback||'BOS').toUpperCase();var found=teams.find(function(t){return t.id===code||t.name.toUpperCase()===code;});return found?found.id:(fallback||'BOS'); }
   function importKey(value) { return String(value||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
