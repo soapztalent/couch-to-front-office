@@ -3,37 +3,37 @@
 <head>
   <meta charset="utf-8">
   <title>Skater and goalie</title>
-  <style>html,body{margin:0;background:#0c1424;height:100%}canvas{display:block;width:100%;height:100%}</style>
+  <style>html,body{margin:0;background:#1a1c2a;height:100%}canvas{display:block;width:100%;height:100%}</style>
 </head>
 <body>
 <script src="vendor/three.min.js"></script>
-<script src="skater-models.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script src="skater-models.js?v=glb"></script>
 <script>
 var renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(2, devicePixelRatio||1));
 document.body.appendChild(renderer.domElement);
 var scene=new THREE.Scene();
-scene.background=new THREE.Color(0x101820);
-scene.add(new THREE.HemisphereLight(0xe7eef8, 0x222833, 1.1));
-var sun=new THREE.DirectionalLight(0xffffff, 0.8);
-sun.position.set(4, 8, 6);
+scene.background=new THREE.Color(0x2a2c3e);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x222833, 1.15));
+var sun=new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(3, 8, 5);
 scene.add(sun);
-var ice=new THREE.Mesh(new THREE.CircleGeometry(6, 40), new THREE.MeshStandardMaterial({color:0xf4f7fb, roughness:0.35}));
-ice.rotation.x=-Math.PI/2;
-scene.add(ice);
-var skater=buildHockeyPlayer(THREE, '#FFB81C', 88, false);
-skater.position.x=-1.15;
-skater.rotation.y=0.7;
+var floor=new THREE.Mesh(new THREE.CircleGeometry(8, 40), new THREE.MeshStandardMaterial({color:0xe7e9ef, roughness:0.8}));
+floor.rotation.x=-Math.PI/2;
+scene.add(floor);
+var skater=buildHockeyPlayer(THREE, '#0057b8', 88, false);
+skater.position.x=-1.1;
 scene.add(skater);
-var goalie=buildHockeyPlayer(THREE, '#F47A38', 1, true);
-goalie.position.x=1.25;
-goalie.rotation.y=-0.4;
+var goalie=buildHockeyPlayer(THREE, '#111', 1, true);
+goalie.position.x=1.2;
 scene.add(goalie);
-var camera=new THREE.PerspectiveCamera(32, window.innerWidth/window.innerHeight, 0.1, 50);
-camera.position.set(0.2, 1.55, 4.4);
-camera.lookAt(0, 0.9, 0);
-renderer.render(scene, camera);
+var camera=new THREE.PerspectiveCamera(30, window.innerWidth/window.innerHeight, 0.1, 50);
+camera.position.set(0, 1.15, 5.6);
+camera.lookAt(0, 0.95, 0);
+function frame(){ renderer.render(scene, camera); requestAnimationFrame(frame); }
+frame();
 </script>
 </body>
 </html>
