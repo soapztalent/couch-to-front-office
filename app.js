@@ -941,40 +941,35 @@
     if(clubId===g.team&&promoted)ensureLineup(g);
     return promoted;
   }
+  function nhlGroup(p){return !p?'F':p.pos==='G'?'G':p.pos==='D'?'D':'F';}
+  function nhlGroupCount(list,grp){return (list||[]).filter(function(p){return nhlGroup(p)===grp;}).length;}
+  function nhlGroupMin(grp){return grp==='G'?2:grp==='D'?6:12;}
+  function userSendDownBlock(g,player){var grp=nhlGroup(player),have=nhlGroupCount(g.roster,grp),min=nhlGroupMin(grp);if(have<=min)return grp==='G'?'Keep at least 2 goalies on the NHL roster.':grp==='D'?'Keep at least 6 defensemen on the NHL roster.':'Keep at least 12 forwards on the NHL roster.';var skaters=(g.roster||[]).filter(function(p){return p.pos!=='G'&&p.id!==player.id;}).length,goalies=nhlGroupCount(g.roster,'G')-(grp==='G'?1:0);if(goalies<1||skaters<6)return 'That assignment would leave a lineup that cannot play.';return '';}
+  function userRecallPlan(g,player){if((g.roster||[]).length>=23)return {error:team(g.team).name+' needs an NHL roster opening before recalling a player.'};var signed=Number(player.years)>0&&!player.unsigned&&!player.contractExpired;if(!signed){var age=Number(player.age)||25,entry=/entry/i.test(String(player.contractType||''));if(age>=25&&!entry)return {error:player.name+' does not have an NHL contract. Re-sign him, or sign him in free agency, before recalling him.'};if(typeof ahlContractCount==='function'&&ahlContractCount(g)>=50)return {error:team(g.team).name+' is at the 50-contract limit.'};var hit=leagueMinSalary(g),charged=capReferenceActive(g)&&g.payrollSnapshotIds&&g.payrollSnapshotIds[player.id];if(!charged&&capUsed(g)+hit>g.cap)return {error:'Clear cap room before recalling this player.'};return {newContract:true,hit:hit,years:age<=21?3:age<=23?2:1};}var hit2=contractHit(player),charged2=capReferenceActive(g)&&((g.payrollSnapshotIds&&g.payrollSnapshotIds[player.id])||Number(player.capRefCharged)>=hit2);if(!charged2&&capUsed(g)+hit2>g.cap)return {error:'Clear cap room before recalling this player.'};return {newContract:false,hit:hit2};}
+  function applyUserRecall(g,player,plan){g.reserveRoster=(g.reserveRoster||[]).filter(function(p){return p.id!==player.id;});g.orgProspects=(g.orgProspects||[]).filter(function(p){return p.id!==player.id;});if(plan.newContract){player.salary=plan.hit;player.capHit=plan.hit;player.years=plan.years;player.term=plan.years;player.contractTimeline=Array.from({length:plan.years},function(){return plan.hit;});player.contractType='Entry-level';player.contractSource='Entry-level contract';player.contractExpired=false;player.contractStatus='Active';player.freeAgencyStatus='';}if(typeof capRefRecall==='function')capRefRecall(g,player,plan.hit);player.unsigned=false;player.reserveList=false;player.rosterStatus='Active NHL roster';player.level='NHL';player.club=g.team;player.promotedYear=g.startYear+g.season;g.roster.push(player);}
   function promoteProspect(g,id) {
     var p=(g.orgProspects||[]).concat(g.reserveRoster||[]).find(function(x){return x.id===id;});if(!p)return;
-    if(g.roster.length>=23)return setNotice(team(g.team).name+' needs an active roster opening.',true);
-    // Prototype signing rule, not an official eligibility/contract determination.
-    var newContract=p.unsigned||!p.years,hit=newContract?925000:contractHit(p);
-    if(capUsed(g)+hit>g.cap)return setNotice('Clear cap room before promoting this player.',true);
-    g.orgProspects=(g.orgProspects||[]).filter(function(x){return x.id!==id;});
-    g.reserveRoster=(g.reserveRoster||[]).filter(function(x){return x.id!==id;});
-    if(newContract){p.salary=925000;p.capHit=925000;p.years=3;p.contractSource='Simulation entry-level signing';p.contractTimeline=[925000,925000,925000];}
-    if(g.payrollOn&&g.season===1&&g.payrollRef)g.capAdjustment+=hit;
-    p.unsigned=false;p.reserveList=false;p.rosterStatus='Active NHL roster';p.club=g.team;p.promotedYear=g.startYear+g.season;
-    g.roster.push(p);ensureLineup(g);g.history.push({year:seasonLabel(g),text:team(g.team).name+' promotes '+p.name+' to the active roster'+(newContract?' on a simulated entry-level contract.':'.'),tag:'PLAYER DEVELOPMENT'});
-    persist();renderOffice();setNotice(p.name+' joined the active roster. Any new contract uses the simulator rules.');
+    var plan=userRecallPlan(g,p);if(plan.error)return setNotice(plan.error,true);
+    applyUserRecall(g,p,plan);ensureLineup(g);g.history.push({year:seasonLabel(g),text:team(g.team).name+' promotes '+p.name+' to the active roster'+(plan.newContract?' on an entry-level contract.':'.'),tag:'PLAYER DEVELOPMENT'});
+    persist();renderOffice();setNotice(p.name+' joined the active roster.'+(plan.newContract?' Entry-level deal: '+plan.years+' yr, '+shortMoney(plan.hit)+' AAV.':''));
   }
   function moveRosterPlayer(g,id,direction){
     if(!g)return false;
     g.reserveRoster=g.reserveRoster||[];g.orgProspects=g.orgProspects||[];
     if(direction==='down'){
       var player=g.roster.find(function(p){return p.id===id;});if(!player)return false;
-      if(g.roster.length<=18){setNotice('Keep at least 18 players on the NHL roster.',true);return false;}
-      g.roster=g.roster.filter(function(p){return p.id!==id;});player.reserveList=true;player.rosterStatus='AHL / Minor league';player.level='Minor league';player.club=g.team;g.reserveRoster.push(player);
+      var block=userSendDownBlock(g,player);if(block){setNotice(block,true);return false;}
+      var date=inSeasonMarketDate(g),res=ahlSendDown(g,g,g.team,ahlRole(g,g.team),player,date,'assignment');
       current.rosterGroup='nhl';if(current.rosterFocus===id)current.rosterFocus='';
-      g.history.push({year:seasonLabel(g),text:team(g.team).name+' sends '+player.name+' to the AHL roster.',tag:'ROSTER MOVE'});
-    }else{
-      var pool=g.reserveRoster.concat(g.orgProspects),player=pool.find(function(p){return p.id===id;});if(!player)return false;
-      if(g.roster.length>=23){setNotice(team(g.team).name+' needs an NHL roster opening before recalling a player.',true);return false;}
-      var newContract=player.unsigned||!player.years,hit=newContract?925000:contractHit(player);if(capUsed(g)+hit>g.cap){setNotice('Clear cap room before recalling this player.',true);return false;}
-      g.reserveRoster=g.reserveRoster.filter(function(p){return p.id!==id;});g.orgProspects=g.orgProspects.filter(function(p){return p.id!==id;});
-      if(newContract){player.salary=925000;player.capHit=925000;player.years=3;player.contractSource='Simulation entry-level signing';player.contractTimeline=[925000,925000,925000];}
-      if(g.payrollOn&&g.season===1&&g.payrollRef)g.capAdjustment+=hit;
-      player.unsigned=false;player.reserveList=false;player.rosterStatus='Active NHL roster';player.level='NHL';player.club=g.team;player.promotedYear=g.startYear+g.season;g.roster.push(player);current.rosterGroup='nhl';current.rosterFocus=id;
-      g.history.push({year:seasonLabel(g),text:team(g.team).name+' recalls '+player.name+' to the NHL roster'+(newContract?' on a simulated entry-level contract.':'.'),tag:'ROSTER MOVE'});
+      if(String(res).indexOf('claimed by ')===0){var claimer=res.slice('claimed by '.length);ensureLineup(g);persist();renderOffice();setNotice(player.name+' was claimed off waivers by '+team(claimer).name+'.',true);return true;}
+      g.history.push({year:seasonLabel(g),text:team(g.team).name+' sends '+player.name+' to the AHL roster'+(ahlWaiverEligible(player)?' after clearing waivers.':'.'),tag:'ROSTER MOVE'});
+      ensureLineup(g);persist();renderOffice();setNotice(player.name+(ahlWaiverEligible(player)?' cleared waivers and was sent to the AHL roster.':' sent to the AHL roster.'));return true;
     }
-    ensureLineup(g);persist();renderOffice();setNotice(direction==='down'?player.name+' sent to the AHL roster.':player.name+' recalled to the NHL roster.');return true;
+    var pool=g.reserveRoster.concat(g.orgProspects),player=pool.find(function(p){return p.id===id;});if(!player)return false;
+    var plan=userRecallPlan(g,player);if(plan.error){setNotice(plan.error,true);return false;}
+    applyUserRecall(g,player,plan);current.rosterGroup='nhl';current.rosterFocus=id;
+    g.history.push({year:seasonLabel(g),text:team(g.team).name+' recalls '+player.name+' to the NHL roster'+(plan.newContract?' on an entry-level contract.':'.'),tag:'ROSTER MOVE'});
+    ensureLineup(g);persist();renderOffice();setNotice(player.name+' recalled to the NHL roster.'+(plan.newContract?' Entry-level deal: '+plan.years+' yr, '+shortMoney(plan.hit)+' AAV.':''));return true;
   }
   function aiDraftPickScore(g,clubId,p){var club=leagueClub(g,clubId)||{},year=Number(g.startYear)+Number(g.season),read=club._aiDraftRead;if(!read||read.year!==year){read=club._aiDraftRead={year:year,plan:club.plan||'retool',needs:officeNeeds(g,clubId),counts:positionCounts(clubRoster(g,clubId))};}var plan=read.plan,age=Number(p.age)||18,ovr=Number(p.ovr)||60,potential=Number(p.potential)||ovr,needName=p.pos==='D'?'Defense depth':p.pos==='G'?'Goaltending':p.pos==='C'?'Center depth':'Top 6 scoring',need=read.needs.find(function(n){return n.label===needName;}),counts=read.counts,score=(Number(p.projection)||potential)+Math.max(0,potential-ovr)*.35;if(need)score+=(need.level==='High'?12:need.level==='Medium'?6:0);if((p.pos==='D'&&counts.D<6)||(p.pos==='G'&&counts.G<2)||(p.pos==='C'&&counts.C<3)||(['LW','RW'].indexOf(p.pos)>=0&&counts.F<12))score+=8;if(plan==='rebuild'){score+=(age<=19?7:age>=21?-5:0)+Math.min(8,Math.max(0,potential-ovr));}else if(plan==='contend'){score+=(ovr-70)*.35+(age>=19&&age<=22?4:age<19?-3:0);}else{score+=(age>=18&&age<=21?5:0)+(ovr-70)*.2;}return score;}
   function finishDraft(g) {
