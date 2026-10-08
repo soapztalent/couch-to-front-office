@@ -1702,9 +1702,11 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     return {v:3,teams:teamLog,goals:goals,pens:wins,pull:pull,ot:!!o.ot,so:!!o.so,otEnd:o.ot?R+(o.so?300:Math.max(5,Math.round(o.otSec||0))):R,soWinner:o.so?(o.goalsA>o.goalsB?0:1):null,fo:{total:o.totalFo,wins:o.foWins.slice()},opps:o.opps.slice(),final:[o.goalsA,o.goalsB]};
   }
   /* ===== END SIM ENGINE V2 ===== */
+  function simHomeGames(g,id){var rec=g.standings&&g.standings[id],n=0;if(!rec||!rec.headToHead)return 0;Object.keys(rec.headToHead).forEach(function(opp){var games=rec.headToHead[opp]&&rec.headToHead[opp].games||[];games.forEach(function(x){if(x&&x.home)n++;});});return n;}
+  function simBalanceHome(g,ida,idb){var ha=simHomeGames(g,ida),hb=simHomeGames(g,idb);if(ha!==hb)return ha<hb?ida:idb;return Math.random()<.5?ida:idb;}
   function simAI(g,excludedOpponent) {
     var league=teams.filter(function(t){return t.id!==g.team&&t.id!==excludedOpponent;}),pool=league.slice();for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),tmp=pool[i];pool[i]=pool[j];pool[j]=tmp;}
-    for(var k=0;k+1<pool.length;k+=2){var ida=pool[k].id,idb=pool[k+1].id,homeA=Math.random()<.5,box=simulateMatchup(g,ida,idb,homeA?ida:idb),type=box.ot?(box.so?'so':'ot'):'reg';adjustStandings(g.standings[ida],box.a,box.b,type,idb,homeA);adjustStandings(g.standings[idb],box.b,box.a,type,ida,!homeA);}
+    for(var k=0;k+1<pool.length;k+=2){var ida=pool[k].id,idb=pool[k+1].id,homeId=simBalanceHome(g,ida,idb),homeA=homeId===ida,box=simulateMatchup(g,ida,idb,homeId),type=box.ot?(box.so?'so':'ot'):'reg';adjustStandings(g.standings[ida],box.a,box.b,type,idb,homeA);adjustStandings(g.standings[idb],box.b,box.a,type,ida,!homeA);}
   }
   function randomGoalScorer(roster,g){var eligible=(roster||[]).filter(function(p){return p&&p.pos!=='G'&&p.injury<=0;});if(!eligible.length)return roster&&roster[0];var weights=eligible.map(function(p){var rating=Math.max(50,Math.min(99,Number(p.ovr)||70)),forward=['C','LW','RW'].indexOf(p.pos)>=0,projection=g&&typeof nhlPointProjection==='function'?nhlPointProjection(g,p):null,historyFactor=projection?Math.pow(clamp(projection.points/45,.55,2.2),.65):1,weight=Math.pow(1.085,rating-75)*(forward?1.12:0.82)*historyFactor;return Math.max(.18,weight);}),total=weights.reduce(function(sum,w){return sum+w;},0),roll=Math.random()*total;for(var i=0;i<eligible.length;i++){roll-=weights[i];if(roll<=0)return eligible[i];}return eligible[eligible.length-1];}
   function attributeChange(p,delta) {
