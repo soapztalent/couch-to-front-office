@@ -6,7 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#050b11">
   <title>Couch To Front Office</title>
-  <script src="skater-models.js?v=ctfo2"></script>
+  <script src="data/draft-classes.js"></script>
+<script src="draft-data.js"></script>
+<script src="draft.js"></script>
+<script src="draft-questions.js"></script>
+<script src="draft-show.js"></script>
+<script src="skater-models.js?v=ctfo2"></script>
   <style>.live-rink{position:fixed!important;inset:0!important;z-index:500!important;display:flex!important;flex-direction:column!important;background:#05070b!important;color:#fff!important}</style>
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./front-office.css">
@@ -19,11 +24,13 @@
   
   
   <link rel="stylesheet" href="./game-feel.css">
-  <link rel="stylesheet" href="./bruins-theme.css">
   <link rel="stylesheet" href="./live-rink.css">
   <link rel="stylesheet" href="./free-agency.css">
 <link rel="stylesheet" href="./home-redesign.css">
 <link rel="stylesheet" href="./setup-redesign.css">
+<link rel="stylesheet" href="./theme-core.css">
+<link rel="stylesheet" href="./draft-show.css">
+<link rel="stylesheet" href="./scouting.css">
 </head>
 <body>
   <div class="rink-lines" aria-hidden="true"></div>
@@ -1408,7 +1415,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     else if(p.round>=3){p.complete=true;p.winner=g.team;p.champion=g.team;p.runnerUp=opponent;p.finalSeries=userResult;g.championships++;g.owner.trust=clamp(g.owner.trust+18,20,99);g.roster.forEach(function(pl){pl.morale=Math.min(100,pl.morale+12);});g.history.push({year:seasonLabel(g),text:team(g.team).name+' wins the Stanley Cup. Banner raised.',tag:'STANLEY CUP'});}
     else {p.round++;var nextMatches=[];for(var i=0;i<winners.length;i+=2)nextMatches.push([winners[i],winners[i+1]]);p.matches=nextMatches;var userMatch=nextMatches.find(function(m){return m.includes(g.team);});p.opponent=userMatch?userMatch.find(function(id){return id!==g.team;}):opponent;}
     if(p.complete){ if(g.mode==='franchise'){beginOffseason(g);current.page='offseason';current.offseasonSection='draft';}else g.stage='complete'; }
-    persist(); renderOffice(); setNotice(won?(p.complete?'Boston lifts the Cup.':'Boston wins the series '+our+'–'+them+'; the full bracket advances.'):'Boston is eliminated '+our+'–'+them+'. Series consequences have been applied.',!won);
+    persist(); renderOffice(); setNotice(won?(p.complete?team(g.team).name+' lifts the Cup.':team(g.team).name+' wins the series '+our+'–'+them+'; the full bracket advances.'):team(g.team).name+' is eliminated '+our+'–'+them+'. Series consequences have been applied.',!won);/* patch13 T3 club name */
   }
   function beginOffseason(g) {
     try{v4loyalSeasonEnd(g);}catch(e){console.error('v4loyal season end',e);}g.stage='offseason';var year=g.startYear+g.season;expireSeasonContracts(g);g.offseason={year:year,phase:'phones',draftRights:(g.returningDraftRights||[]).map(function(x){return Object.assign({},x);})};g.returningDraftRights=[];g.freeAgents=[];
@@ -2242,7 +2249,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     if(g.stage==='regular'&&g.day<seasonGameCount(g)){var date=(g.calendarGames||[])[g.day],estimated=date?date:officeEstimatedSchedule(g)[g.day];if(estimated&&estimated.date>=tradeDeadlineISO(g)&&(!g.tradeDeadline||g.tradeDeadline.year!==Number(g.startYear)+Number(g.season))){runTradeDeadline(g);persist();renderOffice();officeOpenModal('trade-deadline');return;}watchNextGame(g);return;}
     if(g.stage==='regular'&&g.day>=seasonGameCount(g)){if(g.mode==='franchise'){initPlayoffs(g,true);renderOffice();setNotice(g.playoff&&g.playoff.notQualified?team(g.team).name+' missed the playoffs. The offseason is open.':'The regular season is complete. The NHL playoff field is set; your first-round opponent is '+team(g.playoff.opponent).name+'.');persist();}else{g.stage='complete';renderOffice();}return;}
     if(g.stage==='playoffs'){simulatePlayoffRound(g);return;}
-    if(g.stage==='offseason'){var phase=g.offseason&&g.offseason.phase||'phones';if(phase==='phones'){current.page='offseason';renderOffice();}else if(phase==='draft'){current.page='offseason';current.offseasonSection='draft';renderOffice();setNotice('Offseason draft is open. The full prospect class is on the draft board.');}else if(phase==='free-agency'){current.page='freeagency';renderOffice();setNotice('Review free agents, make offers, and finish the signing period when ready.');}else if(g.season<25){advanceSeason(g);}else{g.stage='complete';renderOffice();}return;}
+    if(g.stage==='offseason'){var phase=g.offseason&&g.offseason.phase||'phones';if(phase==='phones'){current.page='offseason';renderOffice();}else if(phase==='draft'){current.page='offseason';current.offseasonSection='draft';renderOffice();setNotice('Offseason draft is open. The full prospect class is on the draft board.');}else if(phase==='signings'){current.page='offseason';current.offseasonSection='signings';renderOffice();setNotice('Resolve your draft rights, then continue to free agency.');/* patch13 A1 */}else if(phase==='free-agency'){current.page='freeagency';renderOffice();setNotice('Review free agents, make offers, and finish the signing period when ready.');}else if(g.season<25){advanceSeason(g);}else{g.stage='complete';renderOffice();}return;}
     if(g.stage==='complete')goHome();
   }
   function advanceSeason(g) {
@@ -2681,7 +2688,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     var setup=document.querySelector('#setup-screen .eyebrow');if(setup)setup.textContent='CHOOSE YOUR GM STYLE · '+tm.name.toUpperCase();
     $('setup-title').innerHTML='Shape your franchise <em>your way.</em>';
     var office=document.querySelector('#office-screen .eyebrow');if(office)office.textContent=tm.name.toUpperCase()+' - FRONT OFFICE';
-    if(databaseReady){var activeRows=importedRows.filter(function(p){return p.team===id&&!isReserveRow(p);}),payroll=activeRows.reduce(function(sum,p){return sum+(p.salary==null?925000:p.salary);},0);$('selected-active-count').textContent=activeRows.length;$('selected-payroll').textContent=shortMoney(payroll);$('payroll-amount').textContent=money(payroll);if(typeof home7ClubSummary==='function')home7ClubSummary(id,activeRows,payroll);}
+    if(databaseReady){var activeRows=importedRows.filter(function(p){return p.team===id&&!isReserveRow(p);}),payroll=activeRows.reduce(function(sum,p){return sum+(p.salary==null?925000:p.salary);},0);$('selected-active-count').textContent=activeRows.length;var p13Known=(typeof home7Known!=='function')||home7Known(activeRows);$('selected-payroll').textContent=p13Known?shortMoney(payroll):'TBD';$('payroll-amount').textContent=p13Known?money(payroll):'TBD';$('payroll-amount').title=p13Known?'':'Most contracts for this club are not in the starting snapshot; payroll is set when the career starts.';/* patch13 T1 */if(typeof home7ClubSummary==='function')home7ClubSummary(id,activeRows,payroll);}
   }
 
   // v0.9 FRONT OFFICE UI. Uses the existing career, roster and trade engine.
@@ -2900,7 +2907,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     $('workspace-modal').hidden=true;officeUI.modal=null;if(document.body.classList)document.body.classList.remove('dialog-open');if(officeUI.lastFocus&&officeUI.lastFocus.isConnected!==false&&officeUI.lastFocus.focus)officeUI.lastFocus.focus();else if($('office-content').focus)$('office-content').focus();
   }
   function rosterPositionRoleMarkup(player,editable){var roles=['C','LW','RW'].indexOf(player.pos)>=0?['LW','C','RW']:player.pos==='D'?['LD','RD']:[];if(!roles.length)return '';return '<section class="roster-position-role"><div><p class="section-kicker">LINE POSITION ROLE</p><small>Choose the slot for this player. His natural position stays unchanged.</small></div><div class="roster-position-role-buttons">'+roles.map(function(role){return '<button type="button" class="'+(player.linePositionRole===role?'selected':'')+'" data-player-position="'+role+'" data-player="'+esc(player.id)+'" aria-pressed="'+(player.linePositionRole===role)+'" '+(!editable?'disabled':'')+'>'+role+'</button>';}).join('')+'</div></section>';}
-  function rosterLeadershipRoleMarkup(player,editable){var roles=['Captain','Assistant Captain 1','Assistant Captain 2'];return '<section class="roster-leadership-role"><div><p class="section-kicker">TEAM LEADERSHIP</p><small>Assign one captain and up to two assistant captains.</small></div><div class="roster-leadership-role-buttons">'+roles.map(function(role){var label=role==='Assistant Captain 1'?'ASSISTANT CAPTAIN · 1':'ASSISTANT CAPTAIN · 2';return '<button type="button" class="'+(player.leadershipRole===role?'selected':'')+'" data-player-leadership="'+role+'" data-player="'+esc(player.id)+'" aria-pressed="'+(player.leadershipRole===role)+'" '+(!editable?'disabled':'')+'>'+label+'</button>';}).join('')+'<button type="button" class="'+(!player.leadershipRole?'selected':'')+'" data-player-leadership="none" data-player="'+esc(player.id)+'" aria-pressed="'+(!player.leadershipRole)+'" '+(!editable?'disabled':'')+'>NO LETTER</button></div></section>';}
+  function rosterLeadershipRoleMarkup(player,editable){var roles=['Captain','Assistant Captain 1','Assistant Captain 2'];return '<section class="roster-leadership-role"><div><p class="section-kicker">TEAM LEADERSHIP</p><small>Assign one captain and up to two assistant captains.</small></div><div class="roster-leadership-role-buttons">'+roles.map(function(role){var label=role==='Captain'?'CAPTAIN':role==='Assistant Captain 1'?'ASSISTANT CAPTAIN · 1':'ASSISTANT CAPTAIN · 2';/* patch13 T2 label */return '<button type="button" class="'+(player.leadershipRole===role?'selected':'')+'" data-player-leadership="'+role+'" data-player="'+esc(player.id)+'" aria-pressed="'+(player.leadershipRole===role)+'" '+(!editable?'disabled':'')+'>'+label+'</button>';}).join('')+'<button type="button" class="'+(!player.leadershipRole?'selected':'')+'" data-player-leadership="none" data-player="'+esc(player.id)+'" aria-pressed="'+(!player.leadershipRole)+'" '+(!editable?'disabled':'')+'>NO LETTER</button></div></section>';}
   function assignRosterPositionRole(g,id,role){var player=(g.roster||[]).find(function(p){return p.id===id;}),group=['LW','C','RW'].indexOf(role)>=0?'forwards':player&&player.pos==='D'&&['LD','RD'].indexOf(role)>=0?'defense':'';if(!player||!group||group==='forwards'&&['C','LW','RW'].indexOf(player.pos)<0)return false;ensureLineup(g);var rows=g.lines[group],slots=group==='forwards'?['LW','C','RW']:['LD','RD'],currentLine=rows.findIndex(function(row){return slots.some(function(slot){return row[slot]===id;});}),lineIndex=currentLine>=0?currentLine:rows.findIndex(function(row){return !row[role];});if(lineIndex<0)lineIndex=0;assignChartPlayer(group+'.'+lineIndex+'.'+role,id);player.linePositionRole=role;persist();renderOffice();if(officeUI.modal==='player-card')officeModalContent();setNotice(player.name+' assigned to '+role+' on '+team(g.team)+'’s lineup.');return true;}
   function assignRosterLeadership(g,id,role){var players=(g.roster||[]).concat(g.reserveRoster||[],g.orgProspects||[]),player=players.find(function(p){return p.id===id;});if(!player)return false;if(role==='none'){player.leadershipRole='';}else{if(role==='Captain')players.forEach(function(p){if(p.id!==id&&p.leadershipRole==='Captain')p.leadershipRole='';});else if(role==='Assistant Captain 1'||role==='Assistant Captain 2')players.forEach(function(p){if(p.id!==id&&p.leadershipRole===role)p.leadershipRole='';});player.leadershipRole=role;}persist();renderOffice();if(officeUI.modal==='player-card')officeModalContent();setNotice(player.name+(role==='none'?' no longer wears a letter.':' named '+role+'.'));return true;}
   function boostPlayerDevelopment(g,id){var player=(g.roster||[]).concat(g.reserveRoster||[],g.orgProspects||[]).find(function(p){return p.id===id;}),limit=player&&player.age<=25;if(!player||!limit||Number(player.developmentBoostSeason)===Number(g.season)||Number(player.potential)>=99&&Number(player.ovr)>=99){setNotice('This player is not eligible for another development boost this season.',true);return false;}var potential=Math.max(Number(player.potential)||Number(player.ovr)||50,Number(player.ovr)||50),oldOvr=Number(player.ovr)||0;player.potential=Math.min(99,potential+(player.age<=22?2:1));if(Number(player.ovr)<player.potential)player.ovr=Math.min(player.potential,Number(player.ovr)+1);var ovrGain=Math.max(0,(Number(player.ovr)||0)-oldOvr);player.developmentBoostSeason=g.season;player.developmentPlanFocus='individual-coaching';player.developmentPlanSeason=g.season;persist();renderOffice();if(officeUI.modal==='player-card')officeModalContent();setNotice(player.name+' received a development boost: potential +'+(player.age<=22?2:1)+(ovrGain?' · OVR +'+ovrGain:'')+'.');return true;}
@@ -3223,7 +3230,7 @@ var rinkContent=active==='Special Teams & Goalies'?'<div class="ls-rink-special"
   }
   function renderHomeDashboard(g){
     clearNotice();
-    var club=team(g.team),mine=g.standings[g.team]||g.record,gp=(mine.w||0)+(mine.l||0)+(mine.otl||0),divisions=standingsSort(teams.filter(function(t){return t.division===club.division;}).map(function(t){var r=g.standings[t.id]||{w:0,l:0,otl:0,pts:0,gf:0,ga:0};return {id:t.id,name:t.name,rec:r,gp:(r.w||0)+(r.l||0)+(r.otl||0)};})),rank=Math.max(1,divisions.findIndex(function(t){return t.id===g.team;})+1),hasNextMatch=g.stage==='regular'||g.stage==='playoffs',opponentId=g.stage==='playoffs'&&g.playoff?g.playoff.opponent:g.schedule[Math.min(g.day,g.schedule.length-1)],opponent=team(opponentId),news=(g.transactionLog||[]).filter(function(x){return !x.teams||x.teams.indexOf(g.team)>=0;}).slice(-5).reverse(),scouts=(g.orgProspects||[]).concat(g.prospects||[]).filter(Boolean).sort(function(a,b){return (b.ovr||0)-(a.ovr||0);}),topProspect=scouts[0],upcoming=g.stage==='regular'?g.schedule.slice(g.day,g.day+8):[],standings=divisions.slice(0,8),capRoom=g.cap-capUsed(g),results=g.results||[],lastResult=results.length?results[results.length-1].result:'',streak=0,injured=(g.roster||[]).filter(function(p){return Number(p.injury)>0;}),teamMorale=Math.round((g.roster||[]).reduce(function(sum,p){return sum+(Number(p.morale)||0);},0)/Math.max(1,(g.roster||[]).length)),lastFive=results.slice(-5);
+    var club=team(g.team),mine=g.standings[g.team]||g.record,gp=(mine.w||0)+(mine.l||0)+(mine.otl||0),divisions=standingsSort(teams.filter(function(t){return t.division===club.division;}).map(function(t){var r=g.standings[t.id]||{w:0,l:0,otl:0,pts:0,gf:0,ga:0};return {id:t.id,name:t.name,rec:r,gp:(r.w||0)+(r.l||0)+(r.otl||0)};})),rank=Math.max(1,divisions.findIndex(function(t){return t.id===g.team;})+1),hasNextMatch=g.stage==='regular'||g.stage==='playoffs',opponentId=g.stage==='playoffs'&&g.playoff?g.playoff.opponent:g.schedule[Math.min(g.day,g.schedule.length-1)],opponent=team(opponentId),news=(g.transactionLog||[]).filter(function(x){return !x.teams||x.teams.indexOf(g.team)>=0;}).slice(0,5),scouts=(g.orgProspects||[]).concat(g.prospects||[]).filter(Boolean).sort(function(a,b){return (b.ovr||0)-(a.ovr||0);}),topProspect=scouts[0],upcoming=g.stage==='regular'?g.schedule.slice(g.day,g.day+8):[],standings=divisions.slice(0,8),capRoom=g.cap-capUsed(g),results=g.results||[],lastResult=results.length?results[results.length-1].result:'',streak=0,injured=(g.roster||[]).filter(function(p){return Number(p.injury)>0;}),teamMorale=Math.round((g.roster||[]).reduce(function(sum,p){return sum+(Number(p.morale)||0);},0)/Math.max(1,(g.roster||[]).length)),lastFive=results.slice(-5);
     if(lastResult){for(var si=results.length-1;si>=0&&results[si].result===lastResult;si--)streak++;}
     if(!news.length)news=(g.history||[]).slice(-5).reverse().map(function(item){return {tag:item.tag||'FRANCHISE UPDATE',text:item.text};});
     var newsHtml=news.length?news.map(function(item){var newsTeam=item.teams&&Array.isArray(item.teams)&&item.teams.length?item.teams[0]:g.team;return '<article class="home-news-item">'+officeMark(newsTeam,'home-news-item-crest')+'<span><strong>'+esc(item.tag||'TEAM NEWS')+'</strong><small>'+esc(item.text)+'</small></span></article>';}).join(''):'<article class="home-news-empty"><span class="news-orbit">'+officeIcon('history')+'</span><strong>The season is just getting started.</strong><small>Team news and transactions will show up here.</small></article>';
@@ -3688,6 +3695,760 @@ var rinkContent=active==='Special Teams & Goalies'?'<div class="ls-rink-special"
   document.addEventListener('change',function(ev){var t=ev.target;if(t&&t.id==='fa2-aav'&&document.getElementById('fa2')&&fa2Ui().draft){fa2Ui().draft.aav=Number(t.value);fa2Rerender();}});
   document.addEventListener('keydown',function(ev){if(!document.getElementById('fa2'))return;var u=fa2Ui();if(ev.key==='Escape'&&u.open){u.open=null;u.draft=null;fa2Rerender();}if(ev.key==='Enter'&&u.open&&ev.target&&ev.target.id!=='fa2-search'&&current.game){signFreeAgent(current.game,u.open);}});
   /* ===== END FA MARKET V2 ===== */
+  /* ===== CTFO DRAFT (draft.js) ===== */
+  if(window.CTFODraft){try{window.CTFODraft.install({teams:teams,cur:function(){return current;},$:$,nameTaken:function(n){return generatedNameTaken(n);},claimName:function(n){return claimGeneratedName(n);},team:function(){return team.apply(this,arguments);},leagueClub:function(){return leagueClub.apply(this,arguments);},makePlayer:function(){return makePlayer.apply(this,arguments);},ensureStandingsRecord:function(){return ensureStandingsRecord.apply(this,arguments);},standingsSort:function(){return standingsSort.apply(this,arguments);},esc:function(){return esc.apply(this,arguments);},officeMark:function(){return officeMark.apply(this,arguments);},seasonLabel:function(){return seasonLabel.apply(this,arguments);},persist:function(){return persist.apply(this,arguments);},renderOffice:function(){return renderOffice.apply(this,arguments);},setNotice:function(){return setNotice.apply(this,arguments);},pickKey:function(){return pickKey.apply(this,arguments);},clubPicks:function(){return clubPicks.apply(this,arguments);},findDraftAsset:function(){return findDraftAsset.apply(this,arguments);},moveDraftPickAsset:function(){return moveDraftPickAsset.apply(this,arguments);},draftTradeOfferForUser:function(){return draftTradeOfferForUser.apply(this,arguments);},renderFreeAgency:function(){return renderFreeAgency.apply(this,arguments);},renderDraftPlayerCall:function(){return renderDraftPlayerCall.apply(this,arguments);},renderProspects:function(){return renderProspects.apply(this,arguments);},v4fixOffseasonTrades:(typeof v4fixOffseasonTrades==='function'?function(){return v4fixOffseasonTrades.apply(this,arguments);}:null),ahlContractCount:(typeof ahlContractCount==='function'?function(){return ahlContractCount.apply(this,arguments);}:null),aiDraftTradeWindow:(typeof aiDraftTradeWindow==='function'?function(){return aiDraftTradeWindow.apply(this,arguments);}:null),orig:{makeProspects:makeProspects,draftClassInfo:draftClassInfo,draftSlotForTeam:draftSlotForTeam,draftPickOverall:draftPickOverall,offseasonPlacement:offseasonPlacement,initializeDraftOrder:initializeDraftOrder,advanceDraftOnePick:advanceDraftOnePick,advanceDraftToUserPick:advanceDraftToUserPick,finishDraft:finishDraft,draftBest:draftBest,draftProspect:draftProspect,aiDraftPickScore:aiDraftPickScore,applyAIDraftPlayerChoice:applyAIDraftPlayerChoice,resolveDraftProspect:resolveDraftProspect,acceptDraftTrade:acceptDraftTrade,renderDraftNight:renderDraftNight,draftRoomBoard:draftRoomBoard,renderDraftSigning:renderDraftSigning,renderDraftPlayerCall:renderDraftPlayerCall,renderProspects:renderProspects,renderOffseasonEntry:renderOffseasonEntry,estimateNhlEta:estimateNhlEta,prospectStage:prospectStage,prospectRoute:prospectRoute,beginOffseason:beginOffseason,advanceSeason:advanceSeason,progressPlayerOffseason:progressPlayerOffseason,restoreRosterDepth:restoreRosterDepth,promoteProspect:promoteProspect},rebind:function(R){makeProspects=R.makeProspects;draftClassInfo=R.draftClassInfo;draftSlotForTeam=R.draftSlotForTeam;draftPickOverall=R.draftPickOverall;offseasonPlacement=R.offseasonPlacement;initializeDraftOrder=R.initializeDraftOrder;advanceDraftOnePick=R.advanceDraftOnePick;advanceDraftToUserPick=R.advanceDraftToUserPick;finishDraft=R.finishDraft;draftBest=R.draftBest;draftProspect=R.draftProspect;aiDraftPickScore=R.aiDraftPickScore;applyAIDraftPlayerChoice=R.applyAIDraftPlayerChoice;resolveDraftProspect=R.resolveDraftProspect;acceptDraftTrade=R.acceptDraftTrade;renderDraftNight=R.renderDraftNight;draftRoomBoard=R.draftRoomBoard;renderDraftSigning=R.renderDraftSigning;renderDraftPlayerCall=R.renderDraftPlayerCall;renderProspects=R.renderProspects;renderOffseasonEntry=R.renderOffseasonEntry;estimateNhlEta=R.estimateNhlEta;prospectStage=R.prospectStage;prospectRoute=R.prospectRoute;beginOffseason=R.beginOffseason;advanceSeason=R.advanceSeason;progressPlayerOffseason=R.progressPlayerOffseason;restoreRosterDepth=R.restoreRosterDepth;promoteProspect=R.promoteProspect;}});}catch(e){console.error('CTFO draft install',e);}}
+  /* ===== end CTFO DRAFT ===== */
+  /* ===== SCOUTING V2 (scouting: weekly scouting department, war room, interviews, draft grades) ===== */
+  (function(){
+  'use strict';
+  /* ---------- tunables (edit freely) ---------- */
+  var SC={
+    V:1,
+    WATCH_MAX:24, FUTURE_MAX:6,          // watch list size; next-year "future file" size
+    DAYS:5,                              // scouting days per scout per week
+    GAIN:{live:13,video:5,tape:4,tip:22,dud:4,future:3}, // knowledge per viewing (before skill/region/morale/event factors)
+    REGION_MULT:1.2, EVENT_MULT:1.5,
+    TIER:[0,25,60],                      // combined knowledge thresholds: notes (>0), grades/ranges (>=25), near-truth (>=60)
+    IV_SEASON:3, IV_COMBINE:10, IVQ_SEASON:2, IVQ_COMBINE:3, // interview counts and questions per interview
+    LEAKS:3, LEAK_AMT:2.2, LEAK_BACKFIRE:.18,
+    CALL_CHANCE:{head:.14,reg:.22}, CALLS_MAX:2,
+    BOOM_VIEWS:6,                        // live viewings needed before a hidden boom flag can show
+    BUDGET:{youth:3.4,balanced:3.0,'win-now':2.6}, STAFF_MAX:6,
+    REDRAFT_AFTER:3                      // seasons after a draft before its redraft is published
+  };
+  var REG={ON:'Ontario · OHL',WEST:'West · WHL',QC:'Quebec · QMJHL',USA:'USA · USHL/NCAA',NORDIC:'Nordic · SWE/FIN',EURO:'Central/East Europe',ALL:'National'};
+  var REG_SHORT={ON:'OHL',WEST:'WHL',QC:'QMJHL',USA:'USA',NORDIC:'NORDIC',EURO:'EUROPE',ALL:'NATIONAL'};
+  var NA={ON:1,WEST:1,QC:1,USA:1};
+  var LG={ // living-season production by league type: points/game range, games/week, season end (MM-DD)
+    CHL:{ppg:[.32,1.3],gpw:2.3,end:'03-22'},NCAA_BOUND:{ppg:[.25,1.15],gpw:2,end:'04-05'},USHS:{ppg:[.6,1.9],gpw:1.3,end:'03-01'},
+    NCAA:{ppg:[.15,1.0],gpw:1.7,end:'03-20'},EURO_JR:{ppg:[.35,1.35],gpw:1.6,end:'03-10'},EURO_PRO:{ppg:[.03,.45],gpw:1.5,end:'03-15'}};
+  var LCODE={OHL:'CHL',WHL:'CHL',QMJHL:'CHL',USHL:'NCAA_BOUND',NTDP:'NCAA_BOUND',BCHL:'NCAA_BOUND',USHS:'USHS',NCAA:'NCAA',J20:'EURO_JR',U20SM:'EURO_JR',MHL:'EURO_JR',CZU20:'EURO_JR',SUIU20:'EURO_JR',DNL:'EURO_JR',SHL:'EURO_PRO',ALLSV:'EURO_PRO',LIIGA:'EURO_PRO',MESTIS:'EURO_PRO',KHL:'EURO_PRO',VHL:'EURO_PRO',ELH:'EURO_PRO',SVK:'EURO_PRO',NL:'EURO_PRO',DEL:'EURO_PRO',NOR:'EURO_PRO',DEN:'EURO_PRO',ICEHL:'EURO_PRO'};
+  /* personality keys shared with v9 draft-show (p.ctfoTraits): interviews reveal these, never a parallel set */
+  var PT=[['amb','Ambitious'],['loy','Loyal'],['pat','Patient'],['col','School-first'],['cmp','Competitive'],['fam','Family-first'],['con','Confident'],['coa','Coachable']];
+  var PTL={};PT.forEach(function(t){PTL[t[0]]=t[1];});
+  /* the draft-show model's own trait lines, [low (<=35), mid, high (>=65)], verbatim from patch13/show/src/01-model.js */
+  var TRAIT_LINES={amb:['In no hurry to turn pro; promises of quick minutes do not move him.','Wants a path to the NHL, but can wait for the right one.','Wants NHL minutes now; talk of patience cools him off.'],loy:['Not attached to any organization; it is a business to him.','Appreciates feeling wanted, but keeps his options open.','Fiercely loyal; wants to feel the club believes in him.'],pat:['Impatient; wants a fast track and hates waiting.','Will take the long road if the plan makes sense.','Comfortable with a long development road.'],col:['Not attached to the school route at all.','Open to school or turning pro.','Committed to his college or education path.'],cmp:['Not motivated by blunt challenges; prefers encouragement.','Responds to a fair challenge.','A fierce competitor who respects being challenged.'],fam:['Independent; home and family are not a big factor.','Family matters, but it does not drive his decisions.','Family and home weigh on every decision he makes.'],con:['Short on confidence; needs reassurance.','Believes in his game on most days.','Very confident; wants to hear that he belongs.'],coa:['Resists being over-coached; trusts his own instincts.','Takes coaching well when it is explained.','Very coachable; responds to a clear plan.']};
+  function scTraitLine(k,v){try{var DS=window.CTFODraftShow;if(DS&&typeof DS.traitLine==='function')return DS.traitLine(k,v);}catch(e){}var d=TRAIT_LINES[k];return v>=65?d[2]:v<=35?d[0]:d[1];}
+  var SKILLS=[['sk','Skating'],['sh','Shooting'],['pk','Hands / vision'],['df','Defence'],['iq','Hockey IQ'],['cp','Compete']];
+  /* scout biases: hidden. f(p,a) shifts his read of a player's POT. pitch = how it leaks into a war-room pitch; res = hindsight line */
+  var BIAS={
+    size:{f:function(p,a){var h=scHeight(p);return h>=188?a:h&&h<=178?-a*.7:0;},pitch:'Look at the frame. You can’t teach that size.',res:'pounded the table for a 6’5” defenceman who topped out in the AHL'},
+    small:{f:function(p,a){var h=scHeight(p);return h&&h<=180?-a:0;},pitch:null,res:'passed twice on a 5’9” winger who became a 30-goal man'},
+    euro:{f:function(p,a){var r=scRegion(p);return r==='NORDIC'||r==='EURO'?-a:0;},pitch:null,res:'had a Finnish centre in the fourth round; he went top-60 elsewhere and stuck'},
+    chl:{f:function(p,a){return scLtype(p)==='CHL'?a*.8:0;},pitch:'He plays a man’s CHL schedule. Battle-tested.',res:'filled an entire draft list with CHL forwards'},
+    goalie:{f:function(p,a){return p.pos==='G'?-a*1.2:0;},pitch:null,res:'has never put a goalie in his top 40'},
+    stats:{f:function(p,a,S){var x=scPpgEdge(S,p);return a*scCl(x,-1,1);},pitch:'Look at the numbers. He produces everywhere he goes.',res:'loved a 100-point junior whose game didn’t translate'},
+    skating:{f:function(p,a){var s=+((p.attributes||{}).skating)||70;return a*scCl((s-74)/8,-1,1);},pitch:'Best feet I’ve seen all year.',res:'fell for an elite skater with no hockey sense'},
+    swede:{f:function(p,a){return /Sweden/.test(p.nationality||'')?a*1.1:0;},pitch:'Swedish development path. Trust the program.',res:'rated a J20 Nationell winger like a lottery pick'},
+    dmen:{f:function(p,a){return p.pos==='D'?a*.8:0;},pitch:'You win with defence. He eats minutes.',res:'took a defenceman with his first pick five years running'},
+    usa:{f:function(p,a){var t=scLtype(p);return t==='NCAA'||t==='NCAA_BOUND'||t==='USHS'?a*.8:0;},pitch:'Program kid. College route, smart, coachable.',res:'leaned on the NTDP for half his list'},
+    none:{f:function(){return 0;},pitch:null,res:'kept a clean, steady list; nothing flashy'}
+  };
+  var BIAS_KEYS=['size','small','euro','chl','goalie','stats','skating','swede','dmen','usa','none'];
+  var FIRST=['Mikko','Jacques','Dale','Rick','Sven','Pavel','Brent','Marc-André','Tom','Ari','Darcy','Luc','Kent','Joakim','Petr','Wade','Gord','Jari','Bobby','Claude','Lars','Dmitri','Murray','Kevin','Vince','Nils'];
+  var LAST=['Rask','Dupuis','Hextall','Kowalski','Lindqvist','Novak','Sutter','Belanger','Rennie','Haapala','Mackenzie','Roy','Ferraro','Bergman','Hlavac','Kerr','Murdoch','Salo','Fleury','Tremblay','Andersson','Volkov','Oates','Dineen','Cuthbert','Wickenheiser'];
+
+  /* ---------- small utils ---------- */
+  function scHash(s){var h=2166136261>>>0;s=String(s);for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h;}
+  function scRng(seed){var a=scHash(seed)||1;return function(){a=(a+0x6D2B79F5)>>>0;var t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+  function scR(seed){return scRng(seed)();}
+  function scG(r){var u=Math.max(1e-9,r()),v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+  function scGs(seed){return scG(scRng(seed));}
+  function scCl(n,a,b){return Math.max(a,Math.min(b,n));}
+  function scE(v){return typeof esc==='function'?esc(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function scPick(r,a){return a[Math.floor(r()*a.length)%a.length];}
+  function scPois(r,l){if(l<=0)return 0;var L=Math.exp(-Math.min(l,30)),k=0,p=1;do{k++;p*=r();}while(p>L&&k<40);return k-1;}
+  function scIso(d){return d.toISOString().slice(0,10);}
+  function scDate(iso){return new Date(iso+'T12:00:00Z');}
+  function scAddDays(iso,n){var d=scDate(iso);d.setUTCDate(d.getUTCDate()+n);return scIso(d);}
+  function scFmt(iso,long){return scDate(iso).toLocaleDateString('en-US',long?{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}:{month:'short',day:'numeric',timeZone:'UTC'});}
+  function scTeamName(id){try{return team(id).name;}catch(e){return id;}}
+  function scHeight(p){if(p.heightCm)return +p.heightCm;var m=/(\d)'\s*(\d+)/.exec(p.height||'');return m?Math.round((+m[1]*12+ +m[2])*2.54):0;}
+  function scHeightLabel(p){var c=scHeight(p);if(!c)return '';var i=Math.round(c/2.54);return Math.floor(i/12)+'’'+(i%12)+'”';}
+  function scLetter(v){v=+v;return v>=88?'A+':v>=84?'A':v>=80?'A-':v>=76?'B+':v>=72?'B':v>=68?'B-':v>=64?'C+':v>=60?'C':v>=56?'C-':'D';}
+  function scOrd(n){var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+  function scInitials(n){return String(n||'').split(/\s+/).map(function(x){return x.charAt(0);}).join('').slice(0,2).toUpperCase();}
+  function scMoney(m){return '$'+(Math.round(m*100)/100).toFixed(2)+'M';}
+
+  /* ---------- player classification ---------- */
+  function scLcode(p){if(p.leagueCode)return p.leagueCode;var l=String(p.league||p.currentLeague||'');if(/OHL/.test(l))return 'OHL';if(/WHL/.test(l))return 'WHL';if(/QMJHL/.test(l))return 'QMJHL';if(/USHL/.test(l))return 'USHL';if(/NTDP/.test(l))return 'NTDP';if(/NCAA/.test(l))return 'NCAA';var r=p.region||'';return r==='Ontario'?'OHL':r==='WHL'?'WHL':r==='Quebec'?'QMJHL':r==='USNTDP'?'NTDP':/Sweden|Finland|Norway|Denmark/.test(p.nationality||'')?'J20':'MHL';}
+  function scLtype(p){return LCODE[scLcode(p)]||'EURO_JR';}
+  function scRegion(p){var c=scLcode(p);if(c==='OHL')return 'ON';if(c==='WHL'||c==='BCHL')return 'WEST';if(c==='QMJHL')return 'QC';if(c==='USHL'||c==='NTDP'||c==='USHS'||c==='NCAA')return 'USA';if(/^(J20|SHL|ALLSV|U20SM|LIIGA|MESTIS|NOR|DEN)$/.test(c))return 'NORDIC';return 'EURO';}
+  function scLeagueName(p){return p.league||p.currentLeague||({ON:'OHL',WEST:'WHL',QC:'QMJHL',USA:'USHL',NORDIC:'J20 Nationell',EURO:'MHL'})[scRegion(p)];}
+  function scClub(p){return p.amateurTeam||p.currentTeam||(scLeagueName(p)+' club');}
+  function scV9Ltype(p){var t=scLtype(p);return /EURO/.test(t)?'EURO':t==='USHS'?'NCAA_BOUND':t;}
+  /* personality: reuse v9's generator when present (same keys, cached on p.ctfoTraits); otherwise the same model, seeded */
+  function scTraits(g,p){
+    if(p.ctfoTraits&&p.ctfoTraits.amb!=null)return p.ctfoTraits;
+    var y=Number(p.draftYear)||scDraftYear(g),DS=window.CTFODraftShow,D=window.CTFODraft,api=D&&D.api;
+    /* v9: exactly the call draft-show makes when it resolves a draft-day conversation (S.resolve/S.context) */
+    try{if(DS&&DS.traits&&api&&api.seedOf){var lt=DS.leagueClass?DS.leagueClass(p):scV9Ltype(p),ag=(api.ageAt&&p.ctfoDob?api.ageAt(p.ctfoDob,api.iso(y,9,15)):null)||Number(p.age)||18;return DS.traits(api.seedOf(g),p,lt,ag);}}catch(e){}
+    var age=(p.ctfoDob?scAgeAt(p.ctfoDob,y+'-09-15'):null)||Number(p.age)||18,lt2=scV9Ltype(p),seed=(g&&g.draftSeed)||(g&&g.scouting&&g.scouting.seed)||'ctfo',r=scRng(seed+'|traits|'+p.id),o={};PT.forEach(function(t){o[t[0]]=50+scG(r)*17;});
+    if(lt2==='NCAA')o.col+=32;else if(lt2==='NCAA_BOUND')o.col+=22;else if(lt2==='CHL')o.col-=22;else if(lt2==='EURO'){o.col-=8;o.fam+=8;}
+    if(age>=19)o.con+=6;if(lt2==='NCAA')o.pat+=6;Object.keys(o).forEach(function(k){o[k]=Math.round(scCl(o[k],3,98));});p.ctfoTraits=o;return o;}
+  function scBand(v){return v>=65?'high':v<=35?'low':'mid';}
+
+  /* ---------- calendar ---------- */
+  function scDraftYear(g){return Number(g.startYear||2026)+Number(g.season||1);}
+  function scWeek0(y){var d=scDate((y-1)+'-09-28');while(d.getUTCDay()!==1)d.setUTCDate(d.getUTCDate()-1);return scIso(d);}
+  function scWkOf(S,iso){return Math.floor((scDate(iso)-scDate(scWeek0(S.year)))/864e5/7);}
+  function scWkStart(S,w){return scAddDays(scWeek0(S.year),w*7);}
+  function scEvents(y){var s=y-1;return [
+    {id:'summer',name:'Hlinka Gretzky Cup',short:'HLINKA',date:s+'-08-04',kind:'pre',note:'Summer file: first looks from August.'},
+    {id:'open',name:'Opening weeks',short:'OPENERS',date:s+'-09-29',kind:'season',note:'First live looks of the season. Build your watch list.'},
+    {id:'ivopen',name:'In-season meetings open',short:'MEETINGS',date:s+'-11-03',kind:'iv',note:'Up to '+SC.IV_SEASON+' in-season interviews with watch-list kids (until Mar 31).'},
+    {id:'u17',name:'U17 World Challenge',short:'U17',date:s+'-11-03',kind:'future',note:'Next year’s class on display. Future-file kids are cheaper to see.'},
+    {id:'wjc',name:'World Juniors',short:'WJC',date:s+'-12-28',span:2,kind:'big',note:'Best-on-best U20. Big games reveal compete.'},
+    {id:'tpg',name:'CHL/USA Top Prospects Game',short:'TOP PROSPECTS',date:y+'-01-25',kind:'big',note:'Every scout in one rink. Leaks open this week.'},
+    {id:'playoffs',name:'Junior & NCAA playoffs',short:'PLAYOFFS',date:y+'-03-23',span:6,kind:'big',note:'Pressure hockey. Compete shows up; seasons start ending.'},
+    {id:'u18',name:'U18 World Championship',short:'U18s',date:y+'-04-23',span:2,kind:'big',note:'Europeans and NTDP kids on one sheet.'},
+    {id:'memcup',name:'Memorial Cup',short:'MEM CUP',date:y+'-05-22',kind:'big',note:'Four CHL champions. One last big-game look.'},
+    {id:'combine',name:'NHL Scouting Combine',short:'COMBINE',date:y+'-06-01',kind:'combine',note:'Medicals for every invitee and up to '+SC.IV_COMBINE+' interviews.'},
+    {id:'warroom',name:'War room',short:'WAR ROOM',date:y+'-06-15',kind:'warroom',note:'Your scouts pitch. You set the final board.'},
+    {id:'draft',name:'NHL Draft',short:'DRAFT',date:y+'-06-26',kind:'draft',note:'Your final board goes to the draft floor.'}];}
+  function scEventWeeks(S){var out={};scEvents(S.year).forEach(function(e){var w=scWkOf(S,e.date);for(var i=0;i<(e.span||1);i++){(out[w+i]=out[w+i]||[]).push(e);}});return out;}
+  function scEventAt(S,w,kind){return (scEventWeeks(S)[w]||[]).filter(function(e){return !kind||e.kind===kind;})[0]||null;}
+  function scEvWk(S,id){var e=scEvents(S.year).filter(function(x){return x.id===id;})[0];return e?scWkOf(S,e.date):99;}
+  function scClockDate(S){return S.wk<0?scAddDays(scWeek0(S.year),-1):scAddDays(scWkStart(S,S.wk),6);}
+  function scCurWeekLabel(S){if(S.wk<0)return 'PRESEASON';return 'WEEK '+(S.wk+1);}
+  function scWeekRange(S,w){var a=scWkStart(S,w);return scFmt(a)+' – '+scFmt(scAddDays(a,6));}
+  /* ---------- scouts ---------- */
+  function scNewScout(seed,i,role,region,yr,others){others=others||[];var r=scRng(seed+'|scout|'+i),head=role==='head',skill=Math.round(scCl((head?74:62)+scG(r)*(head?6:9),42,92));
+    var b=BIAS_KEYS[Math.floor(r()*BIAS_KEYS.length)];if(head&&b==='none'&&r()<.6)b=BIAS_KEYS[Math.floor(r()*(BIAS_KEYS.length-1))];
+    for(var tr=0;tr<12&&b!=='none'&&others.some(function(o){return o.bias&&o.bias.t===b;});tr++)b=BIAS_KEYS[Math.floor(r()*BIAS_KEYS.length)];
+    var fn=scPick(r,FIRST),ln=scPick(r,LAST);for(var tn=0;tn<12&&others.some(function(o){var q=o.name.split(' ');return q[0]===fn||q.slice(1).join(' ')===ln;});tn++){fn=scPick(r,FIRST);ln=scPick(r,LAST);}
+    var s={id:'s'+scHash(seed+'|'+i).toString(36).slice(0,6),name:fn+' '+ln,age:Math.round(scCl((head?54:46)+scG(r)*8,29,71)),role:role,region:region,skill:skill,
+      salary:Math.round(((head?.55:.22)+skill/100*(head?.45:.35)+r()*.06)*100)/100,bias:{t:b,a:Math.round((2.5+r()*3.5)*10)/10},morale:Math.round(62+r()*12),joined:yr,
+      tips:{hit:0,dud:0},rec:{h:0,m:0,notes:[]}};
+    /* résumé: two hindsight lines; one quietly echoes his bias, one is generic */
+    var past=yr-2-Math.floor(r()*5),gen=['found a seventh-rounder who played 400 NHL games','called a top-10 pick a bust a year early, and was right','turned a QMJHL walk-on into a second-round steal','had the eventual Calder winner in his top three'];
+    s.rec.notes.push({y:past,t:'Hindsight: '+BIAS[b].res+'.',tone:b==='none'?'good':'bad',seed:1});var used=others.map(function(o){return (o.rec.notes[1]||{}).t;}),gl=gen.filter(function(x){return used.indexOf('Hindsight: '+x+'.')<0;});s.rec.notes.push({y:past-2-Math.floor(r()*3),t:'Hindsight: '+scPick(r,gl.length?gl:gen)+'.',tone:'good',seed:1});
+    return s;}
+  function scStaffSalary(S){return S.scouts.reduce(function(n,s){return n+s.salary;},0);}
+  function scHead(S){return S.scouts.filter(function(s){return s.role==='head';})[0]||S.scouts[0];}
+  function scScout(S,id){return S.scouts.filter(function(s){return s.id===id;})[0]||null;}
+  function scBias(S,s,p){var B=BIAS[s.bias&&s.bias.t]||BIAS.none;return B.f(p,s.bias.a||0,S)||0;}
+
+  /* ---------- state ---------- */
+  function scNewState(g,y){var seed='sc-'+Math.random().toString(36).slice(2,10),S={v:SC.V,seed:seed,year:y,wk:-1,scouts:[],budget:SC.BUDGET[g.philosophy]||SC.BUDGET.balanced,
+      watch:[],future:[],intel:{},live:{},plan:{},calls:[],reports:[],rumors:[],mock:null,iv:{season:SC.IV_SEASON,combine:SC.IV_COMBINE,done:{}},leaks:{left:SC.LEAKS,list:[]},war:null,drafts:[],market:null,flags:{}};
+    S.scouts.push(scNewScout(seed,0,'head','ALL',y));['ON','WEST','USA','NORDIC'].forEach(function(r,i){S.scouts.push(scNewScout(seed,i+1,'reg',r,y,S.scouts));});
+    return S;}
+  function scClassList(g){return (g.prospects||[]).filter(function(p){return p&&!p.drafted;});}
+  function scFind(g,id){var l=g.prospects||[];for(var i=0;i<l.length;i++)if(l[i].id===id)return l[i];return null;}
+  function scPub(p){return p.scPub!=null?+p.scPub:(+p.projection||+p.potential||70);}
+  function scPrep(g,S,p){if(p.scT)return p.scT;var r=scRng(S.seed+'|true|'+p.id),a=p.attributes||{},pot=+p.potential||75,tr=scTraits(g,p),sd=+p.potentialSD||(p.generated||p.synthetic?6:4),rank=+p.draftRank||999;
+    var depth=rank>96||!!p.addType||!!p.generated,boom=depth&&r()<(rank>150?.08:.06),ba=boom?6+Math.floor(r()*7):0;if(boom)p.potential=scCl(pot+ba,55,97);
+    var traj=scCl(scG(r)*sd*.45+(boom?1.2:0),-6,6);
+    p.scT={iq:Math.round(scCl(((+a.puck||65)+(+a.defense||65))/2+scG(r)*5,45,97)),cp:Math.round(scCl(50+(tr.cmp-50)*.55+(pot-80)*.3+scG(r)*8,25,97)),inj:Math.round(scCl(28+scG(r)*16+(p.pos==='G'?-4:0),3,95)),
+      boom:boom?1:0,ba:ba,traj:Math.round(traj*10)/10};
+    if(p.scPub==null)p.scPub=+p.projection||pot;p.scPrev=+p.draftRank||0;return p.scT;}
+  function scIntel(S,id,make){var I=S.intel[id];if(!I&&make)I=S.intel[id]={k:{},v:0,lv:0,bg:0,wk:-1,ch:{},med:0,boom:0,h:[],rum:null,iv:0};return I||null;}
+  function scK(I){if(!I)return 0;var v=Object.keys(I.k).map(function(k){return I.k[k];}).sort(function(a,b){return b-a;});return Math.min(100,(v[0]||0)+.35*(v[1]||0)+.15*(v[2]||0));}
+  function scTier(K){return K<=0?0:K<SC.TIER[1]?1:K<SC.TIER[2]?2:3;}
+  /* a scout's read of a player: truth + his hidden bias + an error that shrinks as he sees more */
+  function scView(S,s,p){var I=S.intel[p.id],k=I&&I.k[s.id]||0;if(!k)return null;var t=p.scT||{},a=p.attributes||{},sig=(1-k/115)*(2+(100-s.skill)/9),b=scBias(S,s,p),
+      e=function(tag){return scGs(S.seed+'|e|'+s.id+'|'+p.id+'|'+tag);};
+    var v={k:k,s:s,pot:(+p.potential)+b+e('p')*sig,ovr:(+p.ovr)+b*.35+e('o')*sig*.6,tr:{}};
+    var base={sk:+a.skating||65,sh:+a.shooting||65,pk:+a.puck||65,df:+a.defense||65,iq:t.iq||65,cp:t.cp||60};
+    Object.keys(base).forEach(function(key){v.tr[key]=base[key]+b*.4+e(key)*sig*1.3;});return v;}
+  function scViews(S,p){return S.scouts.map(function(s){return scView(S,s,p);}).filter(Boolean);}
+  /* combined department read */
+  function scRead(S,p){var I=S.intel[p.id],K=scK(I),T=scTier(K),vs=scViews(S,p);if(!T||!vs.length)return {K:K,T:0,views:vs,I:I};
+    var w=0,pot=0,ovr=0,tr={};vs.forEach(function(v){var x=Math.pow(v.k,1.3);w+=x;pot+=v.pot*x;ovr+=v.ovr*x;Object.keys(v.tr).forEach(function(k){tr[k]=(tr[k]||0)+v.tr[k]*x;});});
+    pot/=w;ovr/=w;Object.keys(tr).forEach(function(k){tr[k]/=w;});
+    var sdf=scCl((+p.potentialSD||4)/4,.75,1.6),half=Math.max(1,Math.round(1+10*Math.pow(1-K/100,1.3)*sdf)),oh=Math.max(1,Math.round(half*.6));
+    var conflict=null;var solid=vs.filter(function(v){return v.k>=15;});if(solid.length>=2){var hi=solid.reduce(function(a,b){return b.pot>a.pot?b:a;}),lo=solid.reduce(function(a,b){return b.pot<a.pot?b:a;});if(hi.pot-lo.pot>=5)conflict={hi:hi,lo:lo,gap:Math.round(hi.pot-lo.pot)};}
+    return {K:K,T:T,I:I,views:vs,pot:pot,ovr:ovr,tr:tr,lo:Math.round(scCl(pot-half,40,99)),hi:Math.round(scCl(pot+half,40,99)),olo:Math.round(scCl(ovr-oh,40,99)),ohi:Math.round(scCl(ovr+oh,40,99)),conflict:conflict};}
+  /* value used for your board: your read when you have one, else the public projection with an "unknown" haircut */
+  function scBoardValue(S,p){var R=scRead(S,p);if(R.T>=1){var est=R.pot*.75+R.ovr*.25+ (R.I&&R.I.boom?4:0);var trust=Math.min(1,R.K/60);return est*trust+(scPub(p)*.75+(+p.ovr||62)*.25)*(1-trust);}return scPub(p)*.75+(+p.ovr||62)*.25-1.5;}
+  function scVague(S,p,R){var tr=R.tr||{},list=[['sk','skates well','skating is a question'],['sh','can really shoot it','shot needs work'],['pk','sees the ice','hands are average'],['df','defends hard','defensive game is a work in progress']];
+    var s=list.map(function(x){return [x,(tr[x[0]]||65)];}).sort(function(a,b){return b[1]-a[1];});var top=s[0][0],bot=s[s.length-1][0];return [top[1]+'?',bot[2]+'?'];}
+
+  /* ---------- classes: real data through Build Bot's hook (data/draft-classes.js) ---------- */
+  function scRealData(y){var C=window.CTFO_DRAFT_CLASSES,d=C&&C[y];return d&&d.players&&d.players.length?d:null;}
+  function scAgeAt(dob,iso){if(!dob)return null;var b=scDate(dob),d=scDate(iso),a=d.getUTCFullYear()-b.getUTCFullYear();if(d.getUTCMonth()<b.getUTCMonth()||(d.getUTCMonth()===b.getUTCMonth()&&d.getUTCDate()<b.getUTCDate()))a--;return a;}
+  function scBuildRealClass(y,clubId,g){var d=scRealData(y);if(!d)return null;var list=d.players.slice().sort(function(a,b){return (a.consensusRank||9999)-(b.consensusRank||9999);}),r=scRng('sc-real|'+y),out=[];
+    list.forEach(function(x,i){var pos=x.position||'C',age=scAgeAt(x.dob,y+'-06-26')||18,ovr=+x.ovr||62,p=makePlayer(x.name,pos,ovr,0.925,age,clubId||'BOS',true,r);
+      p.id='draft-'+y+'-ep-'+(x.epId||i);p.potential=+x.potential||p.potential;p.projection=+x.projection||p.potential;p.draftRank=i+1;p.consensusRank=x.consensusRank||i+1;p.draftYear=y;p.years=3;p.scouted=false;
+      if(x.attributes)p.attributes={skating:+x.attributes.skating,shooting:+x.attributes.shooting,puck:+x.attributes.puck,defense:+x.attributes.defense};
+      p.level='Development Camp';p.real=true;p.generated=!!x.generated;p.synthetic=!!x.generated;p.ctfoDob=x.dob;p.shoots=x.shoots||p.shoots;p.heightCm=x.heightCm;p.weightKg=x.weightKg;p.nationality=x.nationality;
+      p.league=x.league;p.leagueCode=x.leagueCode;p.amateurTeam=x.team;p.stats=x.stats||null;p.region=x.region||p.region;p.potentialSD=x.potentialSD;p.scoutingNote=x.scoutingNote||'';p.addType=x.addType||'';p.boardFlag=x.boardFlag||'';if(x.birthplace)p.birthplace=x.birthplace;
+      p.dataSource='Real '+y+' draft class: '+(d.source||'CTFO prospect board');p.ratingSource='Prospect board v1 (consensus-calibrated estimate)';p.contractSource='Simulation estimate';out.push(p);});
+    return out;}
+  /* future-class preview (next year's real data), used for the light "future file" */
+  function scFuturePool(S){var y=S.year+1,d=scRealData(y);if(!d)return [];if(S._fp&&S._fp.y===y)return S._fp.list;var list=d.players.slice().sort(function(a,b){return (a.consensusRank||9999)-(b.consensusRank||9999);}).slice(0,60).map(function(x,i){
+      return {id:'draft-'+y+'-ep-'+(x.epId||i),name:x.name,pos:x.position,ovr:+x.ovr||60,potential:+x.potential||80,projection:+x.projection||80,draftRank:i+1,league:x.league,leagueCode:x.leagueCode,amateurTeam:x.team,nationality:x.nationality,heightCm:x.heightCm,attributes:x.attributes||{},potentialSD:x.potentialSD,future:true,age:(scAgeAt(x.dob,y+'-06-26')||18)-1,stats:x.stats};});
+    Object.defineProperty(S,'_fp',{value:{y:y,list:list},enumerable:false,configurable:true,writable:true});return list;}
+
+  /* ---------- ensure / rollover / migration ---------- */
+  function scEnsure(g){if(!g||!g.startYear)return null;var y=scDraftYear(g),S=g.scouting;
+    if(!S||S.v!==SC.V){S=g.scouting=scNewState(g,y);scSwapRealClass(g,S,true);scStartClass(g,S);}
+    else if(S.year!==y&&!(g.stage==='offseason'&&S.year===y-1))scRollover(g,S,y);
+    return S;}
+  /* old saves: a fictional class that nobody has scouted yet is swapped for the real one (same draft year) */
+  function scSwapRealClass(g,S,fresh){var list=g.prospects||[];if(!list.length)return;if(!list.every(function(p){return p.generated||p.synthetic;}))return;if(list.some(function(p){return (+p.scoutReportLevel||0)>0;}))return;
+    if(g.stage!=='regular'||(g.offseason&&g.offseason.liveDraft))return;var real=null;if(window.CTFODraft){if(!scRealData(S.year))return;try{real=makeProspects(S.year-Number(g.startYear||2026),g.team,g);}catch(e){real=null;}if(!real||!real.some(function(p){return p.real;}))return;}else real=scBuildRealClass(S.year,g.team,g);if(real){g.prospects=real;g.draftClassSize=0;g.draftClassStrength='';}}
+  function scStartClass(g,S){var list=scClassList(g);list.forEach(function(p){scPrep(g,S,p);});
+    /* summer file (Hlinka / August camps): each scout has early notes on the best kids in his region */
+    S.scouts.forEach(function(s){list.filter(function(p){return s.region==='ALL'?(+p.draftRank||999)<=20:scRegion(p)===s.region&&(+p.draftRank||999)<=90;}).slice(0,s.region==='ALL'?14:10).forEach(function(p){var I=scIntel(S,p.id,true);I.k[s.id]=Math.max(I.k[s.id]||0,5+Math.round(scR(S.seed+'|sum|'+s.id+p.id)*7));I.v++;});});
+    /* carried-over future-file work */
+    list.forEach(function(p){var I=S.intel[p.id];if(I&&I.fut){delete I.fut;}});
+    if(!S.watch.length)S.watch=list.slice().sort(function(a,b){return (a.draftRank||999)-(b.draftRank||999);}).slice(0,10).map(function(p){return p.id;});
+    S.flags.started=S.year;scSyncReports(g,S);}
+  function scRollover(g,S,y){var keep={};(S.future||[]).forEach(function(id){keep[id]=1;});
+    var intel={};Object.keys(S.intel).forEach(function(id){if(keep[id]||id.indexOf('draft-'+y+'-')===0)intel[id]=S.intel[id];});
+    S.year=y;S.wk=-1;S.intel=intel;S.live={};S.plan={};S.calls=[];S.reports=[];S.rumors=[];S.mock=null;S.war=null;S.market=null;S.iv={season:SC.IV_SEASON,combine:SC.IV_COMBINE,done:{}};S.leaks={left:SC.LEAKS,list:[]};
+    var list=scClassList(g),ids={};list.forEach(function(p){ids[p.id]=1;});S.watch=(S.future||[]).filter(function(id){return ids[id];});S.future=[];S.flags={};
+    S.scouts.forEach(function(s){s.morale=Math.round(scCl(s.morale+(65-s.morale)*.5,10,95));});
+    scStartClass(g,S);}
+  /* keep the game's own report fields in sync, so other screens (and v9's auto-pick) read the fogged view */
+  function scSyncReports(g,S){scClassList(g).forEach(function(p){var R=scRead(S,p);if(R.T>=2){p.scouted=true;p.scoutReportLevel=R.T===3?3:2;p.scoutReport={low:R.lo,high:R.hi,currentLow:R.olo,currentHigh:R.ohi,confidence:Math.round(R.K),label:R.T===3?'Final report':'Cross-check',updatedSeason:g.season,source:'scouting-v2'};}
+      else if(R.T===1){p.scouted=false;p.scoutReportLevel=1;p.scoutReport={low:R.lo,high:R.hi,currentLow:R.olo,currentHigh:R.ohi,confidence:Math.round(R.K),label:'First look',updatedSeason:g.season,source:'scouting-v2'};}
+      else{p.scouted=false;p.scoutReportLevel=0;p.scoutReport=null;}});}
+  /* ---------- living prospect season ---------- */
+  function scLive(S,id){return S.live[id]||(S.live[id]={gp:0,g:0,a:0,pts:0,sa:0,sv:0,st:0,inj:0,dp:0,l:[]});}
+  function scExpPpg(p){var L=LG[scLtype(p)]||LG.EURO_JR,a=p.attributes||{},skill=scCl(((+p.ovr||62)-58)/26*.6+(((+a.shooting||65)+(+a.puck||65))/2-60)/30*.4,0,1),v=L.ppg[0]+(L.ppg[1]-L.ppg[0])*skill;return p.pos==='D'?v*.55:v;}
+  function scPpgEdge(S,p){var L=S.live&&S.live[p.id];if(!L||L.gp<6||p.pos==='G')return 0;return (L.pts/L.gp-scExpPpg(p))/.4;}
+  function scStatLine(S,p){var L=S.live[p.id];if(!L||!L.gp){var s=p.stats;if(s&&s.gp)return (s.season||'Last season')+': '+(p.pos==='G'?s.gp+' GP · '+(s.svp!=null?String(s.svp).replace(/^0/,''):'')+' SV%':s.gp+' GP · '+s.g+'-'+s.a+'-'+s.pts);return 'No games yet';}
+    if(p.pos==='G'){var svp=L.sa?(L.sv/L.sa):0;return L.gp+' GP · '+svp.toFixed(3).replace(/^0/,'')+' SV% · '+(L.gp?((L.sa-L.sv)/L.gp).toFixed(2):'0.00')+' GAA';}
+    return L.gp+' GP · '+L.g+'-'+L.a+'-'+L.pts+' · '+(L.pts/L.gp).toFixed(2)+' P/GP';}
+  function scInSeason(S,p,w){var iso=scWkStart(S,w),L=LG[scLtype(p)]||LG.EURO_JR,end=S.year+'-'+L.end;if(iso<scAddDays(scWeek0(S.year),2))return false;if(iso<=end)return true;
+    /* playoffs / spring events: seeded share of kids keep playing */
+    var alive=scR(S.seed+'|po|'+(p.amateurTeam||p.id));var weeksIn=Math.floor((scDate(iso)-scDate(end))/864e5/7);return weeksIn<2?alive<.62:weeksIn<4?alive<.35:weeksIn<7?alive<.14:false;}
+  function scSeasonWeek(g,S,w){var moves=[],injuries=[];scClassList(g).forEach(function(p){scPrep(g,S,p);var L=scLive(S,p.id),r=scRng(S.seed+'|wk|'+w+'|'+p.id),t=p.scT;
+      /* true development: a seeded season trajectory plus noise; risers and fallers are real */
+      L.dp+=t.traj/26+scG(r)*.12;while(Math.abs(L.dp)>=1){var d=L.dp>0?1:-1;p.potential=scCl((+p.potential)+d,50,99);L.dp-=d;moves.push([p.id,d]);}
+      if(r()<.045+Math.max(0,t.traj)*.006){p.ovr=Math.min(+p.potential,(+p.ovr)+1);}
+      if(L.inj>0){L.inj--;L.l.push(-1);if(L.l.length>6)L.l.shift();return;}
+      if(!scInSeason(S,p,w)){return;}
+      if(r()<.004+t.inj/100*.012){L.inj=1+Math.floor(r()*6);injuries.push(p.id);L.l.push(-1);if(L.l.length>6)L.l.shift();return;}
+      /* streaks: a 3-state chain leaning toward the true trajectory */
+      var u=r();if(L.st===0){if(u<.14+Math.max(0,t.traj)*.02)L.st=1;else if(u>.86+Math.max(0,t.traj)*.02)L.st=-1;}else if(u<.38)L.st=0;
+      var Lg=LG[scLtype(p)]||LG.EURO_JR,games=Math.max(0,Math.round(Lg.gpw+scG(r)*.6));if(!games){return;}
+      var ev=scEventAt(S,w,'big');if(ev&&(ev.id==='wjc')&&(+p.draftRank||999)>40)games=Math.max(0,games-1);
+      L.gp+=games;
+      if(p.pos==='G'){var shots=Math.round(games*(28+scG(r)*3)),svp=scCl(.886+((+p.ovr)-65)*.0018+L.st*.008+scG(r)*.012,.84,.95),sv=Math.round(shots*svp);L.sa+=shots;L.sv+=sv;L.l.push(Math.round((shots-sv)/games*10)/10);}
+      else{var lam=scExpPpg(p)*games*(L.st>0?1.4:L.st<0?.6:1)*(1+(((+p.potential)-(+p.potential-(t.traj||0)))/40)),pts=scPois(r,lam),gl=0;for(var i=0;i<pts;i++)if(r()<(p.pos==='D'?.25:.42))gl++;L.g+=gl;L.a+=pts-gl;L.pts=(L.pts||0)+pts;L.l.push(pts);}
+      if(L.l.length>6)L.l.shift();});
+    return {moves:moves,injuries:injuries};}
+  /* public (media) board drifts toward the truth with a persistent media error; draftRank is the public consensus */
+  function scPublicWeek(g,S){var list=scClassList(g);list.forEach(function(p){var L=S.live[p.id]||{},tgt=(+p.potential)+scGs(S.seed+'|media|'+p.id)*2.4+(L.st||0)*.8+scCl(scPpgEdge(S,p),-1.5,1.5)*.9+scLeakPublic(S,p);
+      p.scPub=Math.round((scPub(p)+scCl(.12*(tgt-scPub(p)),-1.2,1.2))*10)/10;p.projection=Math.round(p.scPub);});
+    list.forEach(function(p){p.scPrev=+p.draftRank||0;});list.slice().sort(function(a,b){return b.scPub-a.scPub||(a.scPrev-b.scPrev);}).forEach(function(p,i){p.draftRank=i+1;});}
+
+  /* ---------- travel & assignments ---------- */
+  function scCost(s,p,mode){if(mode==='video')return 1;var r=scRegion(p);if(s.region==='ALL')return NA[r]?2:3;if(s.region===r)return 2;return (NA[s.region]&&NA[r])||(!NA[s.region]&&!NA[r])?3:4;}
+  function scPlanOf(S,sid){return S.plan[sid]||(S.plan[sid]={auto:true,trips:[]});}
+  function scBigVenue(S,w,p){var ev=scEventAt(S,w,'big');if(!ev)return null;var rank=+p.draftRank||999,r=scR(S.seed+'|ev|'+ev.id+'|'+p.id),t=scLtype(p);
+    var inn=ev.id==='wjc'?rank<=30&&r<.55:ev.id==='tpg'?(t==='CHL'||t==='NCAA_BOUND')&&rank<=80&&r<.7:ev.id==='u18'?(t!=='CHL'||r<.3)&&rank<=120&&r<.75:ev.id==='memcup'?t==='CHL'&&r<.12:ev.id==='playoffs'?scInSeason(S,p,w):false;return inn?ev:null;}
+  /* a week plan for every scout: tips first, then your trips, then AUTO fills the rest (watch list, then future file) */
+  function scPlanWeek(g,S,w){var out={},list=scClassList(g),byId={};list.forEach(function(p){byId[p.id]=p;});
+    S.scouts.forEach(function(s){var P=scPlanOf(S,s.id),days=SC.DAYS,trips=[],seen={};
+      function add(p,mode,why,cost){if(!p||seen[p.id])return false;cost=cost==null?scCost(s,p,mode):cost;var ev=mode==='live'&&scBigVenue(S,w,p);if(ev)cost=Math.min(cost,2);if(cost>days)return false;days-=cost;seen[p.id]=1;trips.push({pid:p.id,mode:mode,why:why,cost:cost,ev:ev?ev.id:null});return true;}
+      S.calls.filter(function(c){return c.wk===w&&c.status==='sent'&&c.sent===s.id;}).forEach(function(c){add(byId[c.pid],'live','tip',2);});
+      (P.trips||[]).forEach(function(t){add(byId[t.pid],t.mode,'you');});
+      if(P.auto!==false){var cand=S.watch.map(function(id){return byId[id];}).filter(Boolean).filter(function(p){return !seen[p.id];}).map(function(p){var I=S.intel[p.id],k=I&&I.k[s.id]||0,K=scK(I),inj=(S.live[p.id]||{}).inj>0;
+          return {p:p,score:(scRegion(p)===s.region?-35:0)+(s.region==='ALL'?-(60-Math.min(60,K))*.5:0)+K*.6+k*.4+(inj?200:0)+(scBigVenue(S,w,p)?-25:0)};}).sort(function(a,b){return a.score-b.score;});
+        cand.forEach(function(c){var p=c.p,inj=(S.live[p.id]||{}).inj>0,big=scBigVenue(S,w,p),liveCost=big?2:scCost(s,p,'live'),K=scK(S.intel[p.id]);
+          if(inj||!scInSeason(S,p,w)){if(days>=1)add(p,'video','auto');return;}
+          if((scRegion(p)===s.region||s.region==='ALL'||big||K<20)&&liveCost<=days&&!(days-liveCost<1&&cand.length>trips.length+2&&!big&&s.region!=='ALL'&&scRegion(p)!==s.region))add(p,'live','auto');else if(days>=1)add(p,'video','auto');});
+        if(days>0)(S.future||[]).forEach(function(id){if(days<=0)return;var fp=scFuturePool(S).filter(function(x){return x.id===id;})[0];if(fp&&!seen[id]){var ev=scEventAt(S,w,'future');var mode=ev&&days>=2?'live':'video',c=mode==='live'?2:1;if(c<=days){days-=c;seen[id]=1;trips.push({pid:id,mode:mode,why:'future',cost:c,future:1});}}});}
+      out[s.id]={trips:trips,left:days};});
+    return out;}
+  function scGainFor(S,s,p,mode,ev,w){var g0=mode==='live'?SC.GAIN.live:mode==='video'?SC.GAIN.video:SC.GAIN.tape;var f=(.6+s.skill/100*.6)*(.8+s.morale/500)*(mode==='live'&&scRegion(p)===s.region?SC.REGION_MULT:1)*(ev?SC.EVENT_MULT:1);return g0*f;}
+  function scAddK(I,sid,gain){var k=I.k[sid]||0;I.k[sid]=Math.round(Math.min(100,k+gain*(1-k/110))*10)/10;}
+
+  /* ---------- AI clubs: their own scouts, biases and leak exposure ---------- */
+  function scTeamProf(S,id){var r=scRng(S.seed+'|club|'+id);return {bias:{t:BIAS_KEYS[Math.floor(r()*BIAS_KEYS.length)],a:1.5+r()*2.5},sig:1.2+r()*1.8,gull:.3+r()*.6};}
+  function scLeakFx(S,id,p){var fx=0,prof=scTeamProf(S,id);(S.leaks.list||[]).forEach(function(L,i){if(L.pid!==p.id)return;var n=S.leaks.list.slice(0,i).filter(function(x){return x.pid===p.id;}).length;fx+=L.dir*SC.LEAK_AMT*prof.gull*(n?.5:1)*(L.back?-.5:1);});return fx;}
+  function scLeakPublic(S,p){var fx=0;(S.leaks&&S.leaks.list||[]).forEach(function(L){if(L.pid===p.id)fx+=L.dir*(L.back?-.4:.8);});return fx;}
+  /* consensus tightens at the top: clubs disagree far less about the top five than about the second round */
+  function scAiValue(g,S,id,p){scPrep(g,S,p);var prof=scTeamProf(S,id),B=BIAS[prof.bias.t]||BIAS.none,rk=+p.draftRank||99,f=rk<=5?.4:rk<=12?.6:rk<=32?.85:1;return .35*(+p.potential)+.65*scPub(p)+(B.f(p,prof.bias.a,S)+scGs(S.seed+'|ai|'+id+'|'+p.id)*prof.sig)*f+scLeakFx(S,id,p);}
+  function scSlotOrder(g){var ids=teams.map(function(t){return t.id;});try{return ids.slice().sort(function(a,b){return draftSlotForTeam(g,a)-draftSlotForTeam(g,b);});}catch(e){return ids;}}
+  function scMock(g,S){var order=scSlotOrder(g),pool=scClassList(g).slice().sort(function(a,b){return a.draftRank-b.draftRank;}).slice(0,90),taken={},list=[];
+    order.forEach(function(id){var best=null,bv=-1e9;pool.forEach(function(p){if(taken[p.id])return;var v=id===g.team?scBoardValue(S,p):scAiValue(g,S,id,p);if(v>bv){bv=v;best=p;}});if(best){taken[best.id]=1;list.push([id,best.id]);}});
+    var prev={};if(S.mock)S.mock.list.forEach(function(x,i){prev[x[1]]=i+1;});S.mock={wk:S.wk,list:list,prev:prev};}
+  function scInterest(g,S,p){var order=scSlotOrder(g),out=[];order.forEach(function(id,i){if(id===g.team)return;var v=scAiValue(g,S,id,p),rank=1;scClassList(g).forEach(function(q){if(q!==p&&(+q.draftRank||999)<=Math.max(40,(+p.draftRank||99)+30)&&scAiValue(g,S,id,q)>v)rank++;});if(rank<=i+5&&rank>=i-12)out.push(id);});return out;}
+
+  /* ---------- the weekly tick ---------- */
+  function scItem(S,w,type,text,pid,tone){return {w:w,type:type,text:text,pid:pid||null,tone:tone||''};}
+  function scWeekTick(g,w){var S=g.scouting,items=[],list=scClassList(g),byId={};list.forEach(function(p){byId[p.id]=p;});S.wk=w;
+    var evs=scEventWeeks(S)[w]||[];evs.forEach(function(e){if(e.kind!=='pre')items.push(scItem(S,w,'event',e.name+': '+e.note,null,'gold'));});
+    var before={};S.watch.forEach(function(id){var p=byId[id];if(p){var R=scRead(S,p);before[id]={T:R.T,lo:R.lo,hi:R.hi,mid:R.T?(R.lo+R.hi)/2:null,conf:!!R.conflict,boom:R.I&&R.I.boom};}});
+    var sea=scSeasonWeek(g,S,w);scPublicWeek(g,S);
+    sea.injuries.forEach(function(id){if(S.watch.indexOf(id)>=0&&byId[id])items.push(scItem(S,w,'injury',byId[id].name+' is hurt and out '+(S.live[id].inj)+' week'+(S.live[id].inj===1?'':'s')+'. Live trips will be wasted until he is back.',id,'red'));});
+    /* scouts at work */
+    var plan=scPlanWeek(g,S,w),seenBy={};
+    S.scouts.forEach(function(s){(plan[s.id].trips||[]).forEach(function(t){
+      if(t.future){var I0=scIntel(S,t.pid,true);I0.fut=1;scAddK(I0,s.id,SC.GAIN.future*(t.mode==='live'?2:1)*(.6+s.skill/100*.6));I0.v++;return;}
+      var p=byId[t.pid];if(!p)return;var I=scIntel(S,p.id,true),L=S.live[p.id]||{},inj=L.inj>0,playing=scInSeason(S,p,w);
+      var mode=t.mode==='live'&&(inj||!playing)?'tape':t.mode,ev=t.ev?scEventAt(S,w,'big'):null,gain=scGainFor(S,s,p,mode,ev,w);
+      if(t.why==='tip'){var c=S.calls.filter(function(c){return c.wk===w&&c.pid===p.id&&c.status==='sent'&&c.sent===s.id;})[0];if(c){if(c.genuine){gain=SC.GAIN.tip*(.6+s.skill/100*.6);c.result='hit';var caller=scScout(S,c.sid);if(caller)caller.tips.hit++;items.push(scItem(S,w,'tip','Tip paid off: '+s.name+' saw '+p.name+' take over '+(p.pos==='G'?'the game in net':'a game')+' for '+scClub(p)+'. '+(caller&&caller!==s?caller.name+' was right.':''),p.id,'green'));if(p.scT.boom&&I.lv>=3&&!I.boom&&S.watch.indexOf(p.id)>=0&&scR(S.seed+'|tipboom|'+p.id)<.5){I.boom=1;items.push(scItem(S,w,'gem','💎 Hidden gem: '+s.name+' is convinced '+p.name+' has a much higher ceiling than anyone thinks.',p.id,'gold'));}}
+          else{gain=SC.GAIN.dud;c.result='dud';var caller2=scScout(S,c.sid);if(caller2)caller2.tips.dud++;items.push(scItem(S,w,'tip','Dud: '+p.name+' was ordinary when '+s.name+' got there. '+(caller2?caller2.name+'’s tip didn’t pan out.':''),p.id,'red'));}c.status='done';}}
+      scAddK(I,s.id,gain);I.v++;if(mode==='live'){I.lv++;if(ev||scEventAt(S,w,'big'))I.bg++;}I.wk=w;(seenBy[p.id]=seenBy[p.id]||[]).push(s.name+(mode==='live'?'':mode==='video'?' (video)':' (tape)'));
+      if(mode==='live'&&S.watch.indexOf(p.id)>=0&&p.scT.boom&&!I.boom&&I.lv>=SC.BOOM_VIEWS&&scR(S.seed+'|boom|'+p.id+'|'+w)<.25*(.6+s.skill/100*.6)){I.boom=1;items.push(scItem(S,w,'gem','💎 Hidden gem: after '+I.lv+' live looks, '+s.name+' flags '+p.name+' as a late-round boom candidate.',p.id,'gold'));}});});
+    /* missed tips (you passed) */
+    S.calls.filter(function(c){return c.wk===w&&(c.status==='open'||c.status==='declined');}).forEach(function(c){c.status='passed';var p=byId[c.pid],s=scScout(S,c.sid);if(!p||!s)return;if(c.genuine){s.tips.hit++;items.push(scItem(S,w,'miss','You passed on '+s.name+'’s tip. '+p.name+' had a big night for '+scClub(p)+' and you had nobody there.',p.id,'amber'));}else s.tips.dud++;});
+    /* what changed in your read */
+    var after=[];S.watch.forEach(function(id){var p=byId[id];if(!p)return;var R=scRead(S,p),b=before[id]||{};
+      if(R.T>b.T){items.push(scItem(S,w,'reveal',p.name+': '+(R.T===1?'first notes in. '+scVague(S,p,R).join(' '):R.T===2?'grades in. POT '+R.lo+'–'+R.hi+', OVR '+R.olo+'–'+R.ohi+'.':'locked in. POT '+R.lo+'–'+R.hi+'.')+(seenBy[id]?' Seen by '+seenBy[id].join(', ')+'.':''),id,'blue'));}
+      else if(R.T>=2&&b.mid!=null){var mid=(R.lo+R.hi)/2,d=mid-b.mid;if(d>=2.5)items.push(scItem(S,w,'riser','Riser: '+p.name+' trending up in your room (POT '+R.lo+'–'+R.hi+').',id,'green'));else if(d<=-2.5)items.push(scItem(S,w,'faller','Faller: '+p.name+' slipping on your board (POT '+R.lo+'–'+R.hi+').',id,'red'));}
+      if(R.conflict&&!b.conf)items.push(scItem(S,w,'conflict','Scouts split on '+p.name+': '+R.conflict.hi.s.name+' sees POT ~'+Math.round(scCl(R.conflict.hi.pot,40,99))+', '+R.conflict.lo.s.name+' ~'+Math.round(scCl(R.conflict.lo.pot,40,99))+'. Send a third set of eyes.',id,'amber'));
+      if(R.I&&R.I.bg===1&&seenBy[id]&&scEventAt(S,w,'big'))items.push(scItem(S,w,'reveal',p.name+': big-game look. Compete grade now on file.',id,'blue'));
+      if(R.T){R.I.h.push([w,R.lo,R.hi]);if(R.I.h.length>10)R.I.h.shift();}});
+    /* public movers */
+    var movers=list.filter(function(p){return p.scPrev&&(+p.draftRank)<=120;}).map(function(p){return [p,p.scPrev-p.draftRank];}).sort(function(a,b){return Math.abs(b[1])-Math.abs(a[1]);}).slice(0,2);
+    movers.forEach(function(m){if(Math.abs(m[1])>=6)items.push(scItem(S,w,m[1]>0?'riser':'faller','Public board: '+m[0].name+' '+(m[1]>0?'↑':'↓')+Math.abs(m[1])+' to #'+m[0].draftRank+'.',m[0].id,m[1]>0?'green':'red'));});
+    /* special weeks */
+    if(evs.some(function(e){return e.kind==='combine';}))items=items.concat(scCombine(g,S,w));
+    /* rumors, mock, calls */
+    if(w>=5){var watchP=S.watch.map(function(id){return byId[id];}).filter(Boolean),r=scRng(S.seed+'|rum|'+w);for(var i=0;i<2&&watchP.length;i++){var p=watchP[Math.floor(r()*watchP.length)],who=scInterest(g,S,p).slice(0,3);if(who.length){var txt='Scouts from '+who.map(scTeamName).join(', ')+' were in '+(scEventAt(S,w,'big')?scEventAt(S,w,'big').name:scClub(p))+' to see '+p.name+'.';S.rumors.unshift({w:w,pid:p.id,text:txt,teams:who});items.push(scItem(S,w,'rumor',txt,p.id,''));}}S.rumors=S.rumors.slice(0,30);}
+    if(w>=4)scMock(g,S);
+    scMakeCalls(g,S,w+1);
+    S.scouts.forEach(function(s){s.morale=Math.round(scCl(s.morale+(s.morale<65?1:s.morale>75?-1:0),5,99));S.plan[s.id]&&(S.plan[s.id].trips=[]);});
+    S.calls=S.calls.filter(function(c){return c.wk>=w-3;});
+    var rep={w:w,date:scWkStart(S,w),items:items.slice(0,18),plan:{}};Object.keys(plan).forEach(function(k){rep.plan[k]=plan[k].trips.length;});S.reports.unshift(rep);S.reports=S.reports.slice(0,10);
+    scSyncReports(g,S);scWeekNews(g,S,rep);return rep;}
+  function scWeekNews(g,S,rep){var top=rep.items.filter(function(x){return x.type==='gem'||x.type==='tip'||x.type==='conflict'||x.type==='event';})[0]||rep.items.filter(function(x){return x.type==='riser';})[0];if(!top)return;
+    g.transactionLog=g.transactionLog||[];g.transactionLog.unshift({when:scFmt(rep.date)+' · SCOUTING',text:top.text,teams:[g.team],tag:'SCOUTING'});var k=0;g.transactionLog=g.transactionLog.filter(function(x){return x.tag!=='SCOUTING'||++k<=3;}).slice(0,80);} /* keep only the 3 latest scouting notes so trades never get pushed out */
+  function scMakeCalls(g,S,w){var byId={};scClassList(g).forEach(function(p){byId[p.id]=p;});var watch=S.watch.map(function(id){return byId[id];}).filter(Boolean);if(!watch.length)return;var made=0;
+    S.scouts.forEach(function(s){if(made>=SC.CALLS_MAX)return;var r=scRng(S.seed+'|call|'+w+'|'+s.id);if(r()>(s.role==='head'?SC.CALL_CHANCE.head:SC.CALL_CHANCE.reg))return;
+      var q=scCl(.3+s.skill/100*.5+(s.morale-60)/400,.2,.9),genuine=r()<q,mine=watch.filter(function(p){return (s.region==='ALL'||scRegion(p)===s.region)&&scInSeason(S,p,w)&&!((S.live[p.id]||{}).inj>0);});if(!mine.length)return;
+      var hot=mine.filter(function(p){var L=S.live[p.id]||{};return L.st>0||p.scT.traj>1.5||p.scT.boom;}),cold=mine.filter(function(p){var L=S.live[p.id]||{};return L.st<=0&&p.scT.traj<=1.5&&!p.scT.boom;});
+      var pool=genuine?hot:cold;if(!pool.length){pool=mine;genuine=genuine&&hot.indexOf(pool[0])>=0;}var p=pool[Math.floor(r()*pool.length)];if(S.calls.some(function(c){return c.wk===w&&c.pid===p.id;}))return;
+      var hooks=['he’s flying right now','something clicked for him this month','he’s playing like a top-10 pick','his coach moved him up and he’s taking over','I think we’ve been underrating him'];
+      S.calls.push({id:'c'+w+'-'+s.id,wk:w,sid:s.id,pid:p.id,genuine:genuine,status:'open',text:'You need to see '+p.name+' in '+scClub(p)+' this week. '+hooks[Math.floor(r()*hooks.length)].replace(/^./,function(c){return c.toUpperCase();})+'.'});made++;});}
+
+  /* ---------- clock: game weeks in season, the scouting clock after it ---------- */
+  function scTargetWeek(g,S,date){var cal=g.calendarGames||[],next=null;for(var i=Math.max(0,(g.day||0)-1);i<cal.length;i++){if(cal[i]&&cal[i].date>date){next=cal[i].date;break;}}
+    var w=scWkOf(S,date),sun=scAddDays(scWkStart(S,w),6);return (!next||next>sun)?w:w-1;}
+  function scCatchUp(g,date){var S=scEnsure(g);if(!S||!date)return 0;var tgt=Math.min(scTargetWeek(g,S,date),scEvWk(S,'draft')-1),n=0;while(S.wk<tgt&&n<60){scWeekTick(g,S.wk+1);n++;}return n;}
+  function scCanAdvance(g,S){if(!S)return false;if(g.offseason&&g.offseason.liveDraft)return false;if(g.stage==='regular'&&g.day<(g.calendarGames||[]).length)return false;return S.wk<scEvWk(S,'draft')-1;}
+  function scAdvanceClock(g,n){var S=scEnsure(g),k=0;n=n||1;while(k<n&&scCanAdvance(g,S)){scWeekTick(g,S.wk+1);k++;}return k;}
+  /* ---------- Combine: medicals for invitees ---------- */
+  function scCombine(g,S,w){var items=[],list=scClassList(g),flags=[];list.forEach(function(p){if((+p.draftRank||999)<=100||S.watch.indexOf(p.id)>=0){var I=scIntel(S,p.id,true);I.med=1;if(S.watch.indexOf(p.id)>=0&&p.scT.inj>=55)flags.push(p);}});
+    S.flags.combine=w;items.push(scItem(S,w,'medical','Combine medicals are in for '+list.filter(function(p){return S.intel[p.id]&&S.intel[p.id].med;}).length+' invitees.'+(flags.length?' Red flags on your list: '+flags.map(function(p){return p.name;}).join(', ')+'.':' No major flags on your watch list.'),null,flags.length?'red':'green'));
+    items.push(scItem(S,w,'event','Combine interview rooms are open: '+S.iv.combine+' slots. Prep with your scouts’ rumors first.',null,'gold'));
+    try{g.history.push({year:seasonLabel(g),text:'NHL Scouting Combine: medicals filed for every invitee; '+S.iv.combine+' interview slots available.',tag:'SCOUTING'});}catch(e){}return items;}
+  function scInjLabel(v){return v>=55?'High risk':v>=35?'Moderate':'Clean';}
+
+  /* ---------- interviews ---------- */
+  var QUESTIONS={amb:['Where do you see yourself two years from now?','If we said two more years of junior, what would you think?'],loy:['What would it mean to you if a club believed in you early?'],pat:['Say the plan is three years in the minors. How do you react?'],
+    col:['How important is finishing school to you?'],cmp:['Your coach says you take shifts off. What do you say to that?','Tell me about the last battle you lost that you should have won.'],fam:['Who do you lean on when hockey gets hard?'],
+    con:['What do scouts get wrong about you?'],coa:['Your coach changes your role mid-season. Walk me through how you respond.','What is the best piece of coaching you ever ignored?']};
+  var RUMORS={cmp:['Teammates say he coasts when the game is out of reach.','Billets say he is first on the ice and last off, every day.'],coa:['His junior coach says he tunes out systems talk.','Coaches rave that he applies feedback on the next shift.'],
+    amb:['He has told people he is in no rush to turn pro.','His camp is already talking about NHL minutes next fall.'],loy:['Word is he sees it purely as business.','Hometown type: he wants to feel wanted.'],
+    pat:['He is frustrated he is not playing more already.','Very calm about a long development road.'],con:['Confidence comes and goes after a bad game.','Swagger. Thinks he is the best player in every rink.'],
+    fam:['Moved away from home at 14; very independent.','Family is everything. Mom and dad are at every game.'],col:['Not interested in school at all.','Committed to his school and talking about a degree.']};
+  var ANSWERS={amb:['“I just want to be ready when it’s my time.”','“I want to play in the NHL next year. Period.”'],loy:['“Whoever picks me, it’s a job. I’ll do my job.”','“If a team believes in me, I’ll run through a wall for them.”'],pat:['“Three years? I’d want a faster track than that.”','“If the plan makes sense, I’ll put the work in. No shortcuts.”'],
+    col:['“School isn’t really my thing.”','“My degree matters to me and my family.”'],cmp:['“Sometimes the game’s decided, you know?”','“I hate losing more than I like winning.”'],fam:['“I handle things myself.”','“My family is my rock. Every decision goes through them.”'],
+    con:['“I don’t know… I guess they think I’m not good enough?”','“That I’m not the best player in this class. I am.”'],coa:['“I play my game. It got me here.”','“Tell me what you need and I’ll be that guy.”']};
+  function scIvWindow(g,S){var w=S.wk,inSeason=w>=scEvWk(S,'ivopen')&&scWkStart(S,Math.max(0,w))<=S.year+'-03-31',combine=w>=scEvWk(S,'combine')&&!(g.offseason&&g.offseason.liveDraft);return combine?'combine':inSeason?'season':null;}
+  function scIvLeft(g,S){var k=scIvWindow(g,S);return k?S.iv[k]:0;}
+  function scIvEligible(g,S,p){var k=scIvWindow(g,S);if(!k||S.iv[k]<=0||S.iv.done[p.id])return false;if(k==='season'){var I=S.intel[p.id];return S.watch.indexOf(p.id)>=0&&I&&I.v>0;}return (+p.draftRank||999)<=100||S.watch.indexOf(p.id)>=0;}
+  function scIvPrep(g,S,p){var I=scIntel(S,p.id,true);if(I.rum&&I.rum.y===S.year)return I.rum;var tr=scTraits(g,p),r=scRng(S.seed+'|rum|'+p.id),src=S.scouts.slice().sort(function(a,b){return (I.k[b.id]||0)-(I.k[a.id]||0);}).slice(0,2),used={},rum=[];
+    src.forEach(function(s){var truth=r()<scCl(.4+s.skill/100*.5,.4,.92),keys=PT.map(function(t){return t[0];}).filter(function(k){return !used[k]&&k!=='col';}),key,dir;
+      var notable=keys.filter(function(k){return scBand(tr[k])!=='mid';});if(truth&&notable.length){key=notable[Math.floor(r()*notable.length)];dir=scBand(tr[key])==='high'?1:0;}else{key=keys[Math.floor(r()*keys.length)];var b=scBand(tr[key]);dir=b==='high'?0:b==='low'?1:(r()<.5?1:0);}
+      used[key]=1;rum.push({sid:s.id,k:key,dir:dir,text:RUMORS[key][dir]});});
+    var others=PT.map(function(t){return t[0];}).filter(function(k){return !used[k];}).sort(function(a,b){return scR(S.seed+p.id+a)-scR(S.seed+p.id+b);}).slice(0,4);
+    var qs=rum.map(function(x){return {k:x.k,q:QUESTIONS[x.k][0],tests:x.sid};}).concat(others.map(function(k){return {k:k,q:QUESTIONS[k][QUESTIONS[k].length>1&&scR(S.seed+'|q|'+p.id+k)<.5?1:0]};}));
+    I.rum={y:S.year,list:rum,qs:qs};return I.rum;}
+  function scIvRun(g,S,p,picks){var kind=scIvWindow(g,S);if(!kind||S.iv[kind]<=0||!scIvEligible(g,S,p))return null;var prep=scIvPrep(g,S,p),tr=scTraits(g,p),I=scIntel(S,p.id,true),out=[],max=kind==='combine'?SC.IVQ_COMBINE:SC.IVQ_SEASON;
+    picks.slice(0,max).forEach(function(i){var q=prep.qs[i];if(!q)return;var b=scBand(tr[q.k]),rum=q.tests?prep.list.filter(function(x){return x.sid===q.tests&&x.k===q.k;})[0]:null,res={q:q.q,k:q.k};
+      if(b==='mid'){res.ans='“'+['I just try to work hard and help the team.','I don’t know, I’ve never really thought about it.','Whatever the coaches want, I guess.'][Math.floor(scR(S.seed+p.id+q.k+'a')*3)]+'”';res.rev=null;res.note=rum?'The rumor didn’t hold up. Nothing there.':'Nothing stood out. Wrong question for this kid.';if(rum)rum.res='debunked';}
+      else{var hi=b==='high'?1:0;res.ans=ANSWERS[q.k][hi];res.rev=b;I.ch[q.k]=b;res.note=PTL[q.k]+': '+scTraitLine(q.k,tr[q.k]);if(rum){rum.res=rum.dir===hi?'confirmed':'opposite';res.note=(rum.dir===hi?'Rumor confirmed. ':'The opposite of what you heard. ')+res.note;}}
+      out.push(res);});
+    S.iv[kind]--;S.iv.done[p.id]={kind:kind,w:S.wk,res:out};I.iv++;return out;}
+
+  /* ---------- war room ---------- */
+  function scMyPicks(g,S){var y=S.year;return (g.userPicks||[]).filter(function(p){return Number(p.year)===y;}).map(function(p){var o=0;try{o=draftPickOverall(g,p);}catch(e){}return {pick:p,overall:o,round:Number(p.round)||1};}).sort(function(a,b){return a.overall-b.overall;});}
+  function scNeedLine(g){var needs=[],plan='retool';try{needs=officeNeeds(g,g.team).filter(function(n){return n.level==='High';});}catch(e){}try{plan=officePlan(g,g.team);}catch(e){}
+    var n=needs[0],pos=!n?null:/Defense|defense/.test(n.label)?'D':/Goal/.test(n.label)?'G':/Center/.test(n.label)?'C':/scoring/.test(n.label)?'F':null;
+    var coach=!n?'Coach: “Best player available. We’re in decent shape everywhere.”':pos==='D'?'Coach: “We’re thin on the back end. Get me a D-man who can play in two years.”':pos==='G'?'Coach: “There’s nothing behind our goalies. Take a real goalie prospect.”':pos==='C'?'Coach: “We need a centre in the pipeline. Down the middle wins.”':'Coach: “We can’t score. Get me a forward with real skill.”';
+    var owner=plan==='rebuild'?'Owner: “Swing for the fences. I want upside, not safe.”':plan==='contend'?'Owner: “I want someone who helps us sooner rather than later.”':'Owner: “Don’t get cute. Take the best player and keep the fans happy.”';
+    return {pos:pos,need:n?n.label:null,coach:coach,owner:owner,plan:plan};}
+  function scPosFits(p,pos){return !pos?true:pos==='F'?['C','LW','RW'].indexOf(p.pos)>=0:p.pos===pos;}
+  function scWarBuild(g,S){var list=scClassList(g),board=list.slice().sort(function(a,b){return scBoardValue(S,b)-scBoardValue(S,a);}).slice(0,72).map(function(p){return p.id;}),idx={};board.forEach(function(id,i){idx[id]=i;});
+    var pitches=[];S.scouts.forEach(function(s){var mine=list.map(function(p){return {p:p,v:scView(S,s,p)};}).filter(function(x){return x.v&&x.v.k>=10;}).sort(function(a,b){return (b.v.pot*.75+b.v.ovr*.25)-(a.v.pot*.75+a.v.ovr*.25);});
+      var ranked=mine.map(function(x,i){return {p:x.p,v:x.v,his:i,cur:idx[x.p.id]==null?99:idx[x.p.id]};}).filter(function(x){return x.cur-x.his>=4||x.his<1;}).slice(0,s.role==='head'?3:2);
+      ranked.forEach(function(x){if(pitches.some(function(y){return y.pid===x.p.id;}))return;if(idx[x.p.id]==null){board.push(x.p.id);idx[x.p.id]=board.length-1;}pitches.push({sid:s.id,pid:x.p.id,ask:Math.max(1,Math.min(x.his+1,idx[x.p.id]+1)),st:null,pot:Math.round(x.v.pot)});});});
+    S.war={y:S.year,board:board,dnd:{},locked:0,pitches:pitches,over:0,backed:0,built:S.wk,need:scNeedLine(g)};return S.war;}
+  function scPitchText(g,S,pt){var s=scScout(S,pt.sid),p=scFind(g,pt.pid);if(!s||!p)return '';var v=scView(S,s,p),I=S.intel[p.id]||{},B=BIAS[s.bias.t]||BIAS.none,why=[];
+    if(v){var best=SKILLS.filter(function(x){return (x[0]!=='iq'||I.lv)&&(x[0]!=='cp'||I.bg);}).map(function(x){return [x,v.tr[x[0]]];}).sort(function(a,b){return b[1]-a[1];})[0];if(best)why.push('His '+best[0][1].toLowerCase()+' is a '+scLetter(best[1])+'.');}
+    if(B.pitch&&Math.abs(B.f(p,s.bias.a,S))>=1.5)why.push(B.pitch);var L=S.live[p.id];if(L&&L.gp>8&&p.pos!=='G')why.push(L.pts+' points in '+L.gp+' games.');if(I.boom)why.push('I think he’s a hidden gem.');
+    return '“Put '+p.name+' at #'+pt.ask+'. '+why.slice(0,3).join(' ')+' I’ve seen him '+(I.v||0)+' time'+(I.v===1?'':'s')+'.”';}
+  function scWarAct(g,S,i,act){var W=S.war,pt=W&&W.pitches[i];if(!pt||W.locked)return;var s=scScout(S,pt.sid),j=W.board.indexOf(pt.pid);if(!s||j<0)return;
+    if(act==='back'){W.board.splice(j,1);W.board.splice(Math.max(0,pt.ask-1),0,pt.pid);pt.st='backed';W.backed++;s.morale=Math.min(99,s.morale+5);}
+    else if(act==='push'){pt.st=pt.st||'pushed';pt.push=1;s.morale=Math.max(5,s.morale-2);}
+    else if(act==='over'){if(j<pt.ask+6){W.board.splice(j,1);W.board.splice(Math.min(W.board.length,pt.ask+7),0,pt.pid);}pt.st='over';W.over++;s.morale=Math.max(5,s.morale-(s.role==='head'?12:6));}}
+  function scPushReply(g,S,pt){var s=scScout(S,pt.sid),p=scFind(g,pt.pid);if(!s||!p)return '';var I=S.intel[p.id]||{},v=scView(S,s,p),others=scViews(S,p).filter(function(x){return x.s!==s&&x.k>=12;});
+    var lo=others.filter(function(x){return x.pot<v.pot-4;})[0];return s.name+': “'+(I.lv||0)+' live looks, my grade is '+scLetter(v.pot)+' ceiling.'+(lo?' '+lo.s.name+' is lower on him. Ask him why.':' Nobody in this room has seen him more than me.')+'”';}
+  function scWarLock(g,S){var W=S.war;if(!W||W.locked)return;W.locked=1;var picks=scMyPicks(g,S),first=picks[0],need=W.need,top=W.board.filter(function(id){return !W.dnd[id];}).map(function(id){return scFind(g,id);}).filter(Boolean)[0];
+    var fit=top&&need.pos?scPosFits(top,need.pos):true;try{if(g.owner)g.owner.trust=scCl((+g.owner.trust||70)+(fit?2:-2),20,99);}catch(e){}
+    W.fit=fit;if(W.over>=3){var h=scHead(S);h.morale=Math.max(5,h.morale-8);}
+    try{g.history.push({year:seasonLabel(g),text:'War room: final board locked. '+(top?'Top of the board: '+top.name+' ('+top.pos+').':'')+(need.need?(fit?' The coach got the '+need.need.toLowerCase()+' help he asked for.':' The coach wanted '+need.need.toLowerCase()+' help and didn’t get it.'):'')+(W.over?' You overruled your scouts '+W.over+' time'+(W.over===1?'':'s')+'.':''),tag:'WAR ROOM'});}catch(e){}}
+  function scBoardBest(g,S){var W=S.war;if(!W)return null;var pool={};(g.prospects||[]).forEach(function(p){pool[p.id]=p;});for(var i=0;i<W.board.length;i++){var id=W.board[i];if(pool[id]&&!W.dnd[id])return pool[id];}return null;}
+  function scUserScores(g,S){var W=S.war,out={};(g.prospects||[]).forEach(function(p){out[p.id]=scBoardValue(S,p)-40;});if(W)W.board.forEach(function(id,i){out[id]=W.dnd[id]?-500:300-i;});return out;}
+
+  /* ---------- leaks (bluffing) ---------- */
+  function scLeakOpen(g,S){return S.wk>=scEvWk(S,'tpg')&&!(g.offseason&&g.offseason.liveDraft)&&S.leaks.left>0;}
+  function scLeak(g,S,pid,dir){if(!scLeakOpen(g,S))return null;dir=(dir==='down'||+dir<0)?-1:1;var p=scFind(g,pid);if(!p)return null;var prior=S.leaks.list.filter(function(x){return x.pid===pid;}).length,r=scR(S.seed+'|leak|'+pid+'|'+S.leaks.list.length);
+    var back=r<SC.LEAK_BACKFIRE+prior*.15+((+p.draftRank||99)<=10?.1:0),L={pid:pid,dir:dir,w:S.wk,back:back?1:0};S.leaks.list.push(L);S.leaks.left--;
+    var text=back?'Backfire: a reporter traced the '+(dir>0?'hype':'“red flags”')+' about '+p.name+' back to your front office. Rival clubs are treating it as noise.':(dir>0?'Leak planted: league insiders now hear '+p.name+' is “a top target” for several clubs.':'Leak planted: whispers about '+p.name+'’s “attitude concerns” are making the rounds.');
+    if(back){try{if(g.owner)g.owner.trust=scCl((+g.owner.trust||70)-3,20,99);g.media=g.media||[];g.media.push({tag:'PRESS',text:'Report: '+scTeamName(g.team)+' caught planting draft rumors about '+p.name+'.'});}catch(e){}}
+    S.rumors.unshift({w:S.wk,pid:pid,text:text,leak:1});scPublicWeek(g,S);if(S.mock)scMock(g,S);return L;}
+
+  /* ---------- draft records, grades, redraft ---------- */
+  function scDraftRec(S,y){var R=S.drafts.filter(function(d){return d.y===y;})[0];if(!R){R={y:y,p:[],gr:null,rd:null,war:null};S.drafts.push(R);if(S.drafts.length>8)S.drafts.shift();}return R;}
+  function scSnap(g,S){var R=scDraftRec(S,S.year);if(R.snap)return;var list=scClassList(g).slice().sort(function(a,b){return scPub(b)-scPub(a);});R.snap=list.map(function(p){return Math.round(scPub(p)*10)/10;});
+    if(S.war)R.war={over:S.war.over,backed:S.war.backed,pitches:S.war.pitches.map(function(x){return [x.sid,x.pid,x.st||'',x.ask];})};}
+  var scSwap=null; /* id -> [projection,potential] while an AI owner's perceived values are swapped in */
+  function scRecordPick(g,S,p,clubId,overall,round,mine){var R=scDraftRec(S,S.year);if(R.p.some(function(x){return x[0]===p.id;}))return;var Rd=scRead(S,p),rec=null;
+    if(mine){var W=S.war,pt=W&&W.pitches.filter(function(x){return x.pid===p.id&&x.st!=='over';})[0];rec=pt?pt.sid:null;if(!rec){var best=0;S.scouts.forEach(function(s){var I=S.intel[p.id],k=I&&I.k[s.id]||0;if(k>best){best=k;rec=s.id;}});}}
+    var tv=scSwap&&scSwap[p.id],tp=tv?tv[1]:+p.potential;
+    R.p.push([p.id,p.name,p.pos,clubId,overall||0,round||1,+p.draftRank||0,Math.round(scPub(p)*10)/10,Rd.T?Math.round((Rd.lo+Rd.hi)/2):null,rec,Math.round(tp),Math.round(+p.ovr)]);
+    var I=S.intel[p.id];p.scFile={y:S.year,tier:Rd.T,lo:Rd.T?Rd.lo:null,hi:Rd.T?Rd.hi:null,olo:Rd.T?Rd.olo:null,ohi:Rd.T?Rd.ohi:null,ch:I?I.ch:{},med:I&&I.med?scInjLabel(p.scT.inj):null,boom:I&&I.boom?1:0,views:I?I.v:0,live:I?I.lv:0,rec:rec,mine:mine?1:0,pub:+p.draftRank||0,line:scStatLine(S,p)};
+    if(mine){var tr=scTraits(g,p);p.clubLoyalty=Math.round(scCl((+p.clubLoyalty||0)+(tr.loy-50)*.4,0,85));}}
+  var GRADES=[[3,'A+'],[2,'A'],[1.2,'A-'],[.5,'B+'],[-.2,'B'],[-.9,'B-'],[-1.6,'C+'],[-2.4,'C'],[-99,'C-']];
+  function scGradeOf(x){for(var i=0;i<GRADES.length;i++)if(x>=GRADES[i][0])return GRADES[i][1];return 'C-';}
+  function scGradeDraft(g,S){var R=scDraftRec(S,S.year);if(R.gr||!R.p.length)return;var snap=R.snap||R.p.map(function(x){return x[7];}).sort(function(a,b){return b-a;}),by={};
+    R.p.forEach(function(x){var exp=snap[Math.min(snap.length-1,Math.max(0,x[4]-1))]||70,mv=x[7]+scGs(S.seed+'|mg|'+x[0])*1.5,wt=x[5]===1?1:x[5]===2?.7:.4,d=mv-exp;(by[x[3]]=by[x[3]]||{s:0,w:0,best:null,worst:null,n:0});var t=by[x[3]];t.s+=d*wt;t.w+=wt;t.n++;if(!t.best||d>t.best[1])t.best=[x,d];if(!t.worst||d<t.worst[1])t.worst=[x,d];});
+    R.gr={};Object.keys(by).forEach(function(id){var t=by[id],sc=t.s/Math.max(1,t.w);R.gr[id]=[scGradeOf(sc),Math.round(sc*10)/10,t.best&&t.best[0][0],t.worst&&t.worst[0][0],t.n];});
+    var mine=R.gr[g.team];if(mine){var best=R.p.filter(function(x){return x[0]===mine[2];})[0],gr=mine[0],good=/A|B\+/.test(gr),bad=/C/.test(gr);
+      R.media=(good?'Media: “'+scTeamName(g.team)+' nailed it. ':'Media: “'+(bad?'A head-scratcher from '+scTeamName(g.team)+'. ':'A solid, unspectacular haul for '+scTeamName(g.team)+'. '))+(best?(bad?'At least '+best[1]+' at #'+best[4]+' has a case.':best[1]+' at #'+best[4]+' looks like '+(best[4]>best[6]?'a steal':'value')+'.'):'')+'” Grade: '+gr+'.';
+      R.fans=good?['“FINALLY a GM who watches junior hockey.”','“'+(best?best[1]:'That first pick')+' jersey ordered. Don’t care.”','“Best draft in years. Book it.”']:bad?['“Who?? I had to google him.”','“We passed on THAT guy for this?”','“Trust the scouts, I guess…”']:['“Fine. Not exciting, but fine.”','“Liked the first pick, the rest is a mystery.”','“Ask me in three years.”'];
+      try{g.history.push({year:seasonLabel(g),text:'Draft grades: '+scTeamName(g.team)+' earns a '+gr+'. '+R.media.replace(/^Media: /,''),tag:'DRAFT GRADES'});g.media=g.media||[];g.media.push({tag:'DRAFT GRADES',text:R.media});g.transactionLog=g.transactionLog||[];g.transactionLog.unshift({when:'Draft · GRADES',text:'Media grades the '+S.year+' class: '+scTeamName(g.team)+' '+gr+'.',teams:[g.team],tag:'DRAFT GRADES'});}catch(e){}}}
+  function scFindPlayer(g,id){var lists=[g.roster,g.reserveRoster,g.orgProspects,g.prospects];Object.keys(g.leagueTeams||{}).forEach(function(k){var c=g.leagueTeams[k];lists.push(c.roster,c.reserveRoster,c.orgProspects);});
+    for(var i=0;i<lists.length;i++){var l=lists[i]||[];for(var j=0;j<l.length;j++)if(l[j]&&l[j].id===id)return l[j];}return null;}
+  /* "years later": rank the class by what the players became, grade the picks and the scouts who pushed them */
+  function scRedraft(g,S,R,preview){if(!R||(R.rd&&!preview))return R&&R.rd;var vals=R.p.map(function(x){var p=scFindPlayer(g,x[0]),v;if(p)v=(+p.ovr)+Math.max(0,(+p.potential)-(+p.ovr))*.35;else v=x[11]+Math.max(0,x[10]-x[11])*.6+scGs(S.seed+'|rd|'+x[0])*3;return [x,v];}).sort(function(a,b){return b[1]-a[1];});
+    var rd={list:vals.slice(0,40).map(function(v,i){return [v[0][0],i+1];}),steals:[],busts:[],at:scDraftYear(g)},rank={};vals.forEach(function(v,i){rank[v[0][0]]=i+1;});
+    R.p.forEach(function(x){var rr=rank[x[0]],o=x[4];if((rr<=32&&o>=65)||o-rr>=60)rd.steals.push([x[0],x[1],o,rr,x[3]]);if(o<=32&&rr>=100)rd.busts.push([x[0],x[1],o,rr,x[3]]);});
+    if(!preview){R.rd=rd;R.p.forEach(function(x){if(x[3]!==g.team||!x[9])return;var s=scScout(S,x[9]);if(!s)return;var rr=rank[x[0]],o=x[4];
+        if((rr<=32&&o>=65)||o-rr>=60){s.rec.h++;s.rec.notes.unshift({y:R.y,t:'Right about '+x[1]+': a late-round steal (#'+o+' → redraft #'+rr+').',tone:'good'});}
+        else if(o<=32&&rr>=100){s.rec.m++;s.rec.notes.unshift({y:R.y,t:'Talked you into a bust: '+x[1]+' (#'+o+' → redraft #'+rr+').',tone:'bad'});}
+        else if(o-rr>=15){s.rec.h++;s.rec.notes.unshift({y:R.y,t:'Good call on '+x[1]+' (#'+o+' → redraft #'+rr+').',tone:'good'});}
+        else if(rr-o>=40){s.rec.m++;s.rec.notes.unshift({y:R.y,t:'Missed on '+x[1]+' (#'+o+' → redraft #'+rr+').',tone:'bad'});}
+        s.rec.notes=s.rec.notes.slice(0,8);});
+      (R.war&&R.war.pitches||[]).forEach(function(w){if(w[2]!=='over')return;var s=scScout(S,w[0]),x=R.p.filter(function(y){return y[0]===w[1];})[0];if(!s||!x)return;var rr=rank[x[0]];if(rr<=Math.max(10,x[4]-25)){s.rec.h++;s.rec.notes.unshift({y:R.y,t:'Told you so: you overruled him on '+x[1]+' (taken #'+x[4]+', redraft #'+rr+').',tone:'good'});}});
+      var top=vals[0]&&vals[0][0];try{g.history.push({year:seasonLabel(g),text:'Redraft '+R.y+': '+(top?top[1]+' ('+scTeamName(top[3])+', originally #'+top[4]+') goes first overall three years later. ':'')+(rd.steals[0]?'Biggest steal: '+rd.steals[0][1]+' (#'+rd.steals[0][2]+' → #'+rd.steals[0][3]+').':''),tag:'REDRAFT'});}catch(e){}}
+    return rd;}
+
+  /* ---------- staff market (offseason, after the draft) ---------- */
+  function scOffseasonOpen(g){return g.stage==='offseason'&&!!g.offseason&&['free-agency','signings','ready','summer'].indexOf(g.offseason.phase)>=0;}
+  function scMarket(g,S){if(S.market&&S.market.y===S.year)return S.market;var regions=['ON','WEST','QC','USA','NORDIC','EURO'],list=[];for(var i=0;i<6;i++){var s=scNewScout(S.seed+'|mkt|'+S.year,10+i,i===0?'head':'reg',i===0?'ALL':regions[Math.floor(scR(S.seed+'|mr|'+S.year+i)*6)],S.year+1,S.scouts.concat(list));s.rep=Math.round(scCl(s.skill+scGs(S.seed+'|mrep|'+S.year+i)*8,35,95));list.push(s);}S.market={y:S.year,list:list};return S.market;}
+  function scHire(g,S,id){var M=scMarket(g,S),s=M.list.filter(function(x){return x.id===id;})[0];if(!s)return 'Not available.';if(S.scouts.length>=SC.STAFF_MAX&&s.role!=='head')return 'Staff is full ('+SC.STAFF_MAX+').';
+    var cost=scStaffSalary(S)+s.salary-(s.role==='head'?scHead(S).salary:0);if(cost>S.budget+1e-6)return 'Over the scouting budget.';if(s.role==='head'){var h=scHead(S);h.role='reg';h.region=h.region==='ALL'?'ON':h.region;S.scouts=S.scouts.filter(function(x){return x!==h;});}
+    s.joined=S.year+1;S.scouts.push(s);M.list=M.list.filter(function(x){return x!==s;});return null;}
+  function scFire(g,S,id){var s=scScout(S,id);if(!s)return 'Not found.';if(s.role==='head'&&S.scouts.length<2)return 'You need a head scout.';S.scouts=S.scouts.filter(function(x){return x!==s;});if(s.role==='head'){var b=S.scouts.slice().sort(function(a,b){return b.skill-a.skill;})[0];if(b){b.role='head';b.region='ALL';b.morale=Math.min(99,b.morale+10);}}return null;}
+  /* ---------- UI (renders into any container; v9 can mount it with CTFOScouting.render(el)) ---------- */
+  var UI={tab:'hub',focus:null,filter:'ALL',q:'',sort:'board',sel:null,iv:null,ivPicks:[],ivRes:null,leak:{pid:'',dir:1},msg:null,pushed:{}};
+  function scBtn(label,act,cls,extra){return '<button type="button" class="sc2-btn '+(cls||'')+'" data-sc="'+act+'"'+(extra||'')+'>'+label+'</button>';}
+  function scChip(label,act,on,extra){return '<button type="button" class="sc2-chip'+(on?' on':'')+'" data-sc="'+act+'"'+(extra||'')+'>'+label+'</button>';}
+  function scPips(T){return '<span class="sc2-pips t'+T+'" title="'+['Unknown','Notes','Grades & ranges','Near-truth'][T]+'"><i></i><i></i><i></i></span>';}
+  function scAvatar(s,cls){return '<span class="sc2-av '+(s.role==='head'?'head ':'')+(cls||'')+'" title="'+scE(s.name)+'">'+scInitials(s.name)+'</span>';}
+  function scMood(m){return m>=75?'Fired up':m>=55?'Steady':m>=35?'Frustrated':'Checked out';}
+  function scDraftLive(g){return !!(g.stage==='offseason'&&g.offseason&&g.offseason.phase==='draft');}
+  function scOnClock(g){var st=g.offseason&&g.offseason.liveDraft,row=st&&st.order[st.cursor];return !!(scDraftLive(g)&&row&&row.owner===g.team&&st.onClockKey);}
+  function scGradeTxt(R,key){if(!R||R.T<2)return '?';var v=R.tr[key];if(key==='iq'&&!(R.I&&R.I.lv))return '?';if(key==='cp'&&!(R.I&&R.I.bg))return '?';return R.T===3?String(Math.round(v)):scLetter(v);}
+  function scRangeBar(lo,hi,hist,cls){var L=50,H=99,pct=function(v){return ((scCl(v,L,H)-L)/(H-L)*100).toFixed(1);};var ghosts=(hist||[]).slice(-5,-1).map(function(h,i,a){return '<i class="g" style="left:'+pct(h[1])+'%;width:'+Math.max(1,pct(h[2])-pct(h[1]))+'%;opacity:'+(.12+.08*i)+'"></i>';}).join('');
+    return '<div class="sc2-range '+(cls||'')+'">'+ghosts+(lo!=null?'<i class="b" style="left:'+pct(lo)+'%;width:'+Math.max(1.2,pct(hi)-pct(lo))+'%"></i>':'<i class="q">?</i>')+'<span class="t" style="left:0">50</span><span class="t" style="left:50%">75</span><span class="t" style="right:0">99</span></div>';}
+  function scSpark(L){if(!L||!L.l||!L.l.length)return '';return '<span class="sc2-spark">'+L.l.map(function(v){return v<0?'<i class="inj" title="out"></i>':'<i style="height:'+Math.min(100,12+v*22)+'%"></i>';}).join('')+'</span>';}
+  function scStreak(L){return !L?'':L.inj>0?'<span class="sc2-tag red">INJURED · '+L.inj+'W</span>':L.st>0?'<span class="sc2-tag hot">🔥 HOT</span>':L.st<0?'<span class="sc2-tag cold">🧊 COLD</span>':'';}
+  function scMove(p){var d=(p.scPrev||p.draftRank)-p.draftRank;return d>0?'<span class="sc2-up">▲'+d+'</span>':d<0?'<span class="sc2-dn">▼'+(-d)+'</span>':'<span class="sc2-flat">–</span>';}
+
+  function scCmd(g,S){var evs=scEvents(S.year).filter(function(e){return ['summer','ivopen','u17'].indexOf(e.id)<0;}),w=S.wk,nextE=evs.filter(function(e){return scWkOf(S,e.date)>w;})[0];
+    var strip=evs.map(function(e){var ew=scWkOf(S,e.date),st=ew+(e.span||1)-1<w?'done':ew<=w&&w<=ew+(e.span||1)-1?'now':'';return '<div class="sc2-ev '+st+'" title="'+scE(e.name+': '+e.note)+'"><b>'+scE(e.short)+'</b><span>'+scFmt(e.date)+'</span></div>';}).join('');
+    var regLeft=g.stage==='regular'&&g.day<(g.calendarGames||[]).length&&typeof quickSim==='function',adv=scCanAdvance(g,S),btn=scDraftLive(g)?'<span class="sc2-live">DRAFT LIVE</span>':regLeft?scBtn('Sim to next week <span>»</span>','simweek','gold'):adv?scBtn('Advance scouting week <span>»</span>','advance','gold'):'';
+    var calls=S.calls.filter(function(c){return c.status==='open';}).length;
+    return '<header class="sc2-cmd"><div><div class="sc2-kicker">Scouting department · '+S.year+' NHL Draft</div><h1>'+scCurWeekLabel(S)+(S.wk>=0?' <span>'+scWeekRange(S,S.wk)+'</span>':' <span>Summer file</span>')+'</h1>'+
+      '<div class="sc2-meta">'+(nextE?'Next: <b>'+scE(nextE.name)+'</b> · '+scFmt(nextE.date)+' (in '+Math.max(1,scWkOf(S,nextE.date)-w)+' wk). ':'')+(g.stage==='regular'?'Every sim to the next week files new reports.':'Season over: the scouting clock runs from this screen.')+'</div></div>'+
+      '<div class="sc2-strip">'+strip+'</div><div class="sc2-cmd-r"><div class="sc2-pulse"><div><span>Watch list</span><b>'+S.watch.length+'<i>/'+SC.WATCH_MAX+'</i></b></div><div><span>Calls</span><b class="'+(calls?'gold':'')+'">'+calls+'</b></div><div><span>Interviews</span><b>'+(scIvWindow(g,S)?scIvLeft(g,S):'—')+'</b></div><div><span>Leaks</span><b>'+S.leaks.left+'</b></div></div>'+btn+'</div></header>';}
+  function scTabs(g,S){var t=[['hub','Hub'],['board','Big board'],['assign','Assignments'],['iv','Interviews'],['war','War room'],['rivals','Rivals & mock'],['staff','Staff'],['grades','Draft grades']];
+    var open=S.calls.filter(function(c){return c.status==='open';}).length;return '<nav class="sc2-tabs">'+t.map(function(x){var badge=x[0]==='hub'&&open?'<em>'+open+'</em>':x[0]==='iv'&&scIvWindow(g,S)&&scIvLeft(g,S)?'<em>'+scIvLeft(g,S)+'</em>':x[0]==='war'&&S.war&&S.war.locked?'<em>✓</em>':'';return '<button type="button" class="sc2-tab'+(UI.tab===x[0]?' on':'')+'" data-sc="tab" data-v="'+x[0]+'">'+x[1]+badge+'</button>';}).join('')+'</nav>';}
+
+  /* report card */
+  function scCard(g,S,p){if(!p)return '<section class="sc2-panel sc2-card empty"><p class="sc2-muted">Pick a player to open his file.</p></section>';
+    var future=!!p.future,R=future?{K:scK(S.intel[p.id]),T:scTier(scK(S.intel[p.id])),I:S.intel[p.id],views:[]}:scRead(S,p),I=R.I||{},L=S.live[p.id],watch=S.watch.indexOf(p.id)>=0,W=S.war,br=W?W.board.indexOf(p.id):-1;
+    var head='<div class="sc2-card-head"><span class="sc2-pos">'+scE(p.pos)+'</span><div><div class="sc2-kicker">'+scE(REG_SHORT[scRegion(p)])+' · '+scE(scLeagueName(p))+(p.nationality?' · '+scE(p.nationality):'')+'</div><h2>'+scE(p.name)+'</h2><small>'+scE(scClub(p))+' · Age '+scE(p.age)+(scHeightLabel(p)?' · '+scHeightLabel(p):'')+(p.shoots?' · Shoots '+scE(p.shoots):'')+'</small></div>'+
+      '<div class="sc2-ranks"><div><span>Public</span><b>#'+(p.draftRank||'—')+'</b>'+(future?'':scMove(p))+'</div><div><span>Your board</span><b>'+(br>=0?'#'+(br+1):'—')+'</b></div></div></div>';
+    var steps=['Unknown','Notes','Grades','Locked in'],fog='<div class="sc2-fog">'+steps.map(function(s,i){return '<span class="'+(i<=R.T?'on':'')+(i===R.T?' cur':'')+'">'+s+'</span>';}).join('')+'<em>'+Math.round(R.K)+'% known</em></div>';
+    var body='';
+    if(R.T===0)body='<div class="sc2-fogbox">No numbers yet. '+(future?'Future file: next year’s class.':'Add him to the watch list and your scouts will start filing reports.')+'</div>';
+    else if(R.T===1||future)body='<div class="sc2-notes">'+(future?'<span class="sc2-tag">FUTURE FILE</span> ':'')+(future?'Early looks for next year. Work carries over.':scVague(S,p,R).map(function(t){return '<span class="sc2-tag">'+scE(t)+'</span>';}).join(''))+'<p class="sc2-muted">'+(future?'':'Overall feel: <b>'+scLetter(R.pot)+'?</b> Needs more viewings for grades and ranges.')+'</p></div>';
+    else body='<div class="sc2-proj"><div><span>Ceiling (POT)</span><b>'+R.lo+'–'+R.hi+'</b>'+scRangeBar(R.lo,R.hi,I.h)+'</div><div><span>Now (OVR)</span><b>'+R.olo+'–'+R.ohi+'</b>'+scRangeBar(R.olo,R.ohi,null,'ovr')+'</div></div>'+
+      '<div class="sc2-skills">'+SKILLS.map(function(x){var v=scGradeTxt(R,x[0]),hint=x[0]==='iq'&&!(I.lv)?'needs a live look':x[0]==='cp'&&!(I.bg)?'big games only':'';return '<div class="'+(v==='?'?'q':'')+'"><span>'+x[1]+'</span><b>'+v+'</b>'+(hint?'<small>'+hint+'</small>':'')+'</div>';}).join('')+'</div>';
+    var ch=Object.keys(I.ch||{}),chHtml='<div class="sc2-sub"><span>Character</span>'+(ch.length?ch.map(function(k){return '<em class="sc2-tag '+(I.ch[k]==='high'?'green':'amber')+'">'+PTL[k]+' · '+I.ch[k].toUpperCase()+'</em>';}).join(''):'<small>Interviews only'+(scIvEligible(g,S,p)?' · '+scBtn('Interview','ivopen','sm',' data-p="'+scE(p.id)+'"'):'')+'</small>')+'</div>';
+    var med='<div class="sc2-sub"><span>Medical</span>'+(I.med&&p.scT?'<em class="sc2-tag '+(p.scT.inj>=55?'red':p.scT.inj>=35?'amber':'green')+'">'+scInjLabel(p.scT.inj).toUpperCase()+'</em>':'<small>Combine medicals only</small>')+'</div>';
+    var gem=I.boom?'<div class="sc2-gem">💎 Hidden gem: your scouts think his ceiling is far above his public rank.</div>':(watch&&R.T>=2&&(I.lv||0)<SC.BOOM_VIEWS&&(+p.draftRank||0)>90?'<div class="sc2-sub"><span>Sleeper check</span><small>'+(I.lv||0)+'/'+SC.BOOM_VIEWS+' live looks before a hidden ceiling can show</small></div>':'');
+    var stat=future?'':'<div class="sc2-statline"><span>2026–27 live</span><b>'+scE(scStatLine(S,p))+'</b>'+scSpark(L)+scStreak(L)+'</div>';
+    var reps=R.views&&R.views.length?'<div class="sc2-reps">'+(R.conflict?'<div class="sc2-conflict">⚡ Scouts disagree by '+R.conflict.gap+' POT. '+scE(R.conflict.hi.s.name)+' is high, '+scE(R.conflict.lo.s.name)+' is low.</div>':'')+R.views.sort(function(a,b){return b.k-a.k;}).map(function(v){var lv=R.T>=2?scLetter(v.pot)+' ceiling':'vague';return '<div class="sc2-rep">'+scAvatar(v.s)+'<div><b>'+scE(v.s.name)+'</b><small>'+scE(REG_SHORT[v.s.region])+' · '+Math.round(v.k)+'% file</small></div><span>'+lv+'</span></div>';}).join('')+'</div>':'';
+    var acts='<div class="sc2-card-acts">'+(future?scBtn(S.future.indexOf(p.id)>=0?'★ In future file':'☆ Future file','future','sm',' data-p="'+scE(p.id)+'"'):scBtn(watch?'★ Watching':'☆ Watch','watch','sm'+(watch?' on':''),' data-p="'+scE(p.id)+'"')+(scIvEligible(g,S,p)?scBtn('Interview','ivopen','sm',' data-p="'+scE(p.id)+'"'):'')+(scLeakOpen(g,S)?scBtn('Leak…','leakset','sm',' data-p="'+scE(p.id)+'"'):'')+(scOnClock(g)?'<button type="button" class="sc2-btn gold sm" data-action="draft" data-player="'+scE(p.id)+'">Draft him</button>':''))+'</div>';
+    var note=p.scoutingNote&&R.T>=2?'<p class="sc2-note">'+scE(p.scoutingNote.replace(/\s*\(\d{4}-\d{2}.*\)$/,''))+'</p>':'';
+    return '<section class="sc2-panel sc2-card">'+head+fog+body+chHtml+med+gem+stat+reps+note+acts+'</section>';}
+
+  /* hub */
+  function scCalls(g,S){var open=S.calls.filter(function(c){return c.status==='open'||c.status==='sent';});if(!open.length)return '<div class="sc2-empty">No calls this week. Scouts only phone about kids on your watch list.</div>';
+    return open.map(function(c){var s=scScout(S,c.sid),p=scFind(g,c.pid);if(!s||!p)return '';var h=scHead(S),tipT=s.tips.hit+s.tips.dud;
+      return '<article class="sc2-call'+(c.status==='sent'?' sent':'')+'">'+scAvatar(s)+'<div><div class="sc2-kicker">📞 '+scE(s.name)+' · '+scE(REG_SHORT[s.region])+(tipT?' · tips '+s.tips.hit+'✓ '+s.tips.dud+'✗':'')+'</div><p>“'+scE(c.text)+'”</p>'+
+        (c.status==='sent'?'<small class="sc2-goldt">'+scE(scScout(S,c.sent).name)+' is booked for it this week (2 days).</small>':'<div class="sc2-call-acts">'+scBtn('Send '+scE(s.name.split(' ')[0]),'callsend','sm gold',' data-c="'+c.id+'" data-s="'+s.id+'"')+(h&&h!==s?scBtn('Send '+scE(h.name.split(' ')[0])+' (head)','callsend','sm',' data-c="'+c.id+'" data-s="'+h.id+'"'):'')+scBtn('Pass','callpass','sm ghost',' data-c="'+c.id+'"')+'</div>')+'</div></article>';}).join('');}
+  function scFeed(g,S,n){var rep=S.reports[n||0];if(!rep)return '<div class="sc2-empty">Your first weekly report lands after the first week of games. Summer notes are already on file.</div>';
+    return '<div class="sc2-feedhead">'+scE(scFmt(rep.date))+' · Week '+(rep.w+1)+'</div>'+rep.items.map(function(x){return '<div class="sc2-item '+x.type+' '+x.tone+'"'+(x.pid?' data-sc="focus" data-p="'+scE(x.pid)+'"':'')+'><i></i><span>'+scE(x.text)+'</span></div>';}).join('');}
+  function scWatchRows(g,S){var list=S.watch.map(function(id){return scFind(g,id);}).filter(Boolean);if(!list.length)return '<div class="sc2-empty">Your watch list is empty. Star kids on the Big board.</div>';
+    return '<div class="sc2-wl">'+list.map(function(p){var R=scRead(S,p),L=S.live[p.id],plan=S.scouts.filter(function(s){return (S.plan[s.id]&&S.plan[s.id].trips||[]).some(function(t){return t.pid===p.id;});});
+      return '<button type="button" class="sc2-wrow'+(UI.focus===p.id?' sel':'')+'" data-sc="focus" data-p="'+scE(p.id)+'"><span class="sc2-pos sm">'+scE(p.pos)+'</span><span class="nm"><b>'+scE(p.name)+'</b><small>'+scE(scClub(p))+' · #'+p.draftRank+' public</small></span>'+scPips(R.T)+'<span class="rg">'+(R.T>=2?R.lo+'–'+R.hi:R.T===1?scLetter(R.pot)+'?':'—')+(R.conflict?' <em class="sc2-goldt">⚡</em>':'')+(R.I&&R.I.boom?' 💎':'')+'</span><span class="st">'+scE(L&&L.gp?(p.pos==='G'?(L.sa?(L.sv/L.sa).toFixed(3).replace(/^0/,''):'')+' SV%':L.pts+' PTS'):'—')+' '+scStreak(L)+'</span></button>';}).join('')+'</div>';}
+  function scHub(g,S){var f=scFind(g,UI.focus)||scFind(g,S.watch[0]);if(f)UI.focus=f.id;
+    return '<div class="sc2-hub"><div class="sc2-col"><section class="sc2-panel"><div class="sc2-ph"><b>This week’s calls</b><small>Tips about your watch list. Redirect a scout or pass.</small></div><div class="sc2-calls">'+scCalls(g,S)+'</div></section>'+
+      '<section class="sc2-panel grow"><div class="sc2-ph"><b>This week’s reports</b></div><div class="sc2-feed">'+scFeed(g,S)+'</div></section></div>'+
+      '<section class="sc2-panel"><div class="sc2-ph"><b>Watch list</b><small>Scouts cover these kids every week</small></div>'+scWatchRows(g,S)+'</section>'+scCard(g,S,f)+'</div>';}
+  /* big board */
+  function scBoard(g,S){var list=scClassList(g),q=UI.q.toLowerCase(),f=UI.filter;var rows=list.filter(function(p){var R=S.intel[p.id];return (f==='ALL'||(f==='F'&&['C','LW','RW'].indexOf(p.pos)>=0)||(f==='D'&&p.pos==='D')||(f==='G'&&p.pos==='G')||(f==='WATCH'&&S.watch.indexOf(p.id)>=0)||(f==='UNSEEN'&&!scK(R)))&&(!q||(p.name+' '+scClub(p)+' '+scLeagueName(p)).toLowerCase().indexOf(q)>=0);});
+    var vals={};rows.forEach(function(p){vals[p.id]=scBoardValue(S,p);});rows.sort(UI.sort==='public'?function(a,b){return a.draftRank-b.draftRank;}:function(a,b){return vals[b.id]-vals[a.id];});rows=rows.slice(0,120);
+    var chips=[['ALL','All'],['F','Forwards'],['D','Defence'],['G','Goalies'],['WATCH','Watch list'],['UNSEEN','Unseen']].map(function(c){return scChip(c[1],'filter',f===c[0],' data-v="'+c[0]+'"');}).join('');
+    var fut=scFuturePool(S).slice(0,24);
+    return '<div class="sc2-split"><section class="sc2-panel"><div class="sc2-toolbar">'+chips+'<span class="sp"></span>'+scChip('Your board','sort',UI.sort==='board',' data-v="board"')+scChip('Public','sort',UI.sort==='public',' data-v="public"')+'<input class="sc2-search" data-sc-input="q" placeholder="Search player, club, league" value="'+scE(UI.q)+'"></div>'+
+      '<div class="sc2-table"><div class="sc2-tr th"><span>You</span><span>Pub</span><span></span><span>Player</span><span>League</span><span>File</span><span>POT read</span><span>Live</span><span></span></div>'+rows.map(function(p,i){var R=scRead(S,p),w=S.watch.indexOf(p.id)>=0;
+        return '<div class="sc2-tr'+(UI.focus===p.id?' sel':'')+'" data-sc="focus" data-p="'+scE(p.id)+'"><span class="n">'+(UI.sort==='board'?i+1:'')+'</span><span class="n">'+p.draftRank+' '+scMove(p)+'</span><span class="sc2-pos sm">'+scE(p.pos)+'</span><span class="nm"><b>'+scE(p.name)+'</b><small>'+scE(scClub(p))+'</small></span><span>'+scE(scLeagueName(p))+'</span><span>'+scPips(R.T)+'</span><span>'+(R.T>=2?R.lo+'–'+R.hi:R.T===1?scLetter(R.pot)+'?':'<em class="sc2-muted">?</em>')+(R.I&&R.I.boom?' 💎':'')+'</span><span class="sm">'+scE(scStatLine(S,p))+'</span><span><button type="button" class="sc2-star'+(w?' on':'')+'" data-sc="watch" data-p="'+scE(p.id)+'">'+(w?'★':'☆')+'</button></span></div>';}).join('')+'</div></section>'+
+      '<div class="sc2-col">'+scCard(g,S,scFind(g,UI.focus)||scFuturePool(S).filter(function(x){return x.id===UI.focus;})[0])+(fut.length?'<section class="sc2-panel"><div class="sc2-ph"><b>Future file · '+(S.year+1)+' class</b><small>Light scouting: leftover days, cheaper at the U17s. Up to '+SC.FUTURE_MAX+'.</small></div><div class="sc2-fut">'+fut.map(function(x){var on=S.future.indexOf(x.id)>=0;return '<button type="button" class="sc2-futrow'+(on?' on':'')+'" data-sc="focus" data-p="'+scE(x.id)+'"><span class="sc2-pos sm">'+scE(x.pos)+'</span><b>'+scE(x.name)+'</b><small>#'+x.draftRank+' · '+scE(x.league||'')+'</small>'+scPips(scTier(scK(S.intel[x.id])))+'</button>';}).join('')+'</div></section>':'')+'</div></div>';}
+  /* assignments */
+  function scAssign(g,S){var w=S.wk+1,plan=scPlanWeek(g,S,w),sel=scScout(S,UI.sel)||scHead(S);UI.sel=sel.id;var P=scPlanOf(S,sel.id),list=S.watch.map(function(id){return scFind(g,id);}).filter(Boolean),ev=scEventAt(S,w,'big');
+    var cards=S.scouts.map(function(s){var pl=plan[s.id],used=SC.DAYS-pl.left;return '<button type="button" class="sc2-scout'+(s.id===sel.id?' sel':'')+'" data-sc="selscout" data-v="'+s.id+'">'+scAvatar(s)+'<div><b>'+scE(s.name)+'</b><small>'+(s.role==='head'?'Head scout':'Regional')+' · '+scE(REG_SHORT[s.region])+'</small><div class="sc2-days">'+Array.from({length:SC.DAYS},function(_,i){return '<i class="'+(i<used?'on':'')+'"></i>';}).join('')+'<em>'+used+'/'+SC.DAYS+' days</em></div></div><span class="sc2-auto '+(scPlanOf(S,s.id).auto!==false?'on':'')+'">'+(scPlanOf(S,s.id).auto!==false?'AUTO':'MANUAL')+'</span></button>';}).join('');
+    var trips=(plan[sel.id].trips||[]).map(function(t){var p=scFind(g,t.pid)||scFuturePool(S).filter(function(x){return x.id===t.pid;})[0];if(!p)return '';return '<div class="sc2-trip '+t.why+'"><span class="sc2-tag">'+(t.mode==='live'?'LIVE':'VIDEO')+'</span><b>'+scE(p.name)+'</b><small>'+scE(scClub(p))+(t.ev?' · '+scE(scEventAt(S,w,'big').short):'')+'</small><em>'+t.cost+'d · '+(t.why==='you'?'your call':t.why==='tip'?'tip':t.why==='future'?'future file':'auto')+'</em>'+(t.why==='you'?'<button type="button" class="sc2-x" data-sc="tripdel" data-p="'+scE(t.pid)+'">×</button>':'')+'</div>';}).join('')||'<div class="sc2-empty">Nothing planned.</div>';
+    var sched=list.map(function(p){var L=S.live[p.id]||{},inj=L.inj>0,play=scInSeason(S,p,w),big=scBigVenue(S,w,p),lc=big?2:scCost(sel,p,'live'),planned=(P.trips||[]).filter(function(t){return t.pid===p.id;})[0],R=scRead(S,p);
+      return '<div class="sc2-sched"><span class="sc2-pos sm">'+scE(p.pos)+'</span><span class="nm"><b>'+scE(p.name)+'</b><small>'+(inj?'<span class="sc2-red">Injured</span>':!play?'Season over · tape only':big?'<span class="sc2-goldt">'+scE(big.name)+'</span>':scE(scClub(p))+' · '+Math.max(1,Math.round((LG[scLtype(p)]||LG.EURO_JR).gpw))+' games')+'</small></span>'+scPips(R.T)+'<span class="rg">'+(R.T>=2?R.lo+'–'+R.hi:'—')+'</span>'+
+        (planned?'<span class="sc2-tag gold">'+planned.mode.toUpperCase()+' PLANNED</span>':'<span class="sc2-sbtn">'+(inj||!play?'':'<button type="button" class="sc2-btn sm'+(scRegion(p)===sel.region||big?' green':'')+'" data-sc="trip" data-p="'+scE(p.id)+'" data-m="live">Live · '+lc+'d</button>')+'<button type="button" class="sc2-btn sm ghost" data-sc="trip" data-p="'+scE(p.id)+'" data-m="video">Video · 1d</button></span>')+'</div>';}).join('');
+    return '<div class="sc2-assign"><section class="sc2-panel"><div class="sc2-ph"><b>Your staff · next week</b><small>Week '+(w+1)+' · '+scWeekRange(S,w)+(ev?' · '+scE(ev.name):'')+'</small></div><div class="sc2-scouts">'+cards+'</div></section>'+
+      '<section class="sc2-panel"><div class="sc2-ph"><b>'+scE(sel.name)+'’s week</b><small>Live looks reveal IQ and (in big games) compete. Video is cheap but shallow. Travel outside his region costs extra days.</small>'+scBtn(P.auto!==false?'Auto-fill: ON':'Auto-fill: OFF','auto',P.auto!==false?'sm green':'sm ghost',' data-v="'+sel.id+'"')+'</div><div class="sc2-trips">'+trips+'</div><div class="sc2-ph sub"><b>This week’s schedule · your watch list</b><small>Costs shown for '+scE(sel.name.split(' ')[0])+'</small></div><div class="sc2-schedlist">'+(sched||'<div class="sc2-empty">Watch list is empty.</div>')+'</div></section></div>';}
+  /* interviews */
+  function scIvView(g,S){var kind=scIvWindow(g,S),list=scClassList(g).filter(function(p){return scIvEligible(g,S,p);}).sort(function(a,b){return (S.watch.indexOf(b.id)>=0)-(S.watch.indexOf(a.id)>=0)||a.draftRank-b.draftRank;}).slice(0,40),done=Object.keys(S.iv.done).map(function(id){return scFind(g,id);}).filter(Boolean);
+    var head='<div class="sc2-ph"><b>Interview room</b><small>'+(kind==='combine'?'NHL Combine: '+S.iv.combine+' slots left, '+SC.IVQ_COMBINE+' questions each':kind==='season'?'In-season meetings: '+S.iv.season+' left (watch-list kids you have seen), '+SC.IVQ_SEASON+' questions each':'Closed. In-season meetings open in November; the Combine opens in June.')+'</small></div>';
+    var left='<section class="sc2-panel">'+head+'<div class="sc2-ivlist">'+(list.map(function(p){return '<button type="button" class="sc2-wrow'+(UI.iv===p.id?' sel':'')+'" data-sc="ivopen" data-p="'+scE(p.id)+'"><span class="sc2-pos sm">'+scE(p.pos)+'</span><span class="nm"><b>'+scE(p.name)+'</b><small>#'+p.draftRank+' · '+scE(scClub(p))+'</small></span>'+(S.watch.indexOf(p.id)>=0?'<span class="sc2-tag">WATCH</span>':'')+'</button>';}).join('')||'<div class="sc2-empty">Nobody available right now.</div>')+'</div>'+(done.length?'<div class="sc2-ph sub"><b>Done</b></div>'+done.map(function(p){return '<button type="button" class="sc2-wrow" data-sc="ivshow" data-p="'+scE(p.id)+'"><span class="sc2-pos sm">'+scE(p.pos)+'</span><span class="nm"><b>'+scE(p.name)+'</b><small>'+(function(c){return Object.keys(c).map(function(k){return PTL[k]+' · '+c[k];}).join(', ')||'Nothing revealed';})((S.intel[p.id]||{}).ch||{})+'</small></span></button>';}).join(''):'')+'</section>';
+    var p=scFind(g,UI.iv),right;
+    if(!p)right='<section class="sc2-panel sc2-ivroom empty"><div class="sc2-empty">Choose a player. Your scouts will brief you with what they have heard before you sit down.</div></section>';
+    else if(UI.ivRes&&UI.ivRes.pid===p.id||S.iv.done[p.id]){var res=(UI.ivRes&&UI.ivRes.pid===p.id?UI.ivRes.res:S.iv.done[p.id].res)||[];right='<section class="sc2-panel sc2-ivroom"><div class="sc2-kicker">Interview · '+scE(p.name)+'</div><h2>What you learned</h2>'+res.map(function(r){return '<div class="sc2-qa '+(r.rev?'hit':'miss')+'"><b>Q: '+scE(r.q)+'</b><p>'+scE(r.ans)+'</p><small>'+scE(r.note)+'</small></div>';}).join('')+'<p class="sc2-muted">Revealed traits are now on his report card and carry into draft day: the on-stage conversation reads the same personality.</p></section>';}
+    else{var prep=scIvPrep(g,S,p),max=kind==='combine'?SC.IVQ_COMBINE:SC.IVQ_SEASON;right='<section class="sc2-panel sc2-ivroom"><div class="sc2-kicker">Interview prep · '+scE(p.name)+' · '+scE(p.pos)+' · '+scE(scClub(p))+'</div><h2>What your scouts are hearing</h2>'+
+      prep.list.map(function(x){var s=scScout(S,x.sid);return '<div class="sc2-rumor">'+(s?scAvatar(s):'')+'<div><b>'+(s?scE(s.name):'Scout')+'</b><p>“'+scE(x.text)+'”</p></div></div>';}).join('')+
+      '<div class="sc2-ph sub"><b>Pick '+max+' questions</b><small>Test a rumor or go after something new. A question about an ordinary trait reveals nothing.</small></div><div class="sc2-qs">'+prep.qs.map(function(q,i){var on=UI.ivPicks.indexOf(i)>=0;return '<button type="button" class="sc2-q'+(on?' on':'')+'" data-sc="ivpick" data-v="'+i+'"><span>'+(q.tests?'TESTS '+scE((scScout(S,q.tests)||{name:'RUMOR'}).name.split(' ')[0].toUpperCase())+'’S RUMOR':'NEW ANGLE · '+PTL[q.k].toUpperCase())+'</span><b>'+scE(q.q)+'</b></button>';}).join('')+'</div>'+
+      '<div class="sc2-card-acts">'+scBtn('Sit down with him ('+UI.ivPicks.length+'/'+max+')','ivrun','gold'+(UI.ivPicks.length?'':' dis'),' data-p="'+scE(p.id)+'"')+'</div></section>';}
+    return '<div class="sc2-split iv">'+left+right+'</div>';}
+  /* war room */
+  function scWar(g,S){var open=S.wk>=scEvWk(S,'combine')||g.stage==='offseason';if(!open&&!S.war)return '<section class="sc2-panel"><div class="sc2-empty big">The war room opens after the Combine (week of '+scFmt(scEvents(S.year).filter(function(e){return e.id==='combine';})[0].date)+'). Until then, keep building files: every pitch is only as good as the viewings behind it.</div></section>';
+    var W=S.war||scWarBuild(g,S),N=W.need,picks=scMyPicks(g,S),first=picks[0],avail={};scClassList(g).forEach(function(p){avail[p.id]=p;});
+    var board=W.board.filter(function(id){return avail[id];}).slice(0,48),topFit=board.map(function(id){return avail[id];}).filter(function(p){return !W.dnd[p.id];})[0];
+    var pitches=W.pitches.map(function(pt,i){var s=scScout(S,pt.sid),p=avail[pt.pid];if(!s||!p)return '';return '<article class="sc2-pitch '+(pt.st||'')+'">'+scAvatar(s,'lg')+'<div><div class="sc2-kicker">'+scE(s.name)+' · '+(s.role==='head'?'Head scout':scE(REG_SHORT[s.region]))+' · '+scMood(s.morale)+'</div><p>'+scE(scPitchText(g,S,pt))+'</p>'+(pt.push?'<small class="sc2-muted">'+scE(scPushReply(g,S,pt))+'</small>':'')+
+      (W.locked||pt.st==='backed'||pt.st==='over'?'<small class="sc2-goldt">'+(pt.st==='backed'?'You backed him.':pt.st==='over'?'You overruled him.':'')+'</small>':'<div class="sc2-call-acts">'+scBtn('Back him','war','sm green',' data-i="'+i+'" data-v="back"')+(pt.push?'':scBtn('Push back','war','sm',' data-i="'+i+'" data-v="push"'))+scBtn('Overrule','war','sm danger',' data-i="'+i+'" data-v="over"')+'</div>')+'</div></article>';}).join('');
+    var rec=S.scouts.map(function(s){var n=s.rec.notes.slice(0,2);return '<div class="sc2-recrow">'+scAvatar(s)+'<div><b>'+scE(s.name)+'</b> <small>'+s.rec.h+' hits · '+s.rec.m+' misses · tips '+s.tips.hit+'✓/'+s.tips.dud+'✗</small>'+n.map(function(x){return '<p class="'+x.tone+'">'+x.y+' · '+scE(x.t)+'</p>';}).join('')+'</div></div>';}).join('');
+    var rows=board.map(function(id,i){var p=avail[id],R=scRead(S,p),dnd=!!W.dnd[id],pt=W.pitches.filter(function(x){return x.pid===id;})[0];return '<div class="sc2-brow'+(dnd?' dnd':'')+'" draggable="'+(W.locked?'false':'true')+'" data-sc-drag="'+scE(id)+'"><span class="n">'+(i+1)+'</span><span class="sc2-pos sm">'+scE(p.pos)+'</span><span class="nm" data-sc="focus" data-p="'+scE(id)+'"><b>'+scE(p.name)+'</b><small>#'+p.draftRank+' public · '+scE(scClub(p))+'</small></span>'+scPips(R.T)+'<span class="rg">'+(R.T>=2?R.lo+'–'+R.hi:R.T?scLetter(R.pot)+'?':'?')+(R.I&&R.I.boom?' 💎':'')+'</span>'+(pt?'<span class="sc2-tag">'+scE(scScout(S,pt.sid)?scScout(S,pt.sid).name.split(' ')[1]||'':'')+'’s guy</span>':'<span></span>')+(scPosFits(p,N.pos)&&N.pos?'<span class="sc2-tag green">NEED</span>':'<span></span>')+(W.locked?'':'<span class="mv"><button type="button" data-sc="bmove" data-p="'+scE(id)+'" data-v="-1">▲</button><button type="button" data-sc="bmove" data-p="'+scE(id)+'" data-v="1">▼</button><button type="button" data-sc="bdnd" data-p="'+scE(id)+'" title="Do not draft">'+(dnd?'↺':'✕')+'</button></span>')+'</div>';}).join('');
+    var mood=topFit&&N.pos?(scPosFits(topFit,N.pos)?'<span class="sc2-green">✓ Coach is happy with the top of your board.</span>':'<span class="sc2-red">✗ Coach wanted '+scE(N.need.toLowerCase())+'. Your top guy is a '+scE(topFit.pos)+'.</span>'):'';
+    var h=scHead(S),warn=W.over>=2?'<div class="sc2-conflict">'+scE(h.name)+': “'+(W.over>=3?'You’ve overruled us '+W.over+' times. Why are we even here?':'If you’re going to overrule us, at least tell me why.')+'”</div>':'';
+    return '<div class="sc2-war"><div class="sc2-col"><section class="sc2-panel"><div class="sc2-ph"><b>The room</b><small>Your picks: '+(picks.length?picks.map(function(x){return '#'+x.overall;}).join(', '):'none this year')+' · Plan: '+scE(N.plan)+'</small></div><div class="sc2-voices"><p>'+scE(N.owner)+'</p><p>'+scE(N.coach)+'</p>'+mood+'</div>'+warn+'</section>'+
+      '<section class="sc2-panel grow"><div class="sc2-ph"><b>Scouts pitch their guys</b><small>Back them, push back for evidence, or overrule. Overruling your head scout costs morale; morale drives effort and tip quality.</small></div><div class="sc2-pitches">'+(pitches||'<div class="sc2-empty">No strong opinions in the room. Thin files make quiet meetings.</div>')+'</div></section>'+
+      '<section class="sc2-panel"><div class="sc2-ph"><b>Track record</b><small>How their past calls turned out. Biases are never shown; read the history.</small></div><div class="sc2-rec">'+rec+'</div></section></div>'+
+      '<section class="sc2-panel"><div class="sc2-ph"><b>Final board</b><small>'+(W.locked?'Locked. This order drives your auto-pick and the draft floor.':'Drag rows, use ▲▼, ✕ = do not draft. Lock it before the draft.')+'</small>'+(W.locked?'<span class="sc2-tag green">LOCKED</span>':scBtn('Lock final board','warlock','gold sm'))+'</div><div class="sc2-blist">'+rows+'</div></section></div>';}
+  /* rivals & mock */
+  function scRivals(g,S){var m=S.mock,list=m?m.list.map(function(x,i){var p=scFind(g,x[1]);if(!p)return '';var prev=m.prev[x[1]],d=prev?prev-(i+1):null;return '<div class="sc2-mock'+(x[0]===g.team?' me':'')+'"><span class="n">'+(i+1)+'</span><span class="cr">'+(typeof officeMark==='function'?officeMark(x[0],'standings-crest'):'')+'</span><span class="tm">'+scE(scTeamName(x[0]))+'</span><span class="nm" data-sc="focus" data-p="'+scE(p.id)+'"><b>'+scE(p.name)+'</b><small>'+scE(p.pos)+' · '+scE(scClub(p))+'</small></span><span>'+(d==null?'<em class="sc2-goldt">NEW</em>':d>0?'<span class="sc2-up">▲'+d+'</span>':d<0?'<span class="sc2-dn">▼'+(-d)+'</span>':'–')+'</span></div>';}).join(''):'<div class="sc2-empty">The first mock draft drops in week 5.</div>';
+    var rum=S.rumors.slice(0,14).map(function(r){return '<div class="sc2-item rumor'+(r.leak?' leak':'')+'" data-sc="focus" data-p="'+scE(r.pid)+'"><i></i><span><b>Wk '+(r.w+1)+'</b> '+scE(r.text)+'</span></div>';}).join('')||'<div class="sc2-empty">Quiet so far.</div>';
+    var opts=scClassList(g).slice().sort(function(a,b){return a.draftRank-b.draftRank;}).slice(0,100).map(function(p){return '<option value="'+scE(p.id)+'"'+(UI.leak.pid===p.id?' selected':'')+'>#'+p.draftRank+' '+scE(p.name)+' ('+scE(p.pos)+')</option>';}).join('');
+    var leak='<section class="sc2-panel"><div class="sc2-ph"><b>Leaks · '+S.leaks.left+' left</b><small>Plant interest or doubts to push a player up or down rival boards. It can backfire.</small></div>'+(scLeakOpen(g,S)?'<div class="sc2-leak"><select data-sc-input="leakpid"><option value="">Choose a player…</option>'+opts+'</select>'+scChip('Talk him up','leakdir',UI.leak.dir>0,' data-v="1"')+scChip('Plant doubts','leakdir',UI.leak.dir<0,' data-v="-1"')+scBtn('Leak it','leak','gold sm')+'</div>':'<div class="sc2-empty">'+(S.leaks.left?'Leaks open at the Top Prospects Game (week '+(scEvWk(S,'tpg')+1)+').':'No leaks left this year.')+'</div>')+(S.leaks.list.length?'<div class="sc2-leaklog">'+S.leaks.list.map(function(L){var p=scFind(g,L.pid)||{name:'(drafted)'};return '<div class="'+(L.back?'sc2-red':'')+'">Wk '+(L.w+1)+' · '+(L.dir>0?'Hype':'Doubts')+' · '+scE(p.name)+(L.back?' · BACKFIRED':'')+'</div>';}).join('')+'</div>':'')+'</section>';
+    return '<div class="sc2-split"><section class="sc2-panel"><div class="sc2-ph"><b>Mock draft · round 1</b><small>Built from rival clubs’ boards (their scouts, their biases, your leaks). Updated weekly.</small></div><div class="sc2-mocklist">'+list+'</div></section><div class="sc2-col"><section class="sc2-panel grow"><div class="sc2-ph"><b>Rumor mill</b><small>Who is in the rinks for your watch list</small></div><div class="sc2-feed">'+rum+'</div></section>'+leak+'</div></div>';}
+  /* staff */
+  function scStaff(g,S){var open=scOffseasonOpen(g),used=scStaffSalary(S);var cards=S.scouts.map(function(s){return '<article class="sc2-staff">'+scAvatar(s,'lg')+'<div><div class="sc2-kicker">'+(s.role==='head'?'Head scout':'Regional · '+scE(REG[s.region]))+'</div><h3>'+scE(s.name)+'</h3><small>Age '+s.age+' · '+scMoney(s.salary)+' · since '+s.joined+'</small><div class="sc2-statrow"><span>Eye <b>'+(s.skill>=80?'Elite':s.skill>=68?'Sharp':s.skill>=55?'Solid':'Raw')+'</b></span><span>Mood <b>'+scMood(s.morale)+'</b></span><span>Tips <b>'+s.tips.hit+'✓ '+s.tips.dud+'✗</b></span><span>Record <b>'+s.rec.h+'–'+s.rec.m+'</b></span></div>'+s.rec.notes.slice(0,3).map(function(x){return '<p class="sc2-recline '+x.tone+'">'+x.y+' · '+scE(x.t)+'</p>';}).join('')+(open&&S.scouts.length>1?scBtn('Release','fire','sm danger',' data-v="'+s.id+'"'):'')+'</div></article>';}).join('');
+    var mkt=open?scMarket(g,S).list.map(function(s){return '<article class="sc2-staff mk">'+scAvatar(s,'lg')+'<div><div class="sc2-kicker">'+(s.role==='head'?'Head scout candidate':'Regional · '+scE(REG[s.region]))+'</div><h3>'+scE(s.name)+'</h3><small>Age '+s.age+' · asks '+scMoney(s.salary)+'</small><div class="sc2-statrow"><span>Reputation <b>'+'★★★★★'.slice(0,Math.max(1,Math.round(s.rep/20)))+'</b></span></div>'+s.rec.notes.slice(0,2).map(function(x){return '<p class="sc2-recline '+x.tone+'">'+x.y+' · '+scE(x.t)+'</p>';}).join('')+scBtn('Hire','hire','sm gold',' data-v="'+s.id+'"')+'</div></article>';}).join(''):'';
+    return '<div class="sc2-staffwrap"><section class="sc2-panel"><div class="sc2-ph"><b>Scouting staff</b><small>Budget '+scMoney(used)+' of '+scMoney(S.budget)+(open?'':' · Hiring and releasing opens after the draft')+'</small><div class="sc2-budget"><i style="width:'+Math.min(100,used/S.budget*100).toFixed(1)+'%"></i></div></div><div class="sc2-stafflist">'+cards+'</div></section>'+(open?'<section class="sc2-panel"><div class="sc2-ph"><b>Scout market</b><small>Reputation is what the league says, not what you will get. Résumés hint at tendencies.</small></div><div class="sc2-stafflist">'+mkt+'</div></section>':'')+'</div>';}
+  /* grades & redraft */
+  function scGrades(g,S){var R=S.drafts.filter(function(d){return d.gr;}).slice(-1)[0];if(!R)return '<section class="sc2-panel"><div class="sc2-empty big">Draft grades publish the moment the last pick is in. Redrafts follow '+SC.REDRAFT_AFTER+' seasons later and feed your scouts’ track records.</div></section>';
+    var ids=Object.keys(R.gr).sort(function(a,b){return R.gr[b][1]-R.gr[a][1];}),nm=function(id){var x=R.p.filter(function(y){return y[0]===id;})[0];return x?x[1]+' (#'+x[4]+')':'—';};
+    var mine=R.gr[g.team],mineHtml=mine?'<section class="sc2-panel sc2-mygrade"><div class="sc2-bigrade">'+mine[0]+'</div><div><div class="sc2-kicker">'+R.y+' draft · '+scE(scTeamName(g.team))+'</div><p>'+scE(R.media||'')+'</p><div class="sc2-fans">'+(R.fans||[]).map(function(f){return '<span>'+scE(f)+'</span>';}).join('')+'</div><div class="sc2-mypicks">'+R.p.filter(function(x){return x[3]===g.team;}).map(function(x){var s=x[9]&&scScout(S,x[9]);return '<div><b>#'+x[4]+'</b> '+scE(x[1])+' <small>'+scE(x[2])+' · public #'+x[6]+(s?' · pushed by '+scE(s.name):'')+'</small></div>';}).join('')+'</div></div></section>':'';
+    var table='<section class="sc2-panel"><div class="sc2-ph"><b>League grades</b><small>Media grades vs. the public board at draft time</small></div><div class="sc2-gtable">'+ids.map(function(id){var x=R.gr[id];return '<div class="sc2-grow'+(id===g.team?' me':'')+'"><span class="cr">'+(typeof officeMark==='function'?officeMark(id,'standings-crest'):'')+'</span><b>'+scE(scTeamName(id))+'</b><span class="gr g'+x[0].charAt(0)+'">'+x[0]+'</span><small>Best: '+scE(nm(x[2]))+'</small><small>Reach: '+scE(nm(x[3]))+'</small></div>';}).join('')+'</div></section>';
+    var rds=S.drafts.filter(function(d){return d.rd;}).map(function(d){return '<section class="sc2-panel"><div class="sc2-ph"><b>Redraft · '+d.y+' class</b><small>Published '+d.rd.at+'</small></div><div class="sc2-rd">'+d.rd.list.slice(0,12).map(function(x){var o=d.p.filter(function(y){return y[0]===x[0];})[0];return '<div><span class="n">'+x[1]+'</span><b>'+scE(o?o[1]:'')+'</b><small>'+(o?'went #'+o[4]+' to '+scE(scTeamName(o[3])):'')+'</small></div>';}).join('')+'</div>'+(d.rd.steals.length?'<p class="sc2-green">Steals: '+d.rd.steals.slice(0,4).map(function(x){return scE(x[1])+' (#'+x[2]+'→#'+x[3]+')';}).join(', ')+'</p>':'')+(d.rd.busts.length?'<p class="sc2-red">Busts: '+d.rd.busts.slice(0,4).map(function(x){return scE(x[1])+' (#'+x[2]+'→#'+x[3]+')';}).join(', ')+'</p>':'')+'</section>';}).join('')||'<section class="sc2-panel"><div class="sc2-empty">The '+R.y+' redraft publishes in '+(R.y+SC.REDRAFT_AFTER)+'.</div></section>';
+    return '<div class="sc2-grades"><div class="sc2-col">'+mineHtml+rds+'</div>'+table+'</div>';}
+  /* draft floor (used while the draft is live) */
+  function scFloor(g,S){var W=S.war,avail={};scClassList(g).forEach(function(p){avail[p.id]=p;});var ids=(W?W.board.filter(function(id){return avail[id];}):[]).concat(scClassList(g).slice().sort(function(a,b){return scBoardValue(S,b)-scBoardValue(S,a);}).map(function(p){return p.id;})).filter(function(id,i,a){return a.indexOf(id)===i;}).slice(0,30),clock=scOnClock(g);
+    var rows=ids.map(function(id,i){var p=avail[id],R=scRead(S,p);return '<div class="sc2-brow'+(W&&W.dnd[id]?' dnd':'')+'"><span class="n">'+(i+1)+'</span><span class="sc2-pos sm">'+scE(p.pos)+'</span><span class="nm" data-sc="focus" data-p="'+scE(id)+'"><b>'+scE(p.name)+'</b><small>#'+p.draftRank+' public · '+scE(scClub(p))+'</small></span>'+scPips(R.T)+'<span class="rg">'+(R.T>=2?R.lo+'–'+R.hi:'?')+(R.I&&R.I.boom?' 💎':'')+'</span>'+(clock?'<button type="button" class="sc2-btn gold sm" data-action="draft" data-player="'+scE(id)+'">Draft</button>':'<span></span>')+'</div>';}).join('');
+    var gone=W?W.board.slice(0,30).filter(function(id){return !avail[id];}).length:0;
+    return '<div class="sc2-split"><section class="sc2-panel"><div class="sc2-ph"><b>'+(W&&W.locked?'Your war-room board':'Your board (not locked: built from your files)')+'</b><small>'+(clock?'You are on the clock. Best available on your board is first.':'Waiting for your pick. '+gone+' of your top 30 are gone.')+'</small></div><div class="sc2-blist">'+rows+'</div></section>'+scCard(g,S,scFind(g,UI.focus)||avail[ids[0]])+'</div>';}
+
+  function scRenderHtml(g){var S=scEnsure(g);if(!S)return '';var body;if(scDraftLive(g))body=scFloor(g,S);else body=UI.tab==='board'?scBoard(g,S):UI.tab==='assign'?scAssign(g,S):UI.tab==='iv'?scIvView(g,S):UI.tab==='war'?scWar(g,S):UI.tab==='rivals'?scRivals(g,S):UI.tab==='staff'?scStaff(g,S):UI.tab==='grades'?scGrades(g,S):scHub(g,S);
+    return scCmd(g,S)+(scDraftLive(g)?'':scTabs(g,S))+(UI.msg?'<div class="sc2-msg">'+scE(UI.msg)+'</div>':'')+body;}
+  function scRender(el){var g=current&&current.game;if(!el||!g)return;el.classList.add('sc2');el.id='sc2-root';el.innerHTML=scRenderHtml(g);UI.msg=null;}
+  function scRerender(){var el=document.getElementById('sc2-root');if(el)scRender(el);}
+  /* ---------- interactions ---------- */
+  function scG0(){return current&&current.game;}
+  function scSave(){try{persist();}catch(e){}}
+  function scAct(el){var g=scG0(),S=g&&scEnsure(g);if(!S)return;var a=el.getAttribute('data-sc'),v=el.getAttribute('data-v'),pid=el.getAttribute('data-p');
+    if(a==='tab'){UI.tab=v;}
+    else if(a==='focus'){UI.focus=pid;}
+    else if(a==='watch'){var i=S.watch.indexOf(pid);if(i>=0)S.watch.splice(i,1);else if(S.watch.length>=SC.WATCH_MAX)UI.msg='Watch list is full ('+SC.WATCH_MAX+'). Drop someone first.';else{S.watch.push(pid);scIntel(S,pid,true);}UI.focus=pid;scSave();}
+    else if(a==='future'){var j=S.future.indexOf(pid);if(j>=0)S.future.splice(j,1);else if(S.future.length>=SC.FUTURE_MAX)UI.msg='Future file is full ('+SC.FUTURE_MAX+').';else S.future.push(pid);scSave();}
+    else if(a==='filter'){UI.filter=v;}else if(a==='sort'){UI.sort=v;}
+    else if(a==='simweek'){if(typeof quickSim==='function'){quickSim(g,'week');return;}}
+    else if(a==='advance'){var n=scAdvanceClock(g,1);UI.tab='hub';UI.msg=n?'Week '+(S.wk+1)+' reports are in.':'The scouting clock is at the draft.';scSave();}
+    else if(a==='callsend'){var c=S.calls.filter(function(x){return x.id===el.getAttribute('data-c');})[0];if(c){c.status='sent';c.sent=el.getAttribute('data-s');UI.msg=scScout(S,c.sent).name+' will be in the rink for it this week.';}scSave();}
+    else if(a==='callpass'){var c2=S.calls.filter(function(x){return x.id===el.getAttribute('data-c');})[0];if(c2)c2.status='declined';scSave();}
+    else if(a==='selscout'){UI.sel=v;}
+    else if(a==='trip'){var s=scScout(S,UI.sel)||scHead(S),P=scPlanOf(S,s.id),p=scFind(g,pid),m=el.getAttribute('data-m');if(p){P.trips=(P.trips||[]).filter(function(t){return t.pid!==pid;});P.trips.push({pid:pid,mode:m});var pl=scPlanWeek(g,S,S.wk+1)[s.id];if(!pl.trips.some(function(t){return t.pid===pid&&t.why==='you';})){P.trips.pop();UI.msg='Not enough days left for '+s.name+'. Remove a trip or use video.';}}scSave();}
+    else if(a==='tripdel'){var P2=scPlanOf(S,UI.sel);P2.trips=(P2.trips||[]).filter(function(t){return t.pid!==pid;});scSave();}
+    else if(a==='auto'){var P3=scPlanOf(S,v);P3.auto=P3.auto===false;scSave();}
+    else if(a==='ivopen'){UI.tab='iv';UI.iv=pid;UI.ivPicks=[];UI.ivRes=null;}
+    else if(a==='ivshow'){UI.iv=pid;UI.ivRes=null;}
+    else if(a==='ivpick'){var k=+v,max=scIvWindow(g,S)==='combine'?SC.IVQ_COMBINE:SC.IVQ_SEASON,ix=UI.ivPicks.indexOf(k);if(ix>=0)UI.ivPicks.splice(ix,1);else if(UI.ivPicks.length<max)UI.ivPicks.push(k);}
+    else if(a==='ivrun'){var p2=scFind(g,pid);if(p2&&UI.ivPicks.length){var res=scIvRun(g,S,p2,UI.ivPicks);if(res){UI.ivRes={pid:pid,res:res};UI.ivPicks=[];scSave();}}}
+    else if(a==='war'){scWarAct(g,S,+el.getAttribute('data-i'),v);scSave();}
+    else if(a==='bmove'){var W=S.war,bi=W?W.board.indexOf(pid):-1,to=bi+(+v);if(W&&!W.locked&&bi>=0&&to>=0&&to<W.board.length){W.board.splice(bi,1);W.board.splice(to,0,pid);}scSave();}
+    else if(a==='bdnd'){var W2=S.war;if(W2&&!W2.locked){if(W2.dnd[pid])delete W2.dnd[pid];else W2.dnd[pid]=1;}scSave();}
+    else if(a==='warlock'){scWarLock(g,S);UI.msg='Final board locked. It goes to the draft floor with you.';scSave();}
+    else if(a==='leakset'){UI.tab='rivals';UI.leak.pid=pid;}
+    else if(a==='leakdir'){UI.leak.dir=+v;}
+    else if(a==='leak'){if(!UI.leak.pid)UI.msg='Choose a player to leak about.';else{var L=scLeak(g,S,UI.leak.pid,UI.leak.dir);UI.msg=L?(L.back?'It backfired. The story is out, and it’s about you.':'Leak planted. Watch the mock draft next week.'):'Leaks are closed.';scSave();}}
+    else if(a==='hire'){var e1=scHire(g,S,v);UI.msg=e1||'Hired. He starts with next season’s class.';scSave();}
+    else if(a==='fire'){var e2=scFire(g,S,v);UI.msg=e2||'Released.';scSave();}
+    scRerender();}
+  document.addEventListener('click',function(ev){var el=ev.target&&ev.target.closest&&ev.target.closest('[data-sc]');if(!el||!el.closest('.sc2'))return;ev.preventDefault();try{scAct(el);}catch(e){if(window.console)console.error('scouting',e);}});
+  document.addEventListener('input',function(ev){var el=ev.target;if(!el||!el.getAttribute||!el.closest||!el.closest('.sc2'))return;var k=el.getAttribute('data-sc-input');if(k==='q'){UI.q=el.value;scRerender();var n=document.querySelector('.sc2 [data-sc-input="q"]');if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}}else if(k==='leakpid'){UI.leak.pid=el.value;}});
+  document.addEventListener('change',function(ev){var el=ev.target;if(el&&el.getAttribute&&el.getAttribute('data-sc-input')==='leakpid')UI.leak.pid=el.value;});
+  var scDrag=null;
+  document.addEventListener('dragstart',function(ev){var el=ev.target&&ev.target.closest&&ev.target.closest('[data-sc-drag]');if(!el)return;scDrag=el.getAttribute('data-sc-drag');try{ev.dataTransfer.setData('text/plain',scDrag);ev.dataTransfer.effectAllowed='move';}catch(e){}el.classList.add('drag');});
+  document.addEventListener('dragover',function(ev){if(scDrag&&ev.target.closest&&ev.target.closest('[data-sc-drag]'))ev.preventDefault();});
+  document.addEventListener('drop',function(ev){var el=ev.target.closest&&ev.target.closest('[data-sc-drag]');if(!scDrag||!el)return;ev.preventDefault();var g=scG0(),S=g&&scEnsure(g),W=S&&S.war,to=el.getAttribute('data-sc-drag');if(W&&!W.locked&&to!==scDrag){var i=W.board.indexOf(scDrag);W.board.splice(i,1);W.board.splice(W.board.indexOf(to),0,scDrag);scSave();}scDrag=null;scRerender();});
+  document.addEventListener('dragend',function(){scDrag=null;});
+
+  /* ---------- player card: drafted players keep their scouting file ---------- */
+  function scFileHtml(g,p){var f=p.scFile,S=g.scouting,s=S&&f.rec&&scScout(S,f.rec);return '<section class="sc2 sc2-file"><div class="sc2-kicker">Scouting file · '+f.y+' draft</div><div class="sc2-statrow"><span>Pre-draft read <b>'+(f.lo!=null?'POT '+f.lo+'–'+f.hi:'No file')+'</b></span><span>Public rank <b>#'+(f.pub||'—')+'</b></span><span>Viewings <b>'+(f.views||0)+' ('+(f.live||0)+' live)</b></span>'+(f.med?'<span>Medical <b>'+scE(f.med)+'</b></span>':'')+'</div>'+
+    (Object.keys(f.ch||{}).length?'<div>'+Object.keys(f.ch).map(function(k){return '<em class="sc2-tag '+(f.ch[k]==='high'?'green':'amber')+'">'+PTL[k]+' · '+f.ch[k].toUpperCase()+'</em>';}).join(' ')+'</div>':'')+(f.boom?'<div class="sc2-gem">💎 Flagged as a hidden gem before the draft.</div>':'')+(s?'<small class="sc2-muted">'+(f.mine?'Pushed by ':'Covered by ')+scE(s.name)+'.</small>':'')+'</section>';}
+  function scPlayerCard(id){var g=scG0();if(!g)return;var p=scFindPlayer(g,id);if(!p||!p.scFile)return;var m=document.getElementById('workspace-modal');if(!m||m.querySelector('.sc2-file'))return;var t=m.querySelector('.roster-player-modal')||m.querySelector('#workspace-modal-body')||m.querySelector('.workspace-dialog')||m;if(!t)return;var before=t.querySelector('.roster-player-actions,.player-file-development');if(before)before.insertAdjacentHTML('beforebegin',scFileHtml(g,p));else t.insertAdjacentHTML('beforeend',scFileHtml(g,p));}
+
+  /* ---------- mount into the game's scouting page ---------- */
+  function scMount(g){var host=document.getElementById('office-content');if(!host)return;var dash=host.querySelector('.scout-dashboard'),el=document.createElement('div');if(dash)dash.parentNode.replaceChild(el,dash);else host.appendChild(el);if(!scDraftLive(g)){var b=host.querySelector('.scout-bottom-grid');if(b)b.parentNode.removeChild(b);}scRender(el);}
+
+  /* ---------- function-level anchors (wrap, never rewrite) ---------- */
+  function scWrap(name,get,set,fn){try{var o=get();if(typeof o!=='function')return false;set(fn(o));return true;}catch(e){if(window.console)console.error('scouting hook '+name,e);return false;}}
+  var V9=!!window.CTFODraft;
+  /* weekly tick: the same 7-day GM tick that runs after every box score; catches up on missed weeks */
+  scWrap('aiWeeklyGmTick',function(){return aiWeeklyGmTick;},function(f){aiWeeklyGmTick=f;},function(o){return function(g,date){var r=o.apply(this,arguments);try{if(g&&g===current.game&&g.stage==='regular')scCatchUp(g,date);}catch(e){console.error('scouting tick',e);}return r;};});
+  /* after the regular season the scouting clock advances 2 weeks per playoff round (U18s, Memorial Cup, Combine) */
+  scWrap('simulatePlayoffRound',function(){return simulatePlayoffRound;},function(f){simulatePlayoffRound=f;},function(o){return function(g){var r=o.apply(this,arguments);try{var S=scEnsure(g);if(S&&g===current.game){for(var i=0;i<2&&scCanAdvance(g,S);i++)scWeekTick(g,S.wk+1);}}catch(e){console.error('scouting playoff clock',e);}return r;};});
+  scWrap('renderProspects',function(){return renderProspects;},function(f){renderProspects=f;},function(o){return function(g){var r=o.apply(this,arguments);try{scMount(g);}catch(e){console.error('scouting render',e);}try{scFixLabel(g);if(V9)scReconcile(g);}catch(e){}return r;};});
+  scWrap('rehydrateSavedGame',function(){return rehydrateSavedGame;},function(f){rehydrateSavedGame=f;},function(o){return function(g){var r=o.apply(this,arguments);try{scEnsure(r||g);}catch(e){console.error('scouting migrate',e);}return r;};});
+  scWrap('advanceSeason',function(){return advanceSeason;},function(f){advanceSeason=f;},function(o){return function(g){var before=g&&g.season,r=o.apply(this,arguments);try{if(g&&g.season!==before){var S=scEnsure(g);S.drafts.forEach(function(R){if(!R.rd&&R.gr&&scDraftYear(g)-R.y>=SC.REDRAFT_AFTER)scRedraft(g,S,R,false);});}}catch(e){console.error('scouting season',e);}return r;};});
+  scWrap('progressPlayerOffseason',function(){return progressPlayerOffseason;},function(f){progressPlayerOffseason=f;},function(o){return function(p,teamId,g){var r=o.apply(this,arguments);try{if(p&&p.ctfoTraits&&p.drafted&&(+p.age||30)<=22){var t=p.ctfoTraits,wk=(t.cmp+t.coa)/2,x=scR('sc-dev|'+p.id+'|'+(g&&g.season));if(wk>=68&&x<.35)p.ovr=Math.min(+p.potential||99,(+p.ovr)+1);else if(wk<=32&&x<.3)p.ovr=Math.max(40,(+p.ovr)-1);}}catch(e){}return r;};});
+  scWrap('officeOpenModal',function(){return officeOpenModal;},function(f){officeOpenModal=f;},function(o){return function(kind,side){var r=o.apply(this,arguments);if(kind==='player-card'){try{scPlayerCard(side);}catch(e){}}return r;};});
+  /* trades (light): YOUR valuation of other clubs' young prospects uses your scouting file or the public read, not hidden truth */
+  scWrap('gmAssetValue',function(){return gmAssetValue;},function(f){gmAssetValue=f;},function(o){return function(g,id,asset){if(!g||id!==g.team||!asset||asset.round||!asset.drafted||asset.club===g.team||(+asset.age||30)>21)return o.apply(this,arguments);
+      var f=asset.scFile,est=f&&f.lo!=null?(f.lo+f.hi)/2:(asset.scPub!=null?+asset.scPub:null);if(est==null)return o.apply(this,arguments);var keep=asset.potential;asset.potential=Math.max(+asset.ovr||0,Math.round(est));try{return o.apply(this,arguments);}finally{asset.potential=keep;}};});
+  if(!V9){
+    /* real draft classes 2027-2030 (later years fall back to the generator) */
+    scWrap('makeProspects',function(){return makeProspects;},function(f){makeProspects=f;},function(o){return function(year,id,g){var y=2026+(Number(year)||1),real=null;try{real=scBuildRealClass(y,id,g);}catch(e){console.error('scouting real class',e);}return real||o.apply(this,arguments);};});
+    /* draft start: run the clock to draft week, lock the board if you never did, snapshot the public board for grades */
+    scWrap('initializeDraftOrder',function(){return initializeDraftOrder;},function(f){initializeDraftOrder=f;},function(o){return function(g){try{scDraftStartOnce(g);}catch(e){console.error('scouting draft start',e);}return o.apply(this,arguments);};});
+    /* AI clubs draft from their own imperfect boards (own scouts, own bias, your leaks) */
+    scWrap('aiDraftPickScore',function(){return aiDraftPickScore;},function(f){aiDraftPickScore=f;},function(o){return function(g,clubId,p){var S=g&&g.scouting;if(!S||clubId===g.team||!p)return o.apply(this,arguments);var sp=p.projection,so=p.potential,v=scAiValue(g,S,clubId,p);p.projection=v;p.potential=Math.max(+p.ovr||60,Math.round(v));try{return o.apply(this,arguments);}finally{p.projection=sp;p.potential=so;}};});
+    scWrap('advanceDraftOnePick',function(){return advanceDraftOnePick;},function(f){advanceDraftOnePick=f;},function(o){return function(g){var S=g&&g.scouting,st=g&&g.offseason&&g.offseason.liveDraft,row=st&&st.order[st.cursor],saved=null;
+        if(S&&row&&row.owner!==g.team){saved=(g.prospects||[]).map(function(p){return [p,p.projection,p.potential];});scSwap={};saved.forEach(function(x){scSwap[x[0].id]=[x[1],x[2]];});saved.forEach(function(x){var v=scAiValue(g,S,row.owner,x[0]);x[0].projection=Math.round(v*10)/10;x[0].potential=Math.max(+x[0].ovr||60,Math.round(v));});}
+        try{return o.apply(this,arguments);}finally{scSwap=null;if(saved)saved.forEach(function(x){x[0].projection=x[1];x[0].potential=x[2];});try{scAfterDraft(g);}catch(e){}}};});
+    scWrap('finishDraft',function(){return finishDraft;},function(f){finishDraft=f;},function(o){return function(g){var S=g&&g.scouting,saved=null;if(S){var sc=scUserScores(g,S);saved=(g.prospects||[]).map(function(p){return [p,p.projection];});saved.forEach(function(x){if(sc[x[0].id]!=null)x[0].projection=sc[x[0].id];});}
+        try{return o.apply(this,arguments);}finally{if(saved)saved.forEach(function(x){x[0].projection=x[1];});try{scAfterDraft(g);}catch(e){}}};});
+    /* your auto-pick takes the best available player on your locked war-room board */
+    scWrap('draftBest',function(){return draftBest;},function(f){draftBest=f;},function(o){return function(g,selectedId){if(!selectedId){try{var S=scEnsure(g),b=S&&scBoardBest(g,S);if(b)selectedId=b.id;}catch(e){}}return o.call(this,g,selectedId);};});
+    /* pick bookkeeping */
+    scWrap('draftProspect',function(){return draftProspect;},function(f){draftProspect=f;},function(o){return function(g,p,pick){var overall=0;try{overall=draftPickOverall(g,pick);}catch(e){}var r=o.apply(this,arguments);try{var S=scEnsure(g);if(S&&p)scRecordPick(g,S,p,g.team,overall,+(pick&&pick.round)||1,true);}catch(e){console.error('scouting pick',e);}return r;};});
+    scWrap('applyAIDraftPlayerChoice',function(){return applyAIDraftPlayerChoice;},function(f){applyAIDraftPlayerChoice=f;},function(o){return function(g,p,clubId){var r=o.apply(this,arguments);try{var S=scEnsure(g);if(S&&p)scRecordPick(g,S,p,clubId,+p.draftOverall||0,+p.draftRound||1,false);}catch(e){}return r;};});
+  }
+  function scDraftStartOnce(g){var S=scEnsure(g);if(!S||g!==current.game||S.flags.draftStart===S.year)return;S.flags.draftStart=S.year;var n=0;while(S.wk<scEvWk(S,'draft')-1&&n<60){scWeekTick(g,S.wk+1);n++;}if(!S.war)scWarBuild(g,S);if(!S.war.locked){scWarLock(g,S);S.war.auto=1;}scSnap(g,S);}
+  function scAfterDraft(g){var S=g.scouting;if(!S)return;var st=g.offseason&&g.offseason.liveDraft;if(g.offseason&&(g.offseason.phase==='free-agency'||(st&&(st.completed||st.cursor>=st.order.length))))scGradeDraft(g,S);}
+
+  /* ---------- v9 draft (draft.js + draft-show): function-level hooks only ----------
+     v9's CPU logic (cpuScore) ranks by p.projection and v9's auto-pick (userChoose) ranks by the midpoint of
+     p.scoutReport. For exactly one pick at a time we swap those two inputs: the club on the clock sees its own
+     perceived board (scouts, bias, your leaks); when you are on the clock your locked war-room board is the
+     ranking. CTFODraftShow.picked fires after every selection, so the swap is restored, the pick is filed and
+     the next club's board goes in. Everything is restored exactly when the outer call returns. */
+  var scRowSwap=null,scCtx=0;
+  function scUserBoardVals(g,S){var W=S.war,out={};(g.prospects||[]).forEach(function(p){out[p.id]=Math.min(99,scBoardValue(S,p))-40;});if(W)W.board.forEach(function(id,i){out[id]=W.dnd[id]?-1000:1000-5*i;});return out;}
+  function scRestoreRow(){var L=scRowSwap;scRowSwap=null;scSwap=null;if(!L)return;for(var i=L.length-1;i>=0;i--){var x=L[i];if(x[1]==='proj')x[0].projection=x[2];else if(x[2]===undefined)delete x[0].scoutReport;else x[0].scoutReport=x[2];}}
+  function scApplyRow(g){scRestoreRow();var S=g&&g.scouting,off=g&&g.offseason,st=off&&off.liveDraft,row=st&&st.order&&st.order[st.cursor];if(!S||!row||row.done||off.phase!=='draft'||st.completed)return;var list=g.prospects||[],L=[];
+    if(row.owner===g.team){var v=scUserBoardVals(g,S);list.forEach(function(p){var had=Object.prototype.hasOwnProperty.call(p,'scoutReport')?p.scoutReport:undefined,x=v[p.id]!=null?v[p.id]:0;L.push([p,'rep',had]);p.scoutReport=Object.assign({},p.scoutReport||{},{low:x,high:x});});}
+    else{scSwap={};list.forEach(function(p){L.push([p,'proj',p.projection]);scSwap[p.id]=[p.projection,p.potential];p.projection=Math.round(scAiValue(g,S,row.owner,p)*10)/10;});}
+    scRowSwap=L;}
+  function scReconcile(g){var S=g&&g.scouting,off=g&&g.offseason,st=off&&off.liveDraft;if(!S||!st||!st.order||st.year!==S.year)return;var R=scDraftRec(S,S.year),seen={};R.p.forEach(function(x){seen[x[0]]=1;});
+    st.order.forEach(function(row){if(!row.done||!row.playerId||seen[row.playerId])return;var p=scFindPlayer(g,row.playerId);if(p)scRecordPick(g,S,p,row.owner,row.overall,row.round,row.owner===g.team);});
+    if(st.completed||off.phase==='signings'||off.phase==='free-agency')scGradeDraft(g,S);}
+  function scEntry(name,o){return function(g){if(scCtx||!g||!current||g!==current.game||!g.offseason||!scEnsure(g))return o.apply(this,arguments);scCtx=1;
+      try{try{if(g.offseason.phase==='draft'){scDraftStartOnce(g);var D=window.CTFODraft;if(!g.offseason.liveDraft&&D&&D.initializeDraftOrder)D.initializeDraftOrder(g);}scApplyRow(g);}catch(e){scRestoreRow();console.error('scouting draft '+name,e);}
+        return o.apply(this,arguments);}
+      finally{scRestoreRow();scCtx=0;try{scReconcile(g);}catch(e){console.error('scouting draft reconcile',e);}}};}
+  function scHonorRatings(list,g,seasonNo){if(!list||!list.length)return list;var y=(Number(g&&g.startYear)||2026)+(Number(seasonNo)||1),d=scRealData(y);if(!d)return list;
+    var rows=d.players.slice().sort(function(a,b){return (a.consensusRank||9999)-(b.consensusRank||9999);}),by={},pots=[];rows.forEach(function(x,i){var k='draft-'+y+'-ep-'+(x.epId||i);if(!by[k])by[k]=x;pots.push(+x.potential||0);});
+    var tail=pots.slice(-25).filter(function(v){return v>0;}),cap=tail.length?Math.min.apply(null,tail):74;
+    list.forEach(function(p){var x=by[p.id];
+      if(x&&p.real!==false){if(+x.ovr)p.ovr=+x.ovr;if(+x.potential)p.potential=+x.potential;p.projection=+x.projection||p.potential;if(x.potentialSD!=null)p.potentialSD=+x.potentialSD;
+        if(x.attributes)p.attributes={skating:+x.attributes.skating,shooting:+x.attributes.shooting,puck:+x.attributes.puck,defense:+x.attributes.defense};
+        p.boardFlag=x.boardFlag||'';p.addType=x.addType||'';if(x.scoutingNote)p.scoutingNote=x.scoutingNote;if(x.scoutingConfidence)p.scoutingConfidence=x.scoutingConfidence;if(x.birthplace)p.birthplace=x.birthplace;p.ratingSource='CTFO prospect board (consensus-calibrated estimate)';}
+      else if(!x){p.potential=Math.min(+p.potential||cap,cap-1);p.ovr=Math.min(+p.ovr||55,62,p.potential);p.projection=Math.min(+p.projection||p.potential,p.potential+1);}});
+    return list;}
+  if(V9){
+    (function(){var D=window.CTFODraft;
+      function wd(name,mk){if(D&&typeof D[name]==='function'){var w=mk(name,D[name]);D[name]=w;return w;}return null;}
+      /* real classes: v9 builds them (ids, rank order, rights, 280-man slot); our board's ratings go on top, generated fill stays late-round */
+      var mp=wd('makeProspects',function(n,o){return function(seasonNo,id,g){var list=o.apply(this,arguments);try{scHonorRatings(list,g,seasonNo);}catch(e){console.error('scouting class ratings',e);}return list;};});
+      if(mp)scWrap('makeProspects',function(){return makeProspects;},function(f){makeProspects=f;},function(){return mp;});
+      /* draft start (clock to draft week, board locked, public snapshot) the first time v9 builds the live order */
+      var io=wd('initializeDraftOrder',function(n,o){return function(g){if(!scCtx&&!scRowSwap){try{if(g&&g.offseason&&g.offseason.phase==='draft')scDraftStartOnce(g);}catch(e){console.error('scouting draft start',e);}}return o.apply(this,arguments);};});
+      if(io)scWrap('initializeDraftOrder',function(){return initializeDraftOrder;},function(f){initializeDraftOrder=f;},function(){return io;});
+      /* every way into a pick: one pick, sim to mine, sim all / finish, your pick (manual or auto), draft trades */
+      var e1=wd('advanceDraftOnePick',scEntry);if(e1)scWrap('advanceDraftOnePick',function(){return advanceDraftOnePick;},function(f){advanceDraftOnePick=f;},function(){return e1;});
+      var e2=wd('advanceDraftToUserPick',scEntry);if(e2)scWrap('advanceDraftToUserPick',function(){return advanceDraftToUserPick;},function(f){advanceDraftToUserPick=f;},function(){return e2;});
+      var e3=wd('finishDraft',scEntry);if(e3)scWrap('finishDraft',function(){return finishDraft;},function(f){finishDraft=f;},function(){return e3;});
+      var e4=wd('draftBest',scEntry);if(e4)scWrap('draftBest',function(){return draftBest;},function(f){draftBest=f;},function(){return e4;});
+      var e5=wd('draftProspect',scEntry);if(e5)scWrap('draftProspect',function(){return draftProspect;},function(f){draftProspect=f;},function(){return e5;});
+      var e6=wd('acceptDraftTrade',scEntry);if(e6)scWrap('acceptDraftTrade',function(){return acceptDraftTrade;},function(f){acceptDraftTrade=f;},function(){return e6;});
+      wd('simAll',scEntry);
+      wd('completeDraft',function(n,o){return function(g){var r=o.apply(this,arguments);try{scReconcile(g);}catch(e){console.error('scouting draft complete',e);}return r;};});
+      /* AI valuations asked for outside a pick (draft-trade offers etc.) also use that club's own board */
+      var ap=wd('aiDraftPickScore',function(n,o){return function(g,clubId,p){var S=g&&g.scouting;if(!S||!p||clubId===g.team||scRowSwap)return o.apply(this,arguments);var sp=p.projection;p.projection=Math.round(scAiValue(g,S,clubId,p)*10)/10;try{return o.apply(this,arguments);}finally{p.projection=sp;}};});
+      if(ap)scWrap('aiDraftPickScore',function(){return aiDraftPickScore;},function(f){aiDraftPickScore=f;},function(){return ap;});
+      /* rights screen: file anything that slipped past (e.g. "open rights" ends the draft directly) and grade */
+      var rs=wd('renderDraftSigning',function(n,o){return function(g){try{scReconcile(g);}catch(e){}return o.apply(this,arguments);};});
+      if(rs)scWrap('renderDraftSigning',function(){return renderDraftSigning;},function(f){renderDraftSigning=f;},function(){return rs;});
+      /* after each selection: restore, file the pick (with its scouting file), let the show present it, load the next club's board */
+      var DS=window.CTFODraftShow=window.CTFODraftShow||{},op=DS.picked;
+      DS.picked=function(g,row,p,how){var on=!!scRowSwap||!!scCtx;scRestoreRow();try{var S=g&&g.scouting;if(S&&p&&row)scRecordPick(g,S,p,row.owner,+row.overall||0,+row.round||1,row.owner===g.team);}catch(e){console.error('scouting pick',e);}
+        try{return typeof op==='function'?op.apply(this,arguments):undefined;}finally{if(on)try{scApplyRow(g);}catch(e){console.error('scouting next pick',e);}}};
+    })();
+  }
+  /* draft-show pick card: its "SCOUT OVR" slot prints p.scoutReport.low–high, which in v9's report schema is the POT range,
+     and "POTENTIAL" prints a grade of TRUE potential. Display-only fix after the card renders (draft-show source untouched):
+     OVR = your department's fogged current-rating range, POT = your fogged ceiling (or the public read if you have none). */
+  function scShowCardFix(card){var g=scG0(),S=g&&g.scouting;if(!S||!card||card.getAttribute('data-sc-fixed'))return;card.setAttribute('data-sc-fixed','1');
+    var h=card.querySelector('.cs-card-m h1'),name=h&&h.textContent,st=g.offseason&&g.offseason.liveDraft,row=null;if(!name||!st)return;
+    for(var i=st.order.length-1;i>=0;i--){var r=st.order[i];if(r.done&&r.playerName===name){row=r;break;}}var p=row&&scFindPlayer(g,row.playerId);if(!p)return;
+    var R=scRead(S,p),slots=card.querySelectorAll('.cs-card-r > div');if(slots.length<2)return;
+    var set=function(el,lab,val){var a=el.querySelector('span'),b=el.querySelector('b');if(a)a.textContent=lab;if(b)b.textContent=val;};
+    if(R.T>=2){set(slots[0],'SCOUT OVR',R.olo+'–'+R.ohi);set(slots[1],'SCOUT POT',R.lo+'–'+R.hi);}
+    else if(R.T===1){set(slots[0],'SCOUT OVR','?');set(slots[1],'SCOUT POT',scLetter(R.pot)+'?');}
+    else{set(slots[0],'OVR','?');set(slots[1],'PUBLIC POT',scLetter(scPub(p)));}
+    var ps=p.stats;if(ps&&ps.season){card.querySelectorAll('.cs-facts > div').forEach(function(d){var dt=d.querySelector('dt'),dd=d.querySelector('dd');if(dt&&dd&&/last season/i.test(dt.textContent)&&dd.textContent!=='—'){dt.textContent='Stats '+ps.season;if(ps.league)dd.textContent=dd.textContent+' · '+ps.league;}});}}
+  if(V9&&typeof MutationObserver==='function'){(function(){var watched=null;
+    function scan(root){try{root.querySelectorAll('.cs-card').forEach(scShowCardFix);}catch(e){console.error('scouting show card',e);}}
+    function hook(){var root=document.getElementById('ctfo-show');if(!root||root===watched)return;watched=root;new MutationObserver(function(){scan(root);}).observe(root,{childList:true,subtree:true});scan(root);}
+    var start=function(){if(!document.body)return setTimeout(start,300);new MutationObserver(hook).observe(document.body,{childList:true});hook();};start();})();}
+  /* "Generated prospect class" label: say where a real class comes from */
+  var SC_GEN_LABEL='Generated prospect class · NHL-style draft order and pick ownership · simulated prospects.';
+  function scFixLabel(g){var host=document.getElementById('office-content'),p0=g&&g.prospects&&g.prospects.filter(function(p){return p.real;})[0];if(!host||!p0)return;
+    var w=document.createTreeWalker(host,NodeFilter.SHOW_TEXT,null),n,y=p0.draftYear||scDraftYear(g),txt='Real '+y+' draft class · CTFO prospect board (EliteProspects bios, public rankings, late-round depth list) · NHL-style draft order and pick ownership.';
+    while((n=w.nextNode())){if(n.nodeValue.indexOf('Generated prospect class')>=0)n.nodeValue=n.nodeValue.replace(SC_GEN_LABEL,txt).replace('Generated prospect class','Real '+y+' draft class');}}
+  /* ---------- public API for other modules (v9 draft.js / draft-show, theme) ---------- */
+  window.CTFOScouting={version:'scouting-v2.'+SC.V,config:SC,
+    render:function(el){scRender(el);},
+    ensure:function(g){return scEnsure(g||scG0());},
+    aiValue:function(g,teamId,p){var S=scEnsure(g);return S?scAiValue(g,S,teamId,p):(+p.projection||0);},
+    boardOrder:function(g){var S=scEnsure(g);return S&&S.war?S.war.board.filter(function(id){return !S.war.dnd[id];}):[];},
+    read:function(g,p){var S=scEnsure(g);if(!S)return null;var R=scRead(S,p);return {tier:R.T,known:Math.round(R.K),potLow:R.lo,potHigh:R.hi,ovrLow:R.olo,ovrHigh:R.ohi,character:R.I?R.I.ch:{},medical:R.I&&R.I.med&&p.scT?scInjLabel(p.scT.inj):null,boom:!!(R.I&&R.I.boom)};},
+    recordPick:function(g,p,clubId,overall,round,mine){var S=scEnsure(g);if(S)scRecordPick(g,S,p,clubId,overall,round,mine);},
+    draftComplete:function(g){var S=scEnsure(g);if(S)scGradeDraft(g,S);},
+    draftStart:function(g){var S=scEnsure(g);if(!S)return;var n=0;while(S.wk<scEvWk(S,'draft')-1&&n<60){scWeekTick(g,S.wk+1);n++;}if(!S.war)scWarBuild(g,S);if(!S.war.locked){scWarLock(g,S);S.war.auto=1;}scSnap(g,S);}};
+  })();
+  /* ===== END SCOUTING V2 ===== */
   try{init();}catch(e){var box=$('fatal-message');box.hidden=false;$('fatal-detail').textContent='Startup error: '+e.message;}
 })();
 
