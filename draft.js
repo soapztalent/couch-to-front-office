@@ -153,7 +153,7 @@ function lapseRights(g,year){var notes=[];teamIds().forEach(function(id){var c=c
    if(id===g.team)notes.push(p.name+' re-enters the '+year+' draft');}
   else{if(id===g.team)notes.push(p.name+' becomes a free agent');}});c[k]=keep;});});
  if(notes.length)g.history.push({year:X.seasonLabel(g),text:nm(g.team)+' draft rights lapsed (unsigned by June 1, '+year+'): '+notes.join('; ')+'.',tag:'DRAFT RIGHTS'});return notes;}
-function elcSeasonEnd(g,year){teamIds().forEach(function(id){var c=club(g,id);if(!c)return;var nhl=c.roster||[];nhl.concat(c.reserveRoster||[],c.orgProspects||[]).forEach(function(p){var e=p.elc;if(!e||p.unsigned||e.lastSeasonEnd===year||Number(e.signedYear)>=year)return;e.lastSeasonEnd=year;var onNhl=nhl.indexOf(p)>=0,gp=onNhl?Math.max(0,(Number(p.games)||0)-(Number(e.gpBase)||0)):0;e.gpBase=onNhl?Number(p.games)||0:0;
+function elcSeasonEnd(g,year){teamIds().forEach(function(id){var c=club(g,id);if(!c)return;var nhl=c.roster||[];nhl.concat(c.reserveRoster||[],c.orgProspects||[]).forEach(function(p){var e=p.elc;if(!e||p.unsigned||e.lastSeasonEnd===year||Number(e.signedYear)>=year)return;e.lastSeasonEnd=year;var onNhl=nhl.indexOf(p)>=0,gp=Math.max(0,Number(p.games)||0);e.gpBase=0;
   var aav=Number(p.salary)||Number(p.capHit)||0;
   if(Number(e.slidesLeft)>0&&gp<10){e.slidesLeft--;e.slid=(Number(e.slid)||0)+1;if(onNhl){p.years=Number(p.years)+1;p.term=Number(p.term||p.years);if(Array.isArray(p.contractTimeline))p.contractTimeline.push(aav);}p.contractSource=String(p.contractSource||'').replace(/ · slid \d+ yr$/,'')+' · slid '+e.slid+' yr';return;}
   if(onNhl)return;/* NHL-roster contracts burn in expireSeasonContracts */
