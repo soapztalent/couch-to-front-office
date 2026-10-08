@@ -2646,7 +2646,7 @@
     function legacy(){watchNextGameLegacy(g);}
     function go(){try{window.CTFOLive.open({spec:spec,periodMs:Number(window.CTFO_PERIOD_MS)||180000,otMs:Number(window.CTFO_OT_MS)||60000,onFinish:function(){renderOffice();officeOpenModal('game-boxscore');}});}catch(err){if(window.console)console.warn('live game',err);legacy();}}
     if(window.CTFOLive&&window.CTFOLive.open){go();return;}
-    var tag=document.createElement('script');tag.src='live-game.js?v=9';tag.onload=function(){if(window.CTFOLive&&window.CTFOLive.open)go();else legacy();};tag.onerror=legacy;document.head.appendChild(tag);
+    var tag=document.createElement('script');tag.src='live-game.js?v=9.1';tag.onload=function(){if(window.CTFOLive&&window.CTFOLive.open)go();else legacy();};tag.onerror=legacy;document.head.appendChild(tag);
   }
   function watchNextGameLegacy(g){
     var box=g.latestBoxScore;
