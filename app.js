@@ -1124,9 +1124,9 @@
   var SIMV2={
     fLineShare:[.31,.255,.245,.19],dPairShare:[.36,.33,.31],ppUnitShare:[.63,.37],pkUnitShare:[.55,.45],
     ppOppsPerTeam:2.95,ppSecondsPerOpp:120,
-    refShots60:{F:7.4,D:4.3},refAssists60:{F:1.15,D:.85},refShPct:{F:.095,D:.043},
-    sitShotMult:{ES:.92,PP:1.45,SH:.35},sitFinishMult:{ES:.92,PP:1.12,SH:1.15},
-    leagueSvPct:.904,qualityShotK:.014,qualityFinishK:.008,
+    refShots60:{F:7.05,D:4.05},refAssists60:{F:1.15,D:.85},refShPct:{F:.095,D:.043},
+    sitShotMult:{ES:.92,PP:1.45,SH:.35},sitFinishMult:{ES:.92,PP:1.04,SH:1.15},
+    leagueSvPct:.908,qualityShotK:.014,qualityFinishK:.008,
     assistAnyES:.9,assistAnyPP:.965,assistSecond:.78,
     otGoalChance:.62,lateTyingGoal:.085,engLead1:.30,engLead2:.22,engLead3:.08,
     b2bRate:.17,hitsPerTeam:21,blocksPerTeam:13.5,faceoffsPerGame:59
