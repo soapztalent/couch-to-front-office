@@ -1,3 +1,64 @@
+# Couch To Front Office v9.1 (Oct 8, 2026)
+
+## Draft night
+- **Real players on stage.** The walk-up now uses the same 3D player model as the live game instead of the low-poly figures:
+  - He walks up from the crowd with a proper stride and arm swing.
+  - The GM hands him the jersey and he pulls it on (team kit with his number on the back and sleeves).
+  - He shakes the GM's right hand at centre stage, both turned three-quarter to the camera.
+  - They pose for photos with flashes.
+  - The GM wears a dark suit with a shirt and a tie in the team's accent colour.
+  - The model loads once and is reused; the 2D stage is still the fallback.
+- **Handshake caption fixed:** it now shows the player's name and the club's GM separately (e.g. "Brock England" and "Boston Bruins GM", or "You · general manager" for your picks).
+- **CPU signings toned down** to realistic rates: CHL picks 21–64 about 1 in 4 sign right away, CHL 65+ about 1 in 20, Europeans 16+ about 1 in 25. Your own odds from the on-stage conversation are unchanged.
+- **No double phone call:** if you already talked to the player on stage, the follow-up phone call is skipped automatically.
+- **Pick card:** shows your scouts' OVR range and POT range (SCOUT OVR / SCOUT POT).
+
+## Scouting overhaul (Sim Bot)
+- The new scouting department:
+  - Combine and medicals.
+  - Interviews that reveal character.
+  - War room: scouts pitch players; you back, overrule, move or mark do-not-draft, then lock your board.
+  - Leaks to move other clubs' boards.
+  - Staff hiring.
+  - A scouting file on every prospect.
+  - Draft grades for all 32 clubs, and redrafts after three seasons.
+- Real 2027–2030 draft classes (Elite Prospects bios, public rankings, real birthplaces and stat lines; 280 players per class).
+- CPU clubs draft off their own imperfect boards (bias, noise, your leaks). Your auto-picks follow your locked war-room board.
+
+## Fixes
+- Home news shows the newest five items (it showed the oldest five).
+
+# Couch To Front Office v9 (Oct 8, 2026)
+
+v9 is v8 plus Build Bot's draft overhaul (with fixes) and a full redesign of every remaining page in the home hub / FA theme.
+
+## Draft
+- **Draft order and lottery:** non-playoff clubs get picks 1–16 through a 2-draw lottery (max jump of 10). Picks 17–32 now follow the real NHL rule: clubs out in rounds 1–2 by points with division winners last, then conference-final losers, the runner-up and the champion.
+- **Draft room:** Sim to my pick, Sim round, make your own pick from the scouting board, or auto-draft the rest. CPU clubs pick sensibly (by board rank and team need).
+- **Draft rights and ELCs:** picks join your reserve list as unsigned rights (CHL 2 years, college/Europe 4). Offer an entry-level contract from Draft Rights.
+- **New:** ELC slide (teenagers with under 10 NHL games keep their ELC years), rights expiry on June 1, and draft re-entry for unsigned players who are still 20 or younger.
+- **Fixed:** the "Resolve draft rights →" button did nothing; a goalie could be ranked first in a generated class.
+- Generated classes are realistic: 280 players, mostly 18-year-olds, ~35% defence, ~10% goalies, a mix of nations and leagues, and clearly stronger players at the top.
+
+## Draft night broadcast
+- Every pick can play out like the TV broadcast: **On the clock** (crest, pick, countdown, team colours) → **Podium** (the GM; you, for your picks: "With the 12th pick in the 2027 NHL Draft, the … are proud to select…") → **The pick** card (height/weight, shoots, birthplace and date, team/league, last season, scouting blurb, potential grade and projection, and a character hint like "Character: Competitive, Loyal") → **Walk-up** on a 3D stage (he walks up from the crowd, pulls on the jersey, shakes the GM's hand, photo flashes) → **Draft board** with the next club on the clock. A ticker of recent picks runs along the bottom.
+- Controls: Skip this pick, Sim to my next pick, speed 1x/2x/4x, and Presentation: Full / Round 1 only / Off (saved). After round 1, CPU picks get a quick card flash (Full) or just the ticker (Round 1 only). Your picks always get the full show. If 3D isn't available, a 2D stage is used.
+- **On-stage conversation (your picks):** after the handshake he asks you a question, or you ask him one and pick your follow-up. 150 hand-written questions (75 each way) across ice time, turning pro, development, team direction, depth chart, family, idols, work ethic, leadership, pressure, Europe, contract timing and character. Each has 4 answers: a strong one, a decent one, a risky one that depends on his personality, and a bad one. No question repeats within a save.
+- What you say moves his willingness to sign: **signs his ELC on the spot**, **will sign later this summer** (within a few weeks), **returns to junior/college/Europe** (you keep his rights), or rarely **unhappy, may not sign** (rights at risk). It uses the real ELC and rights rules, including the 50-contract limit and the ELC slide.
+- A **debrief** follows: his full personality profile, a verdict (Great / Good / Risky / Wrong), why it landed that way, the best answer and why, and "Signing chance 48% → 71%".
+- CPU clubs' draftees go through the same model off-screen.
+
+## Full redesign
+- Every office page now uses the same look as the home hub and the FA market: near-black panels with thin borders, gold condensed kickers, condensed headings, dark buttons with a gold primary button, square tags, gold selected states and gold focus rings.
+- Office dashboard (including the Next Game card and the quick-sim buttons), roster, lines, schedule, standings, player stats, player file, trade room, salary cap, contracts and re-signs, AHL/prospects and the organization planner, draft room, playoffs, awards, scouting, options and data tools, save, box score, and the live-game scoreboard, call bar and buttons (the 3D rink itself is unchanged).
+- The photo masthead and arena backgrounds are replaced by a compact dark command bar; the top nav is a dark bar with a gold underline on the active tab.
+- **Fixed:** red warning and error text is red again (the old theme greyed it out); the organization planner, which had no styling, is laid out properly; the player file's Team Leadership panel no longer squashes its text, and the Captain button is labelled "Captain"; team names in the box score are no longer cut off; the re-sign list's "Build trade" button no longer runs off the edge.
+- The GM style screen shows TBD payroll for clubs whose contracts aren't in the starting snapshot, like the home screen.
+- Playoff series notices name your club instead of always saying "Boston". Error notices are red again (the theme had painted every notice green).
+- No game-logic changes beyond the draft work above. All controls and element IDs are unchanged.
+
+---
+
 # Couch To Front Office v8 (Oct 8, 2026)
 
 - The "Choose your GM style" setup screen is redesigned to match the v7 home hub / FA theme (same panels, fonts, tags, gold primary button, check-mark selected state, focus rings); every control works as before.
