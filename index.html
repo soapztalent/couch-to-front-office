@@ -857,13 +857,17 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
   function parseLocalSave(raw){if(!raw)return null;try{return JSON.parse(raw);}catch(e){return null;}}
   function gameFromLocalRecord(p){if(!p)return Promise.resolve(null);if(p.cfoSave){if(p.encoding==='gzip-base64')return saveGunzip(saveFromBase64(p.data)).then(function(t){return {game:JSON.parse(t),where:'localStorage',savedAt:p.savedAt};});return Promise.resolve({game:p.game,where:'localStorage',savedAt:p.savedAt});}return Promise.resolve({game:p,where:'localStorage (older save)',savedAt:0});}
   function readStoredSave(){
-    var local=null;try{local=parseLocalSave(localStorage.getItem(STORAGE_KEY))||parseLocalSave(localStorage.getItem(LEGACY_STORAGE_KEY));}catch(e){local=null;}
+    var rawCurrent=null,rawLegacy=null,local=null,localCorrupt=false;
+    try{rawCurrent=localStorage.getItem(STORAGE_KEY);rawLegacy=localStorage.getItem(LEGACY_STORAGE_KEY);}catch(e){rawCurrent=null;rawLegacy=null;}
+    if(rawCurrent){try{local=JSON.parse(rawCurrent);}catch(e){localCorrupt=true;}}
+    if(!local&&rawLegacy){try{local=JSON.parse(rawLegacy);}catch(e){localCorrupt=true;}}
     var localAt=local&&local.cfoSave?Number(local.savedAt)||0:0;
     return saveDbRequest('readonly',function(store){return store.get(STORAGE_KEY);}).catch(function(){return null;}).then(function(rec){
       if(rec&&rec.data!=null&&(!local||(Number(rec.savedAt)||0)>=localAt)){
         var text=rec.encoding==='gzip'?saveGunzip(rec.data):Promise.resolve(typeof rec.data==='string'?rec.data:JSON.stringify(rec.data));
         return text.then(function(t){return {game:JSON.parse(t),where:'IndexedDB',savedAt:rec.savedAt};}).catch(function(e){if(local)return gameFromLocalRecord(local);throw e;});
       }
+      if(!(rec&&rec.data!=null)&&localCorrupt)return Promise.reject(new Error('The saved game could not be read.'));
       return gameFromLocalRecord(local);
     });
   }
