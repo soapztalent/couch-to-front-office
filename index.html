@@ -74,7 +74,7 @@
       </section>
       <div class="h7-main">
         <section class="h7-panel h7-picker" aria-labelledby="pick-team-title">
-          <div class="h7-head" id="new-franchise-picker"><div><p class="h7-kicker">Start a new franchise · All 32 clubs</p><h2 id="pick-team-title">Pick your team</h2></div><p class="h7-hint">Select any NHL club. Starting a new franchise replaces the one saved career in this browser.</p></div>
+          <div class="h7-head" id="new-franchise-picker"><div><p class="h7-kicker">Start a new franchise · All 32 clubs</p><h2 id="pick-team-title">Pick your team</h2></div><p class="h7-hint">Select any NHL club. This browser keeps three careers. A new franchise fills an empty career, or replaces the oldest if all three are full.</p></div>
           <div class="h7-grid team-grid" id="team-grid" aria-label="NHL teams by division">
             <noscript><p class="notice">This game needs JavaScript enabled to run. The Boston Bruins version will load as soon as scripts are enabled.</p></noscript>
           </div>
@@ -781,6 +781,10 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
   function clearNotice(){var n=$('notice-bar'),global=$('global-message');if(n){n.hidden=true;n.textContent='';n.style.borderColor='';n.style.color='';}if(global){global.hidden=true;global.textContent='';global.style.color='';}}
   /* ===== SAVE SYSTEM V2: compact saves in IndexedDB (localStorage fallback) ===== */
   var SAVE_DB_NAME='couch-to-front-office',SAVE_DB_STORE='saves',SAVE_FORMAT='cfo-compact-2',SAVE_META_KEY=STORAGE_KEY+'-meta';
+  var SAVE_SLOT_COUNT=3,SAVE_ACTIVE_KEY=STORAGE_KEY+'-active';
+  function saveSlotKey(n){n=Number(n)||1;return n<=1?STORAGE_KEY:STORAGE_KEY+'-slot-'+n;}
+  function activeSaveSlot(){try{var n=Number(localStorage.getItem(SAVE_ACTIVE_KEY));return n>=1&&n<=SAVE_SLOT_COUNT?n:1;}catch(e){return 1;}}
+  function setActiveSaveSlot(n){n=Number(n)||1;if(n<1||n>SAVE_SLOT_COUNT)n=1;try{localStorage.setItem(SAVE_ACTIVE_KEY,String(n));}catch(e){}}
   var saveState={dirty:false,timer:null,writing:null,lastResult:null};
   var saveBundleCanon={id:null,name:null},saveDbPromise=null;
   function saveCanon(v){if(v===undefined)return 'null';if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v))return '['+v.map(saveCanon).join(',')+']';return '{'+Object.keys(v).sort().filter(function(k){return v[k]!==undefined&&typeof v[k]!=='function';}).map(function(k){return JSON.stringify(k)+':'+saveCanon(v[k]);}).join(',')+'}';}
@@ -815,13 +819,13 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     saveDbPromise.catch(function(){saveDbPromise=null;});return saveDbPromise;
   }
   function saveDbRequest(mode,fn){return openSaveDb().then(function(db){return new Promise(function(resolve,reject){var tx=db.transaction(SAVE_DB_STORE,mode),req=fn(tx.objectStore(SAVE_DB_STORE)),result;req.onsuccess=function(){result=req.result;};tx.oncomplete=function(){resolve(result);};tx.onerror=function(){reject(tx.error||req.error||new Error('IndexedDB request failed'));};tx.onabort=function(){reject(tx.error||new Error('IndexedDB write was aborted (storage may be full)'));};});});}
-  function writeSaveMeta(summary,where,bytes){try{localStorage.setItem(SAVE_META_KEY,JSON.stringify(Object.assign({},summary,{where:where,bytes:bytes})));}catch(e){}}
+  function writeSaveMeta(summary,where,bytes){try{var slot=activeSaveSlot();localStorage.setItem(SAVE_META_KEY,JSON.stringify(Object.assign({},summary,{where:where,bytes:bytes,slot:slot})));var idx={};try{idx=JSON.parse(localStorage.getItem(SAVE_META_KEY+'-slots'))||{};}catch(e){idx={};}idx[slot]=summary;localStorage.setItem(SAVE_META_KEY+'-slots',JSON.stringify(idx));}catch(e){}}
   function writeLocalSave(json,savedAt,summary,gz){
-    var payload;
+    var payload,key=saveSlotKey(activeSaveSlot());
     if(gz){var b64=saveToBase64(gz);payload='{"cfoSave":2,"savedAt":'+savedAt+',"encoding":"gzip-base64","data":"'+b64+'"}';}
     else payload='{"cfoSave":2,"savedAt":'+savedAt+',"encoding":"json","game":'+json+'}';
-    localStorage.setItem(STORAGE_KEY,payload);
-    if(localStorage.getItem(STORAGE_KEY).length!==payload.length)throw new Error('localStorage did not keep the full save');
+    localStorage.setItem(key,payload);
+    if(localStorage.getItem(key).length!==payload.length)throw new Error('localStorage did not keep the full save');
     writeSaveMeta(summary,'localStorage',payload.length);
     return {ok:true,where:'localStorage',bytes:payload.length,rawBytes:json.length};
   }
@@ -831,8 +835,8 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
     var gzip=saveCanGzip()?saveGzip(json).catch(function(){return null;}):Promise.resolve(null);
     return gzip.then(function(gz){
       var record={format:SAVE_FORMAT,savedAt:savedAt,encoding:gz?'gzip':'json',data:gz||json,bytes:gz?gz.byteLength:json.length,rawBytes:json.length,summary:summary};
-      return saveDbRequest('readwrite',function(store){return store.put(record,STORAGE_KEY);}).then(function(){
-        writeSaveMeta(summary,'IndexedDB',record.bytes);try{localStorage.removeItem(STORAGE_KEY);}catch(e){}
+      return saveDbRequest('readwrite',function(store){return store.put(record,saveSlotKey(activeSaveSlot()));}).then(function(){
+        writeSaveMeta(summary,'IndexedDB',record.bytes);try{localStorage.removeItem(saveSlotKey(activeSaveSlot()));}catch(e){}
         return {ok:true,where:'IndexedDB',bytes:record.bytes,rawBytes:json.length};
       },function(dbError){
         try{return writeLocalSave(json,savedAt,summary,gz);}
@@ -856,17 +860,19 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
   document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'&&current.game&&(saveState.dirty||saveState.timer))flushSave();});
   function parseLocalSave(raw){if(!raw)return null;try{return JSON.parse(raw);}catch(e){return null;}}
   function gameFromLocalRecord(p){if(!p)return Promise.resolve(null);if(p.cfoSave){if(p.encoding==='gzip-base64')return saveGunzip(saveFromBase64(p.data)).then(function(t){return {game:JSON.parse(t),where:'localStorage',savedAt:p.savedAt};});return Promise.resolve({game:p.game,where:'localStorage',savedAt:p.savedAt});}return Promise.resolve({game:p,where:'localStorage (older save)',savedAt:0});}
-  function readStoredSave(){
-    var local=null;try{local=parseLocalSave(localStorage.getItem(STORAGE_KEY))||parseLocalSave(localStorage.getItem(LEGACY_STORAGE_KEY));}catch(e){local=null;}
+  function readSaveSlot(n){
+    var key=saveSlotKey(n),local=null;try{local=parseLocalSave(localStorage.getItem(key));if(!local&&Number(n)<=1)local=parseLocalSave(localStorage.getItem(LEGACY_STORAGE_KEY));}catch(e){local=null;}
     var localAt=local&&local.cfoSave?Number(local.savedAt)||0:0;
-    return saveDbRequest('readonly',function(store){return store.get(STORAGE_KEY);}).catch(function(){return null;}).then(function(rec){
+    return saveDbRequest('readonly',function(store){return store.get(key);}).catch(function(){return null;}).then(function(rec){
       if(rec&&rec.data!=null&&(!local||(Number(rec.savedAt)||0)>=localAt)){
         var text=rec.encoding==='gzip'?saveGunzip(rec.data):Promise.resolve(typeof rec.data==='string'?rec.data:JSON.stringify(rec.data));
-        return text.then(function(t){return {game:JSON.parse(t),where:'IndexedDB',savedAt:rec.savedAt};}).catch(function(e){if(local)return gameFromLocalRecord(local);throw e;});
+        return text.then(function(t){return {game:JSON.parse(t),where:'IndexedDB',savedAt:rec.savedAt,slot:Number(n)||1};}).catch(function(e){if(local)return gameFromLocalRecord(local);throw e;});
       }
       return gameFromLocalRecord(local);
     });
   }
+  function readStoredSave(){return readSaveSlot(activeSaveSlot());}
+  function pickSaveSlotForNewCareer(){return Promise.all([1,2,3].map(function(n){return readSaveSlot(n).then(function(found){var g=found&&found.game,ok=!!(g&&Array.isArray(g.roster)&&g.roster.length);return {n:n,ok:ok,savedAt:ok?(Number(found.savedAt)||0):0,name:ok?team(g.team).name:''};}).catch(function(){return {n:n,ok:true,savedAt:0,name:'unreadable slot '+n};});})).then(function(rows){var empty=rows.filter(function(r){return !r.ok;}).sort(function(a,b){return a.n-b.n;})[0];if(empty)return {slot:empty.n,replaced:''};rows.sort(function(a,b){return a.savedAt-b.savedAt||a.n-b.n;});return {slot:rows[0].n,replaced:rows[0].name||('career '+rows[0].n)};});}
   function saveCanOpen(g){if(!g||!Array.isArray(g.roster)||!g.roster.length)return false;var v=g.version;if(v==null||v==='')return true;return /^0\.[456]$/.test(String(v));}
   function openLoadedGame(g,message){
     if(!saveCanOpen(g)){setNotice('That save could not be opened. Choose a v0.4, v0.5 or v0.6 franchise export.',true);return false;}
@@ -874,7 +880,12 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
   }
   /* ===== END SAVE SYSTEM V2 ===== */
   function start(mode,payrollOn) {
-    current.mode=mode; current.tradeDraft=null; current.orgTeam=current.selected;current.orgTab='depth';current.game=freshGame(current.selected,mode,payrollOn); current.page='overview'; setScreen('office'); $('top-season').textContent=seasonLabel(current.game)+' SEASON'; renderOffice(); persist();syncOfficialSchedule(current.game);syncNhlStatsAllTeams(current.game);
+    if(start.busy)return;start.busy=true;
+    pickSaveSlotForNewCareer().then(function(pick){
+      setActiveSaveSlot(pick.slot);
+      current.mode=mode; current.tradeDraft=null; current.orgTeam=current.selected;current.orgTab='depth';current.game=freshGame(current.selected,mode,payrollOn); current.page='overview'; setScreen('office'); $('top-season').textContent=seasonLabel(current.game)+' SEASON'; renderOffice(); persist();syncOfficialSchedule(current.game);syncNhlStatsAllTeams(current.game);
+      if(pick.replaced)setNotice('All three careers were full. The oldest ('+pick.replaced+') was replaced. The other two are still in this browser.');
+    }).then(function(){start.busy=false;},function(){start.busy=false;});
   }
   /* ===== LEAGUE YEAR / CAP ROLLOVER (July 1) ===== */
   // Contracts that ran out at season's end (contractExpired, no years left) keep counting at their
@@ -2355,8 +2366,8 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
   function askPlayerForTradeList(){var g=current.game,d=prepareTradeDraft(g),club=leagueClub(g,d.target),userPlayer=g.roster.find(function(x){return x.id===d.awaitingTradeList;}),marketPlayer=club&&club.roster.find(function(x){return x.id===d.awaitingTradeList;}),p=userPlayer||marketPlayer;if(!p)return;var list=simulatePlayerTradeList(p,userPlayer?g.team:d.target);p.tradeToTeams=list;p.tradeToTeamsSource='Simulated player response';var names=list.map(function(id){return team(id).name;});d.awaitingTradeList='';d.callResult={decision:'info',text:p.name+' provided '+names.length+' approved destinations: '+names.join(', ')+'. This list is generated for this career simulation, not sourced real-world contract data.'};persist();renderPage();}
   function upgradeGame(g) { if(!g)return g;if(!g.team)g.team='BOS';if(!g.startYear)g.startYear=2026;if(!g.season)g.season=1;g.version='0.6';g.maxYears=g.maxYears||25;g.cap=g.cap||104000000;syncLeagueCap(g);g.transactionLog=g.transactionLog||[];g.aiLog=g.aiLog||[];g.retainedObligations=g.retainedObligations||[];g.reserveRoster=g.reserveRoster||[];g.orgProspects=g.orgProspects||[];g.freeAgents=g.freeAgents||[];seedCurrentFreeAgentMarket(g);g.userPicks=g.userPicks||makePicks(g.team,g.startYear+g.season,3);g.leagueTeams=g.leagueTeams||{};teams.filter(function(t){return t.id!==g.team;}).forEach(function(t){if(!g.leagueTeams[t.id])g.leagueTeams[t.id]=makeLeagueClub(t.id,g.startYear+g.season-1);var c=g.leagueTeams[t.id];c.retainedObligations=c.retainedObligations||[];c.reserveRoster=c.reserveRoster||[];c.orgProspects=c.orgProspects||[];c.picks=c.picks||makePicks(t.id,g.startYear+g.season,3);c.plan=c.plan||initialPlan(c.roster);});function normalizeRetention(roster){(roster||[]).forEach(function(p){if(p.retainedPercent>0&&p.retainedLayers==null)p.retainedLayers=1;else p.retainedLayers=Number(p.retainedLayers)||0;});}normalizeRetention(g.roster);normalizeRetention(g.reserveRoster);function refreshRatings(roster,id){(roster||[]).forEach(function(p){applyNhlRatings(p,id);if(g.startYear===2026&&g.season===1)applyNhlContract(p,id,false);});}refreshRatings(g.roster,g.team);refreshRatings(g.reserveRoster,g.team);var __seedRR=ratingReservesNeeded(g);if(__seedRR)g.reserveRoster=appendNhlRatingReserves(g.reserveRoster,g.roster,g.team,g);Object.keys(g.leagueTeams).forEach(function(id){var c=g.leagueTeams[id];normalizeRetention(c.roster);normalizeRetention(c.reserveRoster);refreshRatings(c.roster,id);refreshRatings(c.reserveRoster,id);if(__seedRR)c.reserveRoster=appendNhlRatingReserves(c.reserveRoster,c.roster,id,g);});g.standings=g.standings||{};g.seasonTeamStats=g.seasonTeamStats||{};teams.forEach(function(t){if(!g.standings[t.id])g.standings[t.id]={w:0,l:0,otl:0,rw:0,row:0,pts:0,gf:0,ga:0,headToHead:{}};});if(!g.startingSnapshot)g.startingSnapshot={id:'legacy-save',name:'Legacy save - starting data unknown',locked:true,realWorldCoverageVerified:false};g.ratingReservesSeeded=true;repairDuplicatePlayers(g);syncGeneratedNames(g);assignRoles(g);return g; }
   function goHome(){current.game=null;current.page='overview';setScreen('team');$('top-season').textContent='2026–27 SEASON';refreshStartingBanner();updateTeamHeadings(current.selected);}
-  function saveGame(){if(!current.game){setNotice('Start a game before saving.',true);return Promise.resolve(null);}setNotice('Saving franchise…');saveState.dirty=true;return flushSave().then(function(r){if(r&&r.ok)setNotice('Franchise saved in this browser ('+r.where+', '+saveSizeLabel(r.bytes)+'). Use Export to keep a portable copy.');else setNotice('Save failed: '+(r&&r.error||'unknown storage error')+'. Use Export to keep a copy of this franchise.',true);return r;});}
-  function loadGame(){setNotice('Loading saved franchise…');return readStoredSave().then(function(found){if(!found||!found.game){setNotice('No saved franchise was found in this browser.',true);return false;}return openLoadedGame(found.game,function(g){return 'Saved '+team(g.team).name+' franchise loaded.';});}).catch(function(e){setNotice('The saved game could not be read.',true);return false;});}
+  function saveGame(){if(!current.game){setNotice('Start a game before saving.',true);return Promise.resolve(null);}setNotice('Saving franchise…');saveState.dirty=true;return flushSave().then(function(r){if(r&&r.ok)setNotice('Franchise saved in career '+activeSaveSlot()+' ('+r.where+', '+saveSizeLabel(r.bytes)+'). Use Export to keep a portable copy.');else setNotice('Save failed: '+(r&&r.error||'unknown storage error')+'. Use Export to keep a copy of this franchise.',true);return r;});}
+  function loadGame(slot){var n=typeof slot==='number'?slot:activeSaveSlot();if(slot&&slot.target&&slot.target.closest){var btn=slot.target.closest('[data-save-slot]');if(btn)n=Number(btn.dataset.saveSlot)||n;}setNotice('Loading saved franchise…');return readSaveSlot(n).then(function(found){if(!found||!found.game){setNotice('No saved franchise was found in this browser.',true);return false;}setActiveSaveSlot(n);return openLoadedGame(found.game,function(g){return 'Saved '+team(g.team).name+' franchise loaded from career '+n+'.';});}).catch(function(e){setNotice('The saved game could not be read.',true);return false;});}
   function exportGame(){if(!current.game){setNotice('Start a game before exporting a save.',true);return;}download(JSON.stringify({format:'nhl-franchise-save-v06',saveFormat:SAVE_FORMAT,game:compactGameForSave(current.game)}),'nhl-franchise-save-v06.json','application/json');}
   function download(data,name,type){var blob=new Blob([data],{type:type});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
   function importSave(file){var reader=new FileReader();reader.onload=function(){try{var parsed=JSON.parse(reader.result);var g=parsed.game||parsed;if(!saveCanOpen(g))throw new Error('Unsupported save');openLoadedGame(g,'Imported franchise successfully.');}catch(e){setNotice('Could not import this save. Choose a v0.4, v0.5 or v0.6 franchise JSON export.',true);}};reader.readAsText(file);}
@@ -2693,12 +2704,13 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
   }
   function refreshContinueCareer() {
     var card=$('continue-career');if(!card)return;document.body.classList.remove('h7-has-save');
-    function paint(game){
+    function paint(game,slot){
       if(!game||!(game.roster||game.seasonText)||!team(game.team)){card.hidden=true;return false;}
       var club=team(game.team),record=game.record||{},played=(Number(record.w)||0)+(Number(record.l)||0)+(Number(record.otl)||0),season=game.seasonText||seasonLabel(game);
       card.hidden=false;document.body.classList.add('h7-has-save');$('continue-title').textContent=club.name;
-      $('continue-detail').textContent='Season '+String(season).replace('-', '–')+' · '+(record.w||0)+'-'+(record.l||0)+'-'+(record.otl||0)+' · '+played+' games played';
+      $('continue-detail').textContent='Career '+(slot||activeSaveSlot())+' · Season '+String(season).replace('-', '–')+' · '+(record.w||0)+'-'+(record.l||0)+'-'+(record.otl||0)+' · '+played+' games played';
       var crest=$('continue-crest');crest.textContent=club.id;crest.style.setProperty('--accent',club.color);if(typeof officeMark==='function')crest.innerHTML=officeMark(club.id,'continue-inner');else if(teamLogoFiles[club.id])crest.innerHTML=teamMark(club.id);
+      var btn=$('continue-career-button');if(btn)btn.dataset.saveSlot=String(slot||activeSaveSlot());
       return true;
     }
     var painted=false;
@@ -2707,12 +2719,15 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
       var raw=(meta&&meta.team)?null:(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(LEGACY_STORAGE_KEY));
       var parsed=raw?parseLocalSave(raw):null;
       var game=meta&&meta.team?{team:meta.team,record:meta.record,seasonText:meta.season}:parsed&&parsed.cfoSave?(parsed.game||null):parsed;
-      painted=!!paint(game);
+      painted=!!paint(game,meta&&meta.slot);
     } catch(error){painted=false;card.hidden=true;}
-    readStoredSave().then(function(found){
-      var full=found&&found.game;
-      if(full&&Array.isArray(full.roster)&&full.roster.length&&team(full.team))paint(full);
-      else if(!painted)card.hidden=true;
+    Promise.all([1,2,3].map(function(n){return readSaveSlot(n).then(function(found){var g=found&&found.game;return g&&Array.isArray(g.roster)&&g.roster.length&&team(g.team)?{n:n,game:g,savedAt:Number(found.savedAt)||0}:null;}).catch(function(){return null;});})).then(function(rows){
+      card.querySelectorAll('[data-save-slot-extra]').forEach(function(el){el.remove();});
+      var playable=rows.filter(Boolean).sort(function(a,b){return b.savedAt-a.savedAt||a.n-b.n;});
+      if(!playable.length){if(!painted)card.hidden=true;return;}
+      paint(playable[0].game,playable[0].n);
+      var kicker=card.querySelector('.h7-kicker');if(kicker)kicker.textContent='Saved careers · '+playable.length+' of 3';
+      playable.slice(1).forEach(function(s){var b=document.createElement('button');b.type='button';b.className='h7-btn';b.dataset.saveSlot=String(s.n);b.dataset.saveSlotExtra='1';b.textContent='Career '+s.n+' · '+team(s.game.team).name;b.addEventListener('click',function(){loadGame(s.n);});card.appendChild(b);});
     }).catch(function(){if(!painted)card.hidden=true;});
   }
 
@@ -2983,7 +2998,7 @@ window.NHL_STATS_HISTORY = {"metadata":{"source":"NHL.com Stats REST regular-sea
       title=kind==='partner'?'Change trade partner':'Choose your next club';kicker=kind==='partner'?'31 AI FRONT OFFICES':'NEW CAREER';
       body=(kind==='club'?'<p class="offline-note">This returns to club selection; it does not transfer control inside the current career. Export your save before starting a new franchise.</p>':'<p class="offline-note">Changing partners clears the current unsaved trade package. Save the package first to keep it.</p>')+'<div class="organization-grid modal-team-grid">'+teams.filter(function(t){return kind==='club'||t.id!==g.team;}).map(function(t){return '<button class="organization-card" '+(kind==='partner'?'data-ui-partner':'data-ui-club')+'="'+t.id+'">'+officeMark(t.id,'team-logo')+'<span><strong>'+esc(t.name)+'</strong><small>'+esc(t.division)+' DIVISION</small></span></button>';}).join('')+'</div>';
     }else{
-      title='Franchise options';body='<p class="offline-note">Saves are local to this browser. Export a backup before beginning a new career or replacing your database.</p><div class="options-grid">'+[['save-button','Save career'],['load-button','Load saved career'],['export-button','Export career JSON'],['save-import','Import career JSON'],['starting-data-button','Starting database'],['data-import-button','Import roster data'],['data-sync-button','Optional online sync'],['return-home','Main menu']].map(function(a){return '<button class="button" data-ui-trigger="'+a[0]+'">'+a[1]+'</button>';}).join('')+'</div><p class="offline-note">Normal play works offline. This interface update does not add verified contracts, ratings or complete prospect pools.</p>';
+      title='Franchise options';body='<p class="offline-note">Saves are local to this browser. Three careers are kept. A new franchise fills an empty career, or replaces the oldest if all three are full.</p><div class="options-grid">'+[['save-button','Save career'],['load-button','Load saved career'],['export-button','Export career JSON'],['save-import','Import career JSON'],['starting-data-button','Starting database'],['data-import-button','Import roster data'],['data-sync-button','Optional online sync'],['return-home','Main menu']].map(function(a){return '<button class="button" data-ui-trigger="'+a[0]+'">'+a[1]+'</button>';}).join('')+'</div><p class="offline-note">Normal play works offline. This interface update does not add verified contracts, ratings or complete prospect pools.</p>';
     }
     $('workspace-modal-title').textContent=title;$('workspace-modal-kicker').textContent=kicker;$('workspace-modal-body').innerHTML=body;
     if(kind==='assets')officeRenderPicker();
