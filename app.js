@@ -1293,6 +1293,7 @@
     sides.forEach(function(S,i){var O=sides[1-i];
       S.skaters.forEach(function(p){var es=Math.round(S.es[p.id]||0),pp=Math.round(S.ppT[p.id]||0),sh=Math.round(S.shT[p.id]||0);bumpPlayerStat(p,'games',1);bumpPlayerStat(p,'toiSeconds',es+pp+sh);if(pp)bumpPlayerStat(p,'ppToiSeconds',pp);if(sh)bumpPlayerStat(p,'shToiSeconds',sh);});
       for(var n=0;n<opps[1-i];n++){var pen=simV2Pick(S.skaters,function(p){return (S.es[p.id]||0)*(simV2Talent(g,p).physical);});bumpPlayerStat(pen,'penaltyMinutes',2);S.penLog.push(pen);}
+      if(i===0){var extra=(Math.random()<.9?1:0)+(Math.random()<.4?1:0);for(var c=0;c<extra;c++){[0,1].forEach(function(si){var mate=simV2Pick(sides[si].skaters,function(p){return (sides[si].es[p.id]||0)*(simV2Talent(g,p).physical);});bumpPlayerStat(mate,'penaltyMinutes',2);});}}
       var gl=S.goalie;S.club.roster.forEach(function(p){if(p.pos==='G')p.simConsecutiveStarts=p===gl?(Number(p.simConsecutiveStarts)||0)+1:0;});
       if(gl){var won=i===0?goalsA>goalsB:goalsB>goalsA;bumpPlayerStat(gl,'games',1);bumpPlayerStat(gl,'goalieStarts',1);bumpPlayerStat(gl,'toiSeconds',gameSec);bumpPlayerStat(gl,'goalieShotsAgainst',S.goalieSA);bumpPlayerStat(gl,'goalieGoalsAgainst',S.goalieGA);bumpPlayerStat(gl,'goalieSaves',Math.max(0,S.goalieSA-S.goalieGA));if(won)bumpPlayerStat(gl,'goalieWins',1);else if(ot)bumpPlayerStat(gl,'goalieOtLosses',1);else bumpPlayerStat(gl,'goalieLosses',1);if(O.goals===0&&!shootout)bumpPlayerStat(gl,'goalieShutouts',1);}
     });
