@@ -58,7 +58,7 @@ S.eligible=function(q,ctx){var e=q.elig||{};if(e.league&&e.league.indexOf(ctx.lt
    players high in that trait; for players low in it the (positive) effect is damped to 35%. */
 S.effect=function(a,t,ctx){var terms=[{kind:'base',k:a.type,val:a.base}],E=a.base;Object.keys(a.traits||{}).forEach(function(k){var w=a.traits[k],zz=z(t[k]),v=w*zz,dm=w<0&&zz<0;if(dm)v*=0.35;terms.push({kind:'trait',k:k,w:w,val:v,damped:dm});E+=v;});Object.keys(a.ctx||{}).forEach(function(k){if(ctx.f[k]){var v=a.ctx[k];terms.push({kind:'ctx',k:k,w:v,val:v});E+=v;}});return {E:E,terms:terms};};
 S.evaluate=function(q,t,ctx){var base=S.baseLogit(ctx,t),pb=sig(base);return q.answers.map(function(a,i){var e=S.effect(a,t,ctx);return {i:i,type:a.type,E:e.E,terms:e.terms,pBefore:pb,pAfter:sig(base+e.E)};});};
-S.unhappyChance=function(E){return cl(0.008+Math.max(0,-E-0.2)*0.06,0,0.15);};
+S.unhappyChance=function(E){if(!(E<0))return 0;return cl(0.008+Math.max(0,-E-0.2)*0.06,0,0.15);};
 S.laterShare=function(lt,pAfter,overall){return (lt==='CHL'||lt==='EURO'?0.15+0.45*pAfter:0.05+0.15*pAfter)*(overall>64?0.5:1);};
 S.rollOutcome=function(r,ev,ctx,cpu){var u=r(),a=r(),b=r(),w=r();if(u<S.unhappyChance(ev.E))return {outcome:'unhappy'};if(a<ev.pAfter)return {outcome:'now'};if(b<S.laterShare(ctx.lt,ev.pAfter,ctx.overall)*(cpu?S.CPU_LATER:1))return {outcome:'later',weeks:2+Math.floor(w*7)};return {outcome:'return'};};
 S.policy=function(r,evs){var order=evs.slice().sort(function(a,b){return b.E-a.E;}),x=r(),w=[0.35,0.30,0.20,0.15],acc=0;for(var i=0;i<4;i++){acc+=w[i];if(x<acc)return order[i].i;}return order[0].i;};
