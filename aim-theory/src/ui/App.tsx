@@ -40,6 +40,7 @@ export function App() {
     if (!lesson) return <Home settings={settings} bests={bests} done={done} onLesson={(id) => setRoute({ name: "lesson", id })} onRange={(id) => setRoute({ name: "range", mode: id as RangeMode })} onSettings={() => setRoute({ name: "settings" })} />;
     return (
       <LessonPlayer
+        key={lesson.id}
         lesson={lesson}
         settings={settings}
         best={bests[lesson.id]}

@@ -33,8 +33,7 @@ export function Home(props: {
       </header>
       <main className="home">
         <p className="lede">
-          The coach speaks a lesson, shows the idea, then puts you in a drill. Peaker&apos;s advantage and how to swing,
-          for a mouse and a keyboard. Scores stay on this machine.
+          Watch the fight from both sides, then take it. Mouse and keyboard. Scores stay on this machine.
         </p>
         <div className="section-label">Course</div>
         <div className="lesson-list">

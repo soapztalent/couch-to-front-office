@@ -215,6 +215,12 @@ const RAW = [
   ["range-good", "That was clean enough to build on. Run it back if you want a tighter score."],
   ["range-fix", "The misses added up. Get on the target, then click. Speed without the hit is a loss."],
   ["range-smooth-fix", "You caught the bot in bursts. Ease onto it and match the pace."],
+  ["edge-pov-you", "You swing. You see them first."],
+  ["edge-pov-them", "You hold. You see them late."],
+  ["edge-go", "Your swing."],
+  ["swing-pov-you", "Your crosshair is already on the head."],
+  ["swing-pov-them", "They swing out. You are still on the edge."],
+  ["swing-go", "Place it, then swing."],
 ] as const;
 
 export const LINES: Record<string, ScriptLine> = Object.fromEntries(

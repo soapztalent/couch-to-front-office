@@ -5,18 +5,20 @@ import { drawWorld } from "../sim/draw";
 import { attachSurface, textSlot } from "../sim/surface";
 import { buildDebrief, type Debrief } from "../sim/debrief";
 import { LaneSession, type RepResult } from "../sim/lane";
+import { POV_SECONDS, samplePov, type PovId } from "../sim/pov";
 import { Sfx } from "../sim/sfx";
 import { drawShow, type ShowId } from "../sim/shows";
 import { line } from "../voice/lines";
 import { Speaker } from "../voice/speaker";
-import type { Lesson } from "./course";
+import type { Lesson, PovBeat } from "./course";
 
-type Phase = "intro" | "explain" | "show" | "arm" | "drill" | "pause" | "debrief";
+type Phase = "intro" | "explain" | "show" | "pov" | "arm" | "drill" | "pause" | "debrief";
 
 const STEP: Record<Phase, string> = {
   intro: "Explain",
   explain: "Explain",
   show: "Show",
+  pov: "Watch",
   arm: "Drill",
   drill: "Drill",
   pause: "Drill",
@@ -30,7 +32,9 @@ export function LessonPlayer(props: {
   onExit: () => void;
   onRecord: (score: number, complete: boolean) => { best: number; isNew: boolean };
 }) {
-  const [phase, setPhase] = useState<Phase>("intro");
+  const cinematic = Boolean(props.lesson.pov?.length);
+  const [phase, setPhase] = useState<Phase>(cinematic ? "pov" : "intro");
+  const [povBeat, setPovBeat] = useState<PovBeat | null>(props.lesson.pov?.[0] ?? null);
   const [spoken, setSpoken] = useState<string>("");
   const [lineId, setLineId] = useState<string>("");
   const [speaking, setSpeaking] = useState(false);
@@ -62,6 +66,17 @@ export function LessonPlayer(props: {
   useEffect(() => {
     if (phase === "drill") speakerRef.current?.cancel();
   }, [phase]);
+
+  useEffect(() => {
+    if (!props.lesson.pov?.length) return;
+    void beginPov();
+    return () => {
+      runRef.current += 1;
+      speakerRef.current?.cancel();
+    };
+    // Restart only when the lesson changes. Run it again calls beginPov itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.lesson.id]);
 
   function skipLine() {
     if (skipRef.current) skipRef.current();
@@ -105,6 +120,78 @@ export function LessonPlayer(props: {
       });
     });
     skipRef.current = null;
+  }
+
+  async function playBeat(id: string, alive: () => boolean, ms: number) {
+    const speaker = speakerRef.current;
+    if (!speaker || !alive()) return;
+    const script = line(id);
+    setLineId(script.id);
+    setSpoken(script.text);
+    await new Promise<void>((resolve) => {
+      let speechDone = false;
+      let timeDone = false;
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        if (speechDone && timeDone) {
+          settled = true;
+          resolve();
+        }
+      };
+      const timer = window.setTimeout(() => {
+        timeDone = true;
+        finish();
+      }, ms);
+      skipRef.current = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        speaker.skip();
+        resolve();
+      };
+      void speaker.speak(script).finally(() => {
+        speechDone = true;
+        finish();
+      });
+    });
+    skipRef.current = null;
+  }
+
+  async function beginPov() {
+    const pov = props.lesson.pov;
+    const speaker = speakerRef.current;
+    if (!pov || !speaker) return;
+    const token = ++runRef.current;
+    speaker.volume = settingsRef.current.volume;
+    const alive = () => token === runRef.current;
+    for (const beat of pov) {
+      if (!alive()) return;
+      setPhase("pov");
+      setPovBeat(beat);
+      await playBeat(beat.line, alive, POV_SECONDS * 1000);
+    }
+    if (!alive()) return;
+    setPhase("arm");
+    const brief = line(props.lesson.brief);
+    setLineId(brief.id);
+    setSpoken(brief.text);
+    const resultsPromise = new Promise<RepResult[]>((resolve) => {
+      drillWait.current = resolve;
+    });
+    void speaker.speak(brief);
+    const results = await resultsPromise;
+    if (!alive()) return;
+    const report = buildDebrief(props.lesson.id, results);
+    const complete = results.length >= props.lesson.reps.length;
+    const record = props.onRecord(report.score, complete);
+    setSaved(record);
+    setDebrief(report);
+    setPhase("debrief");
+    for (const script of report.lines) {
+      if (!alive()) return;
+      await playBeat(script.id, alive, Math.min(7000, Math.max(2200, script.text.length * 40)));
+    }
   }
 
   async function begin() {
@@ -151,6 +238,63 @@ export function LessonPlayer(props: {
     if (session && session.phase !== "done") session.finishEarly();
     drillWait.current?.(session?.results ?? []);
     drillWait.current = null;
+  }
+
+  if (cinematic && (phase === "pov" || phase === "debrief")) {
+    const shown = phase === "debrief" ? props.lesson.pov?.[props.lesson.pov.length - 1] : povBeat;
+    return (
+      <div data-screen="lesson" data-lesson={props.lesson.id} data-phase={phase} data-pov={shown?.id ?? ""} data-line-id={lineId}>
+        <PovCanvas pov={shown?.id ?? "edge-peeker"} frozen={phase === "debrief"} settings={props.settings} />
+        <div className="pov-chrome">
+          <button
+            className="text-btn"
+            onClick={() => {
+              runRef.current += 1;
+              speakerRef.current?.cancel();
+              props.onExit();
+            }}
+          >
+            Back
+          </button>
+          <strong className="pov-tag">{phase === "debrief" ? "DONE" : shown?.tag}</strong>
+          {phase === "pov" ? (
+            <button className="ghost-btn" onClick={skipLine}>
+              Skip
+            </button>
+          ) : (
+            <span />
+          )}
+        </div>
+        {phase === "pov" ? (
+          <p className="pov-line" data-coach-line={lineId}>
+            {spoken}
+          </p>
+        ) : null}
+        {phase === "debrief" && debrief ? (
+          <div className="pov-debrief" data-score={debrief.score}>
+            <b>{debrief.score}</b>
+            <p>{debrief.right}</p>
+            <p>{debrief.fix}</p>
+            <p data-coach-line={lineId}>{spoken}</p>
+            <div className="row">
+              <button className="solid-btn" onClick={props.onExit}>
+                Course
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => {
+                  setDebrief(null);
+                  setSaved(null);
+                  void beginPov();
+                }}
+              >
+                Run it again
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -227,7 +371,7 @@ export function LessonPlayer(props: {
               </p>
             </section>
           ) : null}
-          {phase === "show" ? (
+          {phase === "show" && props.lesson.show ? (
             <div>
               <ShowCanvas scene={props.lesson.show} beat={beat} />
               <div className="caption-bar">
@@ -447,7 +591,7 @@ function DrillStage(props: {
         <div className="arm">
           <h2>{props.phase === "pause" ? "Paused" : props.lesson.title}</h2>
           <p>{props.phase === "pause" ? "Esc let the mouse go. Click to get back in." : props.spoken}</p>
-          <p>{props.lesson.control}</p>
+          {props.lesson.pov ? null : <p>{props.lesson.control}</p>}
           {!props.raw ? <p className="warn">Raw input was not granted. OS pointer settings may change your cm/360.</p> : null}
           {props.lockError ? <p className="warn">Pointer lock did not start. Click again, in the page.</p> : null}
           <button className="solid-btn" onClick={() => void arm()}>
@@ -465,6 +609,57 @@ function DrillStage(props: {
       >
         End drill
       </button>
+    </div>
+  );
+}
+
+function PovCanvas(props: { pov: PovId; frozen: boolean; settings: Settings }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const povRef = useRef(props.pov);
+  const frozenRef = useRef(props.frozen);
+  const clock = useRef(performance.now());
+  povRef.current = props.pov;
+  frozenRef.current = props.frozen;
+
+  useEffect(() => {
+    clock.current = performance.now();
+  }, [props.pov, props.frozen]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const surface = attachSurface(canvas);
+    let raf = 0;
+    let stopped = false;
+    const tick = (now: number) => {
+      if (stopped) return;
+      const { cssW, cssH } = surface.size();
+      if (cssW >= 2 && cssH >= 2) {
+        const t = frozenRef.current ? POV_SECONDS : Math.min(POV_SECONDS, (now - clock.current) / 1000);
+        const sample = samplePov(povRef.current, t);
+        drawWorld(surface.ctx, cssW, cssH, {
+          camera: sample.camera,
+          walls: sample.walls,
+          actors: sample.actors,
+          pip: sample.pip,
+          fov: props.settings.fov,
+          crosshair: props.settings.crosshair,
+          flash: null,
+        });
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      surface.destroy();
+    };
+  }, [props.settings]);
+
+  return (
+    <div className="range-root">
+      <canvas ref={canvasRef} />
     </div>
   );
 }

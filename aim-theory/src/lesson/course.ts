@@ -1,7 +1,14 @@
 import type { RepSpec } from "../sim/lane";
+import type { PovId } from "../sim/pov";
 import type { ShowId } from "../sim/shows";
 
 export type LessonId = "edge" | "swing" | "choice" | "isolate";
+
+export type PovBeat = {
+  id: PovId;
+  line: string;
+  tag: string;
+};
 
 export type Lesson = {
   id: LessonId;
@@ -9,8 +16,10 @@ export type Lesson = {
   title: string;
   summary: string;
   explain: string[];
-  show: ShowId;
+  show?: ShowId;
   showBeats: string[];
+  /** First-person beats in the drill view. When set, the lesson does not open a page of text. */
+  pov?: PovBeat[];
   brief: string;
   control: string;
   reps: RepSpec[];
@@ -23,10 +32,13 @@ export const LESSONS: Lesson[] = [
     index: "01",
     title: "The Peaker's Edge",
     summary: "Why a fast swing sees the holder first, and why posting on a pixel loses.",
-    explain: ["edge-01", "edge-02", "edge-03"],
-    show: "edge",
-    showBeats: ["edge-show-slow", "edge-show-wide", "edge-show-hold"],
-    brief: "edge-brief",
+    explain: [],
+    showBeats: [],
+    pov: [
+      { id: "edge-peeker", line: "edge-pov-you", tag: "PEEKER" },
+      { id: "edge-holder", line: "edge-pov-them", tag: "HOLDER" },
+    ],
+    brief: "edge-go",
     control: "A and D slide you along the angle. Mouse looks. Click shoots. On a hold, you only aim.",
     isolate: false,
     reps: [
@@ -43,10 +55,13 @@ export const LESSONS: Lesson[] = [
     index: "02",
     title: "The Swing",
     summary: "Crosshair on the head before you move. Strafe. Stop. Shoot.",
-    explain: ["swing-01", "swing-02", "swing-03"],
-    show: "swing",
-    showBeats: ["swing-show-bad", "swing-show-good"],
-    brief: "swing-brief",
+    explain: [],
+    showBeats: [],
+    pov: [
+      { id: "swing-you", line: "swing-pov-you", tag: "SWINGER" },
+      { id: "swing-them", line: "swing-pov-them", tag: "HOLDER" },
+    ],
+    brief: "swing-go",
     control: "Keep the pip on your crosshair while you strafe. Tap the opposite key, then click.",
     isolate: false,
     reps: [
