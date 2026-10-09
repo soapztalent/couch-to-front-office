@@ -43,6 +43,7 @@ export function LessonPlayer(props: {
   const speakerRef = useRef<Speaker | null>(null);
   const runRef = useRef(0);
   const drillWait = useRef<((reps: RepResult[]) => void) | null>(null);
+  const skipRef = useRef<(() => void) | null>(null);
   const settingsRef = useRef(props.settings);
   settingsRef.current = props.settings;
 
@@ -58,7 +59,47 @@ export function LessonPlayer(props: {
   }, [props.settings.volume]);
 
   function skipLine() {
-    speakerRef.current?.skip();
+    if (skipRef.current) skipRef.current();
+    else speakerRef.current?.skip();
+  }
+
+  async function present(id: string, alive: () => boolean) {
+    const speaker = speakerRef.current;
+    if (!speaker || !alive()) return;
+    const script = line(id);
+    setLineId(script.id);
+    setSpoken(script.text);
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    if (!alive()) return;
+    const readMs = Math.min(11000, Math.max(3200, script.text.length * 46));
+    await new Promise<void>((resolve) => {
+      let speechDone = false;
+      let timeDone = false;
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        if (speechDone && timeDone) {
+          settled = true;
+          resolve();
+        }
+      };
+      const timer = window.setTimeout(() => {
+        timeDone = true;
+        finish();
+      }, readMs);
+      skipRef.current = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        speaker.skip();
+        resolve();
+      };
+      void speaker.speak(script).finally(() => {
+        speechDone = true;
+        finish();
+      });
+    });
+    skipRef.current = null;
   }
 
   async function begin() {
@@ -70,19 +111,13 @@ export function LessonPlayer(props: {
     setPhase("explain");
     for (const id of props.lesson.explain) {
       if (!alive()) return;
-      const script = line(id);
-      setLineId(script.id);
-      setSpoken(script.text);
-      await speaker.speak(script);
+      await present(id, alive);
     }
     for (let i = 0; i < props.lesson.showBeats.length; i += 1) {
       if (!alive()) return;
       setPhase("show");
       setBeat(i);
-      const script = line(props.lesson.showBeats[i]);
-      setLineId(script.id);
-      setSpoken(script.text);
-      await speaker.speak(script);
+      await present(props.lesson.showBeats[i], alive);
     }
     if (!alive()) return;
     setPhase("arm");
@@ -103,9 +138,7 @@ export function LessonPlayer(props: {
     setPhase("debrief");
     for (const script of report.lines) {
       if (!alive()) return;
-      setLineId(script.id);
-      setSpoken(script.text);
-      await speaker.speak(script);
+      await present(script.id, alive);
     }
   }
 
@@ -413,9 +446,11 @@ function DrillStage(props: {
       <canvas ref={canvasRef} />
       <div className="hud">
         <div className="hud-top">
-          <span ref={repRef} />
+          <span>
+            <span ref={repRef} /> <span ref={stateRef} />
+          </span>
           <strong ref={cueRef} />
-          <span ref={stateRef} />
+          <span />
         </div>
         <div className="banner" ref={bannerRef} />
       </div>

@@ -88,8 +88,8 @@ function edgeDebrief(reps: RepResult[], score: number): Debrief {
   const places = swings.map((r) => r.shotErrorDeg ?? r.placementDeg).filter((n): n is number => n != null);
   const place = median(places);
   const misses = reps.reduce((n, r) => n + r.misses, 0);
-  const holdLoss = holds.some((r) => !r.won);
-  const holdWin = holds.some((r) => r.won);
+  const holdLoss = holds.some((r) => r.reason === "held-loss");
+  const holdWin = holds.some((r) => r.reason === "held-win");
   const fixes: ScriptLine[] = [];
   const goods: ScriptLine[] = [];
   if (slow >= 1) fixes.push(line("edge-fix-slow"));

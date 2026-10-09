@@ -119,13 +119,16 @@ export class Speaker {
         voices.find((v) => v.lang.startsWith("en"));
       if (english) utter.voice = english;
       utter.onend = finish;
-      utter.onerror = finish;
+      utter.onerror = () => finish();
       this.skipWait = () => {
         synth.cancel();
         finish();
       };
-      synth.cancel();
-      synth.speak(utter);
+      // cancel() in the same turn can interrupt the new utterance in Chrome.
+      window.setTimeout(() => {
+        if (settled || my !== this.token) return;
+        synth.speak(utter);
+      }, 40);
       this.resumeTimer = window.setInterval(() => {
         if (synth.paused) synth.resume();
       }, 400);
