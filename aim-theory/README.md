@@ -1,6 +1,6 @@
 # Aim Theory
 
-A mouse-and-keyboard course about the fight around the crosshair. The Peaker's Edge and The Swing play in first person: your view, then theirs, then the drill. One spoken line sits on the picture. This version is not a chat and it is not a place to hire a coach.
+A mouse-and-keyboard course about the fight around the crosshair. Each lesson is one first-person clip: the fight moves, then it cuts to the other side of that moment. The coach says the lesson over the picture. Then the drill is yours. This version is not a chat and it is not a place to hire a coach.
 
 Lessons:
 
@@ -30,8 +30,8 @@ npm run build
 
 ## Play
 
-- Open **The Peaker's Edge** or **The Swing**. The corner plays by itself: peeker, then holder. One short line is spoken over that view. **Skip** moves to the next view.
-- The other lessons still introduce the idea, then the drill. Captions stay on screen if you mute the coach in Settings.
+- Open a lesson. The clip plays on its own. One line sits on the picture while that view moves, then it cuts to the other side. No click between views. When the clip ends, the drill is yours: click to arm.
+- Captions stay on screen if you mute the coach in Settings. **Skip** leaves the clip and starts the drill.
 - On the drill, **click to arm**. The browser hides the cursor and locks it to the page. That lock is required. Aim Theory asks for unadjusted movement so the operating system does not accelerate the mouse. If the browser refuses, a warning stays up, because cm/360 can be wrong while OS pointer settings are in the way.
 - **A** and **D** slide you along the angle. The mouse looks. **Click** shoots. On a swing, tap the opposite strafe key to stop, then shoot.
 - **Esc** releases the mouse and pauses. **R** restarts the drill. **End drill** scores whatever you finished.

@@ -33,7 +33,7 @@ export function Home(props: {
       </header>
       <main className="home">
         <p className="lede">
-          Watch the fight from both sides, then take it. Mouse and keyboard. Scores stay on this machine.
+          The clip plays, then the drill is yours. Mouse and keyboard. Scores stay on this machine.
         </p>
         <div className="section-label">Course</div>
         <div className="lesson-list">
