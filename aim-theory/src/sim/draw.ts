@@ -1,5 +1,5 @@
 import type { Crosshair } from "../persist/storage";
-import { lineOfSight, projectPoint, type Camera, type Seg, type V2, type V3 } from "./geom";
+import { cameraBasis, lineOfSight, projectOnBasis, type Basis, type Camera, type Seg, type V2, type V3 } from "./geom";
 import type { Actor } from "./lane";
 import { LANE } from "./world";
 
@@ -14,11 +14,11 @@ export type WorldDraw = {
 };
 
 export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: number, world: WorldDraw): void {
-  const view = { w: cssW, h: cssH, fov: world.fov };
+  const basis = cameraBasis(world.camera, { w: cssW, h: cssH, fov: world.fov });
   ctx.fillStyle = "#12110e";
   ctx.fillRect(0, 0, cssW, cssH);
 
-  const horizon = projectPoint(world.camera, { x: world.camera.x, y: 0, z: world.camera.z + 8 }, view);
+  const horizon = projectOnBasis(world.camera, { x: world.camera.x, y: 0, z: world.camera.z + 8 }, basis);
   const hy = horizon.visible ? horizon.y : cssH * 0.58;
   ctx.fillStyle = "#1c1b17";
   ctx.fillRect(0, 0, cssW, Math.max(0, hy));
@@ -27,14 +27,14 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
 
   ctx.strokeStyle = "rgba(226, 255, 87, 0.05)";
   ctx.lineWidth = 1;
-  for (let x = -3; x <= 6; x += 0.5) strokeLine(ctx, world.camera, view, { x, y: 0, z: -2 }, { x, y: 0, z: 6 });
-  for (let z = -2; z <= 6; z += 0.5) strokeLine(ctx, world.camera, view, { x: -3, y: 0, z }, { x: 6, y: 0, z });
+  for (let x = -3; x <= 6; x += 0.5) strokeLine(ctx, world.camera, basis, { x, y: 0, z: -2 }, { x, y: 0, z: 6 });
+  for (let z = -2; z <= 6; z += 0.5) strokeLine(ctx, world.camera, basis, { x: -3, y: 0, z }, { x: 6, y: 0, z });
 
   ctx.fillStyle = "#2a2822";
   fillQuad(
     ctx,
     world.camera,
-    view,
+    basis,
     { x: -2.4, y: 0, z: -2 },
     { x: -2.4, y: 2.8, z: -2 },
     { x: -2.4, y: 2.8, z: 3 },
@@ -47,7 +47,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
     fillQuad(
       ctx,
       world.camera,
-      view,
+      basis,
       { x: wall.a.x, y: 0, z: wall.a.z },
       { x: wall.a.x, y: tall, z: wall.a.z },
       { x: wall.b.x, y: tall, z: wall.b.z },
@@ -55,15 +55,15 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
     );
     ctx.strokeStyle = "#e2ff57";
     ctx.lineWidth = 3;
-    strokeLine(ctx, world.camera, view, { x: wall.a.x, y: 0, z: wall.a.z }, { x: wall.a.x, y: tall, z: wall.a.z });
+    strokeLine(ctx, world.camera, basis, { x: wall.a.x, y: 0, z: wall.a.z }, { x: wall.a.x, y: tall, z: wall.a.z });
   }
 
-  if (world.pip) drawPip(ctx, world.camera, view, world.pip);
+  if (world.pip) drawPip(ctx, world.camera, basis, world.pip);
   for (const actor of world.actors) {
     if (!actor.alive) continue;
     const hidden = !lineOfSight({ x: world.camera.x, z: world.camera.z }, actor, world.walls);
     if (hidden) continue;
-    drawActor(ctx, world.camera, view, actor);
+    drawActor(ctx, world.camera, basis, actor);
   }
 
   if (world.flash) {
@@ -75,9 +75,9 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
   drawCrosshair(ctx, cssW, cssH, world.crosshair);
 }
 
-function strokeLine(ctx: CanvasRenderingContext2D, cam: Camera, view: { w: number; h: number; fov: number }, a: V3, b: V3): void {
-  const pa = projectPoint(cam, a, view);
-  const pb = projectPoint(cam, b, view);
+function strokeLine(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, a: V3, b: V3): void {
+  const pa = projectOnBasis(cam, a, basis);
+  const pb = projectOnBasis(cam, b, basis);
   if (!pa.visible || !pb.visible) return;
   ctx.beginPath();
   ctx.moveTo(pa.x, pa.y);
@@ -85,8 +85,8 @@ function strokeLine(ctx: CanvasRenderingContext2D, cam: Camera, view: { w: numbe
   ctx.stroke();
 }
 
-function fillQuad(ctx: CanvasRenderingContext2D, cam: Camera, view: { w: number; h: number; fov: number }, a: V3, b: V3, c: V3, d: V3): void {
-  const pts = [a, b, c, d].map((p) => projectPoint(cam, p, view));
+function fillQuad(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, a: V3, b: V3, c: V3, d: V3): void {
+  const pts = [a, b, c, d].map((p) => projectOnBasis(cam, p, basis));
   if (pts.some((p) => !p.visible)) return;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
@@ -95,8 +95,8 @@ function fillQuad(ctx: CanvasRenderingContext2D, cam: Camera, view: { w: number;
   ctx.fill();
 }
 
-function drawPip(ctx: CanvasRenderingContext2D, cam: Camera, view: { w: number; h: number; fov: number }, pip: V2): void {
-  const p = projectPoint(cam, { x: pip.x, y: LANE.head, z: pip.z }, view);
+function drawPip(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, pip: V2): void {
+  const p = projectOnBasis(cam, { x: pip.x, y: LANE.head, z: pip.z }, basis);
   if (!p.visible) return;
   ctx.save();
   ctx.translate(p.x, p.y);
@@ -112,10 +112,10 @@ function drawPip(ctx: CanvasRenderingContext2D, cam: Camera, view: { w: number; 
   ctx.restore();
 }
 
-function drawActor(ctx: CanvasRenderingContext2D, cam: Camera, view: { w: number; h: number; fov: number }, actor: Actor): void {
-  const head = projectPoint(cam, { x: actor.x, y: LANE.head, z: actor.z }, view);
-  const foot = projectPoint(cam, { x: actor.x, y: 0, z: actor.z }, view);
-  const side = projectPoint(cam, { x: actor.x + 0.2, y: LANE.head, z: actor.z }, view);
+function drawActor(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, actor: Actor): void {
+  const head = projectOnBasis(cam, { x: actor.x, y: LANE.head, z: actor.z }, basis);
+  const foot = projectOnBasis(cam, { x: actor.x, y: 0, z: actor.z }, basis);
+  const side = projectOnBasis(cam, { x: actor.x + 0.2, y: LANE.head, z: actor.z }, basis);
   if (!head.visible || !foot.visible || !side.visible) return;
   const r = Math.max(6, Math.hypot(side.x - head.x, side.y - head.y));
   const bodyH = Math.max(18, foot.y - head.y);

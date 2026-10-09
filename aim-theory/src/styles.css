@@ -121,7 +121,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--aim); outli
 .caption-bar p { font-size: 20px; line-height: 1.4; margin: 8px 0 0; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
 
-.range-root { position: fixed; inset: 0; background: #12110e; }
+.range-root { position: fixed; inset: 0; background: #12110e; contain: layout paint style; }
 .range-root canvas { width: 100%; height: 100%; display: block; }
 .hud { position: absolute; inset: 0; pointer-events: none; }
 .hud-top {

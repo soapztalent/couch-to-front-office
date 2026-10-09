@@ -76,32 +76,63 @@ export type Camera = { x: number; y: number; z: number; yaw: number; pitch: numb
 
 export type Projected = { x: number; y: number; z: number; visible: boolean };
 
-export function projectPoint(cam: Camera, p: V3, view: { w: number; h: number; fov: number }): Projected {
-  const f = forward(cam.yaw, cam.pitch);
+export type ViewSize = { w: number; h: number; fov: number };
+
+/** Camera axes and focal length, built once per frame and reused for every vertex. */
+export type Basis = {
+  ox: number;
+  oy: number;
+  focal: number;
+  rx: number;
+  ry: number;
+  rz: number;
+  ux: number;
+  uy: number;
+  uz: number;
+  fx: number;
+  fy: number;
+  fz: number;
+};
+
+export function cameraBasis(cam: Camera, view: ViewSize): Basis {
   const sy = Math.sin(cam.yaw);
   const cy = Math.cos(cam.yaw);
   const sp = Math.sin(cam.pitch);
   const cp = Math.cos(cam.pitch);
-  const rx = cy;
-  const ry = 0;
-  const rz = -sy;
-  const ux = -sy * sp;
-  const uy = cp;
-  const uz = -cy * sp;
+  return {
+    ox: view.w / 2,
+    oy: view.h / 2,
+    focal: view.w / 2 / Math.tan((view.fov * Math.PI) / 360),
+    rx: cy,
+    ry: 0,
+    rz: -sy,
+    ux: -sy * sp,
+    uy: cp,
+    uz: -cy * sp,
+    fx: sy * cp,
+    fy: sp,
+    fz: cy * cp,
+  };
+}
+
+export function projectOnBasis(cam: Camera, p: V3, basis: Basis): Projected {
   const dx = p.x - cam.x;
   const dy = p.y - cam.y;
   const dz = p.z - cam.z;
-  const camX = dx * rx + dy * ry + dz * rz;
-  const camY = dx * ux + dy * uy + dz * uz;
-  const camZ = dx * f.x + dy * f.y + dz * f.z;
+  const camX = dx * basis.rx + dy * basis.ry + dz * basis.rz;
+  const camY = dx * basis.ux + dy * basis.uy + dz * basis.uz;
+  const camZ = dx * basis.fx + dy * basis.fy + dz * basis.fz;
   if (camZ < 0.05) return { x: 0, y: 0, z: camZ, visible: false };
-  const focal = view.w / 2 / Math.tan((view.fov * Math.PI) / 360);
   return {
-    x: view.w / 2 + (camX / camZ) * focal,
-    y: view.h / 2 - (camY / camZ) * focal,
+    x: basis.ox + (camX / camZ) * basis.focal,
+    y: basis.oy - (camY / camZ) * basis.focal,
     z: camZ,
     visible: true,
   };
+}
+
+export function projectPoint(cam: Camera, p: V3, view: ViewSize): Projected {
+  return projectOnBasis(cam, p, cameraBasis(cam, view));
 }
 
 export function lookErrorDeg(cam: Camera, target: V3): number {

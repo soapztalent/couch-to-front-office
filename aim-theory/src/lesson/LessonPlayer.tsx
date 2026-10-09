@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { createAimDevice, type AimDevice } from "../input";
 import type { Settings } from "../persist/storage";
 import { drawWorld } from "../sim/draw";
+import { attachSurface, textSlot } from "../sim/surface";
 import { buildDebrief, type Debrief } from "../sim/debrief";
 import { LaneSession, type RepResult } from "../sim/lane";
 import { Sfx } from "../sim/sfx";
@@ -57,6 +58,10 @@ export function LessonPlayer(props: {
   useEffect(() => {
     if (speakerRef.current) speakerRef.current.volume = props.settings.volume;
   }, [props.settings.volume]);
+
+  useEffect(() => {
+    if (phase === "drill") speakerRef.current?.cancel();
+  }, [phase]);
 
   function skipLine() {
     if (skipRef.current) skipRef.current();
@@ -282,27 +287,18 @@ function ShowCanvas(props: { scene: ShowId; beat: number }) {
     if (!canvas) return;
     let stop = false;
     const start = performance.now();
+    const surface = attachSurface(canvas);
     const frame = (now: number) => {
       if (stop) return;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      const w = canvas.clientWidth || 800;
-      const h = canvas.clientHeight || 460;
-      const bw = Math.floor(w * dpr);
-      const bh = Math.floor(h * dpr);
-      if (canvas.width !== bw || canvas.height !== bh) {
-        canvas.width = bw;
-        canvas.height = bh;
-      }
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawShow(ctx, w, h, props.scene, props.beat, (now - start) / 1000);
+      const { cssW, cssH } = surface.size();
+      if (cssW >= 2 && cssH >= 2) drawShow(surface.ctx, cssW, cssH, props.scene, props.beat, (now - start) / 1000);
       requestAnimationFrame(frame);
     };
     const id = requestAnimationFrame(frame);
     return () => {
       stop = true;
       cancelAnimationFrame(id);
+      surface.destroy();
     };
   }, [props.scene, props.beat]);
   return (
@@ -368,6 +364,13 @@ function DrillStage(props: {
     };
     window.addEventListener("keydown", onKey);
 
+    const surface = attachSurface(canvas);
+    const putRep = textSlot(repRef.current);
+    const putCue = textSlot(cueRef.current);
+    const putState = textSlot(stateRef.current);
+    const putBanner = textSlot(bannerRef.current);
+    const idle = { yaw: 0, pitch: 0, strafe: 0, forward: 0, firePressed: false, fireHeld: false };
+
     const tick = (now: number) => {
       if (stopped) return;
       const dt = Math.min(0.05, (now - last) / 1000);
@@ -376,29 +379,14 @@ function DrillStage(props: {
       if (!current) return;
       const frame = device.consume();
       const playing = props.phaseRef.current === "drill";
-      current.update(
-        playing ? dt : 0,
-        playing
-          ? frame
-          : { yaw: 0, pitch: 0, strafe: 0, forward: 0, firePressed: false, fireHeld: false },
-      );
+      current.update(playing ? dt : 0, playing ? frame : idle);
       if (current.pulse === "hit") sfx.hit();
       if (current.pulse === "miss") sfx.miss();
       if (current.pulse === "hurt") sfx.hurt();
       const view = current.view();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      const w = canvas.clientWidth || window.innerWidth;
-      const h = canvas.clientHeight || window.innerHeight;
-      const bw = Math.floor(w * dpr);
-      const bh = Math.floor(h * dpr);
-      if (canvas.width !== bw || canvas.height !== bh) {
-        canvas.width = bw;
-        canvas.height = bh;
-      }
-      const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
-      if (ctx) {
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        drawWorld(ctx, w, h, {
+      const { cssW, cssH } = surface.size();
+      if (cssW >= 2 && cssH >= 2) {
+        drawWorld(surface.ctx, cssW, cssH, {
           camera: view.camera,
           walls: view.walls,
           actors: view.actors,
@@ -408,10 +396,10 @@ function DrillStage(props: {
           flash: current.pulse,
         });
       }
-      if (repRef.current) repRef.current.textContent = `${view.rep}/${view.repCount}`;
-      if (cueRef.current) cueRef.current.textContent = view.cue;
-      if (stateRef.current) stateRef.current.textContent = view.exposed ? "EXPOSED" : "COVER";
-      if (bannerRef.current) bannerRef.current.textContent = view.banner;
+      putRep(`${view.rep}/${view.repCount}`);
+      putCue(view.cue);
+      putState(view.exposed ? "EXPOSED" : "COVER");
+      putBanner(view.banner);
       if (current.done && !doneRef.current) {
         doneRef.current = true;
         device.release();
@@ -425,6 +413,7 @@ function DrillStage(props: {
       cancelAnimationFrame(raf);
       document.removeEventListener("pointerlockchange", onLock);
       window.removeEventListener("keydown", onKey);
+      surface.destroy();
       device.destroy();
     };
     // The drill owns one session for this mount. Restart replaces the ref.

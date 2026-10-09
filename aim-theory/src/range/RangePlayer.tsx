@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { createAimDevice, type AimDevice } from "../input";
 import type { Settings } from "../persist/storage";
 import { drawCrosshair } from "../sim/draw";
-import { forward, projectPoint } from "../sim/geom";
+import { cameraBasis, forward, projectOnBasis } from "../sim/geom";
+import { attachSurface, textSlot } from "../sim/surface";
 import { Sfx } from "../sim/sfx";
 import { line } from "../voice/lines";
 import { Speaker } from "../voice/speaker";
@@ -34,6 +35,10 @@ export function RangePlayer(props: {
   phaseRef.current = phase;
 
   useEffect(() => () => speakerRef.current?.cancel(), []);
+
+  useEffect(() => {
+    if (phase === "live") speakerRef.current?.cancel();
+  }, [phase]);
 
   async function begin() {
     const speaker = speakerRef.current;
@@ -153,6 +158,10 @@ function RangeCanvas(props: {
       else if (!device.locked && props.phaseRef.current === "live") props.setPhase("pause");
     };
     document.addEventListener("pointerlockchange", onLock);
+    const surface = attachSurface(canvas);
+    const putScore = textSlot(scoreRef.current);
+    const putTime = textSlot(timeRef.current);
+    const putAcc = textSlot(accRef.current);
     const tick = (now: number) => {
       if (stopped) return;
       const dt = Math.min(0.05, (now - last) / 1000);
@@ -165,33 +174,17 @@ function RangeCanvas(props: {
       if (session.hits > hits) sfx.hit();
       if (session.misses > misses) sfx.miss();
       const snap = session.snapshot();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      const w = canvas.clientWidth || window.innerWidth;
-      const h = canvas.clientHeight || window.innerHeight;
-      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-      }
-      const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
-      if (ctx) {
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const { cssW, cssH, ctx } = { ...surface.size(), ctx: surface.ctx };
+      if (cssW >= 2 && cssH >= 2) {
         ctx.fillStyle = "#12110e";
-        ctx.fillRect(0, 0, w, h);
-        const view = { w, h, fov: props.settings.fov };
+        ctx.fillRect(0, 0, cssW, cssH);
         const cam = { x: 0, y: 0, z: 0, yaw: (session.yaw * Math.PI) / 180, pitch: (session.pitch * Math.PI) / 180 };
+        const basis = cameraBasis(cam, { w: cssW, h: cssH, fov: props.settings.fov });
         for (const target of snap.targets) {
           const dir = forward((target.yaw * Math.PI) / 180, (target.pitch * Math.PI) / 180);
-          const p = projectPoint(cam, { x: dir.x * 8, y: dir.y * 8, z: dir.z * 8 }, view);
+          const p = projectOnBasis(cam, { x: dir.x * 8, y: dir.y * 8, z: dir.z * 8 }, basis);
           if (!p.visible) continue;
-          const edge = projectPoint(
-            cam,
-            {
-              x: dir.x * 8 + 0.12,
-              y: dir.y * 8,
-              z: dir.z * 8,
-            },
-            view,
-          );
+          const edge = projectOnBasis(cam, { x: dir.x * 8 + 0.12, y: dir.y * 8, z: dir.z * 8 }, basis);
           const r = Math.max(8, Math.hypot(edge.x - p.x, edge.y - p.y) * (target.radius / 1.2));
           ctx.beginPath();
           ctx.fillStyle = props.mode === "chain" && !target.live ? "#5c574c" : "#f4efe4";
@@ -202,12 +195,12 @@ function RangeCanvas(props: {
           ctx.arc(p.x, p.y, Math.max(2, r * 0.18), 0, Math.PI * 2);
           ctx.fill();
         }
-        drawCrosshair(ctx, w, h, props.settings.crosshair);
+        drawCrosshair(ctx, cssW, cssH, props.settings.crosshair);
       }
-      if (scoreRef.current) scoreRef.current.textContent = String(snap.score);
-      if (timeRef.current) timeRef.current.textContent = snap.secondsLeft.toFixed(1);
+      putScore(String(snap.score));
+      putTime(snap.secondsLeft.toFixed(1));
       const acc = snap.hits + snap.misses === 0 ? "—" : `${Math.round((snap.hits / (snap.hits + snap.misses)) * 100)}%`;
-      if (accRef.current) accRef.current.textContent = acc;
+      putAcc(acc);
       if (session.finished && !doneRef.current) {
         doneRef.current = true;
         device.release();
@@ -220,6 +213,7 @@ function RangeCanvas(props: {
       stopped = true;
       cancelAnimationFrame(raf);
       document.removeEventListener("pointerlockchange", onLock);
+      surface.destroy();
       device.destroy();
     };
   }, [props.mode]);
