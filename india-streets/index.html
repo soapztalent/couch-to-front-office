@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arre, Left!</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="driver"></canvas>
+  <canvas id="nav"></canvas>
+  <div id="hint"></div>
+  <div id="nav-ui">
+    <div class="calls">
+      <button type="button" data-call="left">J · LEFT</button>
+      <button type="button" data-call="straight">K · STRAIGHT</button>
+      <button type="button" data-call="right">L · RIGHT</button>
+      <button type="button" data-call="slow">I · SLOW</button>
+    </div>
+  </div>
+  <div id="waiting">
+    <p>Waiting for the driver window…<br>Keep this one. Yell the galis.</p>
+  </div>
+
+  <div id="menu">
+    <div class="sheet">
+      <h1>ARRE,<br>LEFT!</h1>
+      <p class="tag">The driver sees the gali. The passenger sees the plan. Somebody will honk.</p>
+      <p class="place">A yellow cab, a slippery tablet, and the streets of fictional Nukkadpur.</p>
+      <div class="row">
+        <button type="button" id="solo">Drive with Chotu</button>
+        <button type="button" id="split" class="alt">Two on one keyboard</button>
+        <button type="button" id="windows" class="teal">Passenger in another window</button>
+      </div>
+      <p id="window-note" class="fine" hidden>Passenger address: <span id="window-url"></span></p>
+      <div class="keys">
+        <div><b>Driver</b> sees the road and never the route. Arrows steer, drive, brake. Space is the horn.</div>
+        <div><b>Passenger</b> holds the tablet. The yellow line is the true gali. Yell left, right, or straight before the fork.</div>
+        <div><b>Cabin</b> throws mud on the glass, opens the door, and will yeet the tablet if you don’t grip it.</div>
+        <div><b>Street</b> has cows who ignore horns, a wedding band that does not, chai, ladoos, and a dhol.</div>
+      </div>
+      <p class="fine">Chotu calls the turns if you ride alone. Original drawings and noises — no borrowed boards, badges, or songs. Lilita One is used under the SIL Open Font License.</p>
+    </div>
+  </div>
+
+  <div id="brief" hidden>
+    <div class="sheet">
+      <p class="place" id="brief-kicker"></p>
+      <h2 id="brief-title"></h2>
+      <p id="brief-copy"></p>
+      <p id="brief-who"></p>
+      <div class="row">
+        <button type="button" id="go">Horn and go</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="card" hidden>
+    <div class="sheet">
+      <h2 id="card-title"></h2>
+      <p id="card-copy"></p>
+      <div class="stats" id="card-stats"></div>
+      <div class="row">
+        <button type="button" id="card-retry">Same gali</button>
+        <button type="button" id="card-next" class="alt">Next gali</button>
+        <button type="button" id="card-menu" class="teal">Title</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="world.js"></script>
+  <script src="audio.js"></script>
+  <script src="render.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
