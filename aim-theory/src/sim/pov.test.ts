@@ -34,8 +34,8 @@ describe("first-person points of view", () => {
 
   it("walks a slow peek onto the holder's crosshair", () => {
     const tucked = povLos(samplePov("edge-slow", 0));
-    const out = povLos(samplePov("edge-slow", 1.7));
-    const held = povLos(samplePov("edge-slow-hold", 1.7));
+    const out = povLos(samplePov("edge-slow", 2.1));
+    const held = povLos(samplePov("edge-slow-hold", 2.1));
     expect(tucked.seen).toBe(false);
     expect(out.seen).toBe(true);
     expect(held.seen).toBe(true);
@@ -43,8 +43,8 @@ describe("first-person points of view", () => {
   });
 
   it("shows a wide swing on the head, and the holder still on the edge", () => {
-    const you = povLos(samplePov("edge-wide", 0.85));
-    const them = povLos(samplePov("edge-hold", 0.85));
+    const you = povLos(samplePov("edge-wide", 0.95));
+    const them = povLos(samplePov("edge-hold", 0.95));
     expect(samplePov("edge-wide", 0).camera.x).toBeLessThan(0);
     expect(you.seen).toBe(true);
     expect(you.offDeg).toBeLessThan(4);
@@ -53,9 +53,9 @@ describe("first-person points of view", () => {
   });
 
   it("sticks a bad clear to the wall and a swing to the head", () => {
-    const bad = povLos(samplePov("swing-bad", 1.3));
-    const good = povLos(samplePov("swing-you", 0.7));
-    const hold = povLos(samplePov("swing-hold", 0.7));
+    const bad = povLos(samplePov("swing-bad", 1.4));
+    const good = povLos(samplePov("swing-you", 0.8));
+    const hold = povLos(samplePov("swing-hold", 0.8));
     expect(bad.seen).toBe(true);
     expect(bad.offDeg).toBeGreaterThan(8);
     expect(good.seen).toBe(true);
@@ -66,9 +66,9 @@ describe("first-person points of view", () => {
   });
 
   it("stays out on a wide swing and gets back on a jiggle", () => {
-    const wide = povLos(samplePov("choice-wide", 1));
-    const peek = povLos(samplePov("choice-jiggle", 0.52));
-    const back = povLos(samplePov("choice-jiggle", 1.05));
+    const wide = povLos(samplePov("choice-wide", 1.2));
+    const peek = povLos(samplePov("choice-jiggle", 0.57));
+    const back = povLos(samplePov("choice-jiggle", 1.15));
     expect(wide.seen).toBe(true);
     expect(wide.offDeg).toBeLessThan(4);
     expect(samplePov("choice-wide", 1).camera.x).toBeGreaterThan(1);

@@ -31,7 +31,8 @@ const BOTH_WALLS: Seg[] = [EDGE_WALL, FAR_WALL];
 /** Holder crosshair: the edge itself, not the player who has already swung wide. */
 const ANGLE: V2 = { x: 0.02, z: 0.25 };
 /** The pixel a slow peek walks onto. */
-const SLOW_PIXEL: V2 = { x: 0.42, z: LANE.playerZ };
+const SLOW_OUT = 0.48;
+const SLOW_PIXEL: V2 = { x: SLOW_OUT, z: LANE.playerZ };
 const WIDE = 1.62;
 
 export type ClipLineIn = { id: string; text: string };
@@ -112,34 +113,48 @@ function near(): Actor {
   return { ...ENEMY_CLOSE, alive: true, role: "near" };
 }
 
-/** Swing out, then keep sliding. Speed stays up so the shot never parks. */
-function wideX(t: number): number {
-  const swing = 0.7;
-  if (t < swing) return lerp(LANE.startX, WIDE, t / swing);
-  return WIDE + pingpong(t - swing, 1.5) * 0.36;
-}
-
-/** Slow creep out and back. Always in motion. */
-function slowX(t: number): number {
-  return lerp(LANE.startX * 0.35, SLOW_PIXEL.x, pingpong(t, 3.4));
-}
-
-/** Place, strafe, counter-strafe, then do it again. */
-function goodX(t: number): number {
-  const cycle = 2.35;
+/**
+ * Full swings, repeated. Cover, across the angle, back. The wall keeps
+ * crossing the view for as long as the line is spoken.
+ */
+function swingX(t: number, wide = WIDE): number {
+  const cycle = 2.2;
   const u = t % cycle;
-  if (u < 0.62) return lerp(LANE.startX, 1.38, u / 0.62);
-  if (u < 1.05) return lerp(1.38, 1.18, (u - 0.62) / 0.43);
-  if (u < 1.4) return 1.18 + (u - 1.05) * 0.22;
-  return lerp(1.18 + 0.35 * 0.22, LANE.startX, (u - 1.4) / (cycle - 1.4));
+  const out = 0.7;
+  const slide = 0.45;
+  if (u < out) return lerp(LANE.startX, wide, u / out);
+  if (u < out + slide) return lerp(wide, wide + 0.28, (u - out) / slide);
+  return lerp(wide + 0.28, LANE.startX, (u - out - slide) / (cycle - out - slide));
+}
+
+/** Slow creep from deep cover out to the pixel, then back. */
+function slowX(t: number): number {
+  return lerp(LANE.startX, SLOW_OUT, pingpong(t, 4.2));
+}
+
+/** Crosshair already placed. Strafe, counter-strafe, then take the angle again. */
+function goodX(t: number): number {
+  const cycle = 2.4;
+  const u = t % cycle;
+  if (u < 0.65) return lerp(LANE.startX, 1.42, u / 0.65);
+  if (u < 1.05) return lerp(1.42, 1.2, (u - 0.65) / 0.4);
+  if (u < 1.35) return lerp(1.2, 1.36, (u - 1.05) / 0.3);
+  return lerp(1.36, LANE.startX, (u - 1.35) / (cycle - 1.35));
 }
 
 function jiggleX(t: number): number {
-  return lerp(LANE.startX, 0.48, pingpong(t, 1.05));
+  return lerp(LANE.startX, 0.5, pingpong(t, 1.15));
 }
 
 function badX(t: number): number {
-  return lerp(LANE.startX, 0.58, pingpong(t, 2.6));
+  return lerp(LANE.startX, 0.62, pingpong(t, 2.8));
+}
+
+/** A wide swing that stays in the fight and keeps strafing. */
+function fightX(t: number): number {
+  const swing = 0.55;
+  if (t < swing) return lerp(LANE.startX, 1.2, t / swing);
+  return lerp(1.2, 2.35, pingpong(t - swing, 1.6));
 }
 
 function holdSample(botX: number, look: V2): PovSample {
@@ -158,16 +173,15 @@ export function samplePov(id: PovId, t: number): PovSample {
     return { camera: cam(at, aim(at, ENEMY_CLOSE)), actors: [near()], pip: null, walls: WALLS };
   }
   if (id === "edge-slow-hold") return holdSample(slowX(t), SLOW_PIXEL);
-  if (id === "edge-wide" || id === "choice-wide") {
-    const at = { x: wideX(t), z: LANE.playerZ };
-    return {
-      camera: cam(at, aim(at, ENEMY_CLOSE)),
-      actors: [near()],
-      pip: id === "choice-wide" ? ENEMY_CLOSE : null,
-      walls: WALLS,
-    };
+  if (id === "edge-wide") {
+    const at = { x: swingX(t), z: LANE.playerZ };
+    return { camera: cam(at, aim(at, ENEMY_CLOSE)), actors: [near()], pip: null, walls: WALLS };
   }
-  if (id === "edge-hold") return holdSample(wideX(t), ANGLE);
+  if (id === "choice-wide") {
+    const at = { x: fightX(t), z: LANE.playerZ };
+    return { camera: cam(at, aim(at, ENEMY_CLOSE)), actors: [near()], pip: ENEMY_CLOSE, walls: WALLS };
+  }
+  if (id === "edge-hold") return holdSample(swingX(t), ANGLE);
   if (id === "swing-bad") {
     const at = { x: badX(t), z: LANE.playerZ };
     const stuck = { x: 0, z: 0.35 };
@@ -182,9 +196,25 @@ export function samplePov(id: PovId, t: number): PovSample {
     const at = { x: jiggleX(t), z: LANE.playerZ };
     return { camera: cam(at, aim(at, ENEMY_CLOSE)), actors: [near()], pip: null, walls: WALLS };
   }
-  if (id === "isolate-both" || id === "isolate-one") {
-    const x = id === "isolate-both" ? lerp(2.65, 3.05, pingpong(t, 2.4)) : lerp(0.95, 1.28, pingpong(t, 2.5));
-    const at = { x, z: LANE.playerZ };
+  if (id === "isolate-both") {
+    const slide = pingpong(t, 2.6);
+    const at = { x: lerp(2.58, 2.96, slide), z: LANE.playerZ };
+    const look = {
+      x: lerp(NEAR_ENEMY.x, FAR_ENEMY.x, slide * 0.72),
+      z: lerp(NEAR_ENEMY.z, FAR_ENEMY.z, slide * 0.72),
+    };
+    return {
+      camera: cam(at, aim(at, look)),
+      actors: [
+        { ...NEAR_ENEMY, alive: true, role: "near" },
+        { ...FAR_ENEMY, alive: true, role: "far" },
+      ],
+      pip: NEAR_ENEMY,
+      walls: BOTH_WALLS,
+    };
+  }
+  if (id === "isolate-one") {
+    const at = { x: lerp(0.75, 1.5, pingpong(t, 2.4)), z: LANE.playerZ };
     return {
       camera: cam(at, aim(at, NEAR_ENEMY)),
       actors: [
@@ -195,7 +225,7 @@ export function samplePov(id: PovId, t: number): PovSample {
       walls: BOTH_WALLS,
     };
   }
-  const at = { x: wideX(t), z: LANE.playerZ };
+  const at = { x: swingX(t), z: LANE.playerZ };
   return { camera: cam(at, aim(at, ENEMY_CLOSE)), actors: [near()], pip: null, walls: WALLS };
 }
 
