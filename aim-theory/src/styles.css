@@ -353,6 +353,25 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--aim); outli
   font-size: 13px;
   color: var(--aim);
 }
+.coach-note {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 48px));
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.35;
+  color: #f4f7fb;
+  background: rgba(7, 9, 13, 0.88);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10px 16px;
+  pointer-events: none;
+}
+.coach-note:empty { display: none; }
 .arm {
   position: absolute;
   left: 50%;

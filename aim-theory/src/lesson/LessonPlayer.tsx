@@ -54,6 +54,18 @@ export function LessonPlayer(props: {
   const drillWait = useRef<((reps: RepResult[]) => void) | null>(null);
   const skipRef = useRef<(() => void) | null>(null);
   const handoffRef = useRef<() => void>(() => {});
+  const voiceRef = useRef({
+    speak(ids: string[]) {
+      const speaker = speakerRef.current;
+      if (!speaker) return;
+      void (async () => {
+        for (const id of ids) await speaker.speak(line(id));
+      })();
+    },
+    cancel() {
+      speakerRef.current?.cancel();
+    },
+  });
   const settingsRef = useRef(props.settings);
   settingsRef.current = props.settings;
   const clip = useMemo(() => {
@@ -342,6 +354,7 @@ export function LessonPlayer(props: {
           lockError={lockError}
           onRaw={setRaw}
           onLockError={setLockError}
+          voiceRef={voiceRef}
           onDone={(results) => {
             drillWait.current?.(results);
             drillWait.current = null;
@@ -494,6 +507,7 @@ function DrillStage(props: {
   lockError: boolean;
   onRaw: (raw: boolean) => void;
   onLockError: (bad: boolean) => void;
+  voiceRef: MutableRefObject<{ speak: (ids: string[]) => void; cancel: () => void }>;
   onDone: (results: RepResult[]) => void;
   onExit: () => void;
   onEnd: (session: LaneSession | null) => void;
@@ -506,6 +520,8 @@ function DrillStage(props: {
   const sessionRef = useRef<LaneSession | null>(null);
   const deviceRef = useRef<AimDevice | null>(null);
   const doneRef = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const noteRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -544,8 +560,15 @@ function DrillStage(props: {
     const putCue = textSlot(cueRef.current);
     const putState = textSlot(stateRef.current);
     const putBanner = textSlot(bannerRef.current);
+    const putNote = textSlot(noteRef.current);
     const idle = { yaw: 0, pitch: 0, strafe: 0, forward: 0, firePressed: false, fireHeld: false };
     let held: { kind: "hit" | "miss" | "hurt"; until: number } | null = null;
+    let voiced = false;
+    let shownReview = "";
+    let shownPov = "";
+    let shownLine = "";
+    let shownReason = "";
+    let shownRep = "";
 
     const tick = (now: number) => {
       if (stopped) return;
@@ -574,10 +597,44 @@ function DrillStage(props: {
           flash,
         });
       }
+      const root = rootRef.current;
+      if (root) {
+        const rev = view.reviewing ? "1" : "0";
+        if (rev !== shownReview) {
+          shownReview = rev;
+          root.dataset.review = rev;
+        }
+        if (view.pov !== shownPov) {
+          shownPov = view.pov;
+          root.dataset.pov = view.pov;
+        }
+        if (view.lineId !== shownLine) {
+          shownLine = view.lineId;
+          root.dataset.lineId = view.lineId;
+          if (noteRef.current) noteRef.current.dataset.coachLine = view.lineId;
+        }
+        if (view.reason !== shownReason) {
+          shownReason = view.reason;
+          root.dataset.reason = view.reason;
+        }
+        const rep = String(view.rep);
+        if (rep !== shownRep) {
+          shownRep = rep;
+          root.dataset.rep = rep;
+        }
+      }
+      if (view.reviewing && !voiced) {
+        voiced = true;
+        props.voiceRef.current.speak([view.sawId, view.fixId]);
+      } else if (!view.reviewing && voiced) {
+        voiced = false;
+        props.voiceRef.current.cancel();
+      }
       putRep(`${view.rep}/${view.repCount}`);
       putCue(view.cue);
-      putState(view.exposed ? "EXPOSED" : "COVER");
+      putState(view.reviewing ? "THEIR EYES" : view.exposed ? "EXPOSED" : "COVER");
       putBanner(view.banner);
+      putNote(view.reviewing ? view.cue : "");
       if (current.done && !doneRef.current) {
         doneRef.current = true;
         device.release();
@@ -609,7 +666,7 @@ function DrillStage(props: {
   }
 
   return (
-    <div className="range-root">
+    <div className="range-root" ref={rootRef} data-review="0" data-pov="you" data-line-id="" data-reason="" data-rep="1">
       <canvas ref={canvasRef} />
       <div className="hud">
         <div className="hud-top">
@@ -620,6 +677,7 @@ function DrillStage(props: {
           <span />
         </div>
         <div className="banner" ref={bannerRef} />
+        <p className="coach-note" ref={noteRef} data-coach-line="" />
       </div>
       {props.phase !== "drill" ? (
         <div className="arm">

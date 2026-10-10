@@ -1,6 +1,7 @@
 import type { AimFrame } from "../input/types";
 import { approach, degBetween, lineOfSight, lookErrorDeg, pitchErrorDeg, yawTo, type Camera, type Seg, type V2 } from "./geom";
 import { freshFight, headRadiusDeg, stepFight, type Fight } from "./fight";
+import { eyeFor, opponentScene, reviewNote, type ReviewRun, type TraceSample } from "./review";
 import {
   EDGE_WALL,
   ENEMY_CLOSE,
@@ -49,6 +50,12 @@ export type LaneView = {
   repCount: number;
   cue: string;
   playerSpeed: number;
+  reviewing: boolean;
+  pov: "you" | "opponent";
+  lineId: string;
+  sawId: string;
+  fixId: string;
+  reason: string;
 };
 
 const START_YAW = 0.48;
@@ -62,7 +69,7 @@ function enemyPoint(spec: RepSpec): V2 {
 export class LaneSession {
   readonly results: RepResult[] = [];
   rep = 0;
-  phase: "live" | "banner" | "done" = "live";
+  phase: "live" | "banner" | "review" | "done" = "live";
   banner = "";
   playerX = LANE.startX;
   playerZ = LANE.playerZ;
@@ -89,6 +96,9 @@ export class LaneSession {
   private botV = 0;
   private doubleFor = 0;
   private seenRoles = new Set<string>();
+  private samples: TraceSample[] = [];
+  private review: ReviewRun | null = null;
+  private reviewT = 0;
 
   constructor(
     private readonly reps: RepSpec[],
@@ -104,7 +114,7 @@ export class LaneSession {
 
   finishEarly(): void {
     if (this.phase === "done") return;
-    if (this.phase === "live") this.settle("timeout", false);
+    if (this.phase === "live") this.settle("timeout", false, false);
     this.phase = "done";
   }
 
@@ -112,6 +122,11 @@ export class LaneSession {
     this.pulse = null;
     if (this.phase === "done") {
       this.applyLook(frame);
+      return;
+    }
+    if (this.phase === "review") {
+      this.reviewT += dt;
+      if (this.reviewT >= (this.review?.duration ?? 0)) this.beginRep();
       return;
     }
     if (this.phase === "banner") {
@@ -122,6 +137,7 @@ export class LaneSession {
     }
     this.liveFor += dt;
     this.applyLook(frame);
+    this.snap();
     const spec = this.reps[this.rep];
     if (!spec) return;
     if (spec.call === "hold") this.stepHold(dt, frame);
@@ -131,6 +147,28 @@ export class LaneSession {
 
   view(): LaneView {
     const spec = this.reps[this.rep];
+    if (this.phase === "review" && this.review) {
+      const scene = opponentScene(this.review, this.reviewT);
+      const lineId = this.reviewT < this.review.sawFor ? this.review.sawId : this.review.fixId;
+      return {
+        camera: scene.camera,
+        walls: scene.walls,
+        actors: scene.actors,
+        pip: null,
+        exposed: false,
+        banner: "THEIR VIEW",
+        rep: Math.min(this.rep + 1, this.reps.length),
+        repCount: this.reps.length,
+        cue: this.cueText(lineId),
+        playerSpeed: 0,
+        reviewing: true,
+        pov: "opponent",
+        lineId,
+        sawId: this.review.sawId,
+        fixId: this.review.fixId,
+        reason: this.review.reason,
+      };
+    }
     return {
       camera: {
         x: this.playerX,
@@ -148,6 +186,12 @@ export class LaneSession {
       repCount: this.reps.length,
       cue: spec ? this.cueText(spec.cueId) : "",
       playerSpeed: Math.abs(this.vx),
+      reviewing: false,
+      pov: "you",
+      lineId: "",
+      sawId: "",
+      fixId: "",
+      reason: "",
     };
   }
 
@@ -386,10 +430,50 @@ export class LaneSession {
     return best;
   }
 
-  private settle(reason: string, won: boolean): void {
+  private snap(): void {
+    if (this.samples.length > 520) this.samples.shift();
+    this.samples.push({
+      t: this.liveFor,
+      x: this.playerX,
+      z: this.playerZ,
+      yaw: this.yaw,
+      pitch: this.pitch,
+      botX: this.botX,
+    });
+  }
+
+  private settle(reason: string, won: boolean, replay = true): void {
     const spec = this.reps[this.rep];
     if (!spec) return;
     const placement = this.placement;
+    const note = replay
+      ? reviewNote({
+          call: spec.call,
+          reason,
+          won,
+          placementDeg: placement,
+          shotSpeed: this.shotSpeed,
+          lowHead: this.lowHead,
+          misses: this.misses,
+        })
+      : null;
+    if (note) {
+      this.snap();
+      this.review = {
+        ...note,
+        eye: eyeFor(spec, reason, this.actors, this.botX),
+        call: spec.call,
+        enemy: spec.enemy,
+        reason,
+        samples: this.samples.slice(),
+      };
+      this.reviewT = 0;
+      this.phase = "review";
+      this.banner = "THEIR VIEW";
+      this.pulse = null;
+      this.vx = 0;
+      return;
+    }
     this.pulse = won ? "hit" : "hurt";
     this.results.push({
       call: spec.call,
@@ -438,6 +522,9 @@ export class LaneSession {
     this.holdFor = 0;
     this.doubleFor = 0;
     this.seenRoles.clear();
+    this.samples = [];
+    this.review = null;
+    this.reviewT = 0;
     this.botX = HOLD_BOT_START;
     this.botV = 0;
     this.vx = 0;
