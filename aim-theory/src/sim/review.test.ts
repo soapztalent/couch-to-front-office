@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AimFrame } from "../input/types";
+import { lineOfSight } from "./geom";
 import { LaneSession } from "./lane";
 import { reviewNote } from "./review";
 import { ENEMY_CLOSE, LANE } from "./world";
@@ -28,6 +29,28 @@ describe("opponent review", () => {
     expect(session.rep).toBe(0);
     expect(session.view().pov).toBe("you");
     expect(session.view().cue).toBe("edge-cue-swing");
+  });
+
+  it("keeps a missed swing in the holder's view for the whole note", () => {
+    const session = new LaneSession([{ call: "swing", cueId: "edge-cue-swing", enemy: "close" }], (id) => id, false);
+    const go: AimFrame = { ...idle, strafe: 1 };
+    for (let i = 0; i < 250 && session.phase === "live"; i += 1) session.update(0.016, go);
+    expect(session.phase).toBe("review");
+    const early = session.view();
+    for (let i = 0; i < 80; i += 1) session.update(0.05, idle);
+    const mid = session.view();
+    for (let i = 0; i < 80; i += 1) session.update(0.05, idle);
+    const late = session.view();
+    for (const view of [mid, late]) {
+      expect(view.pov).toBe("opponent");
+      const actor = view.actors[0];
+      expect(actor).toBeTruthy();
+      expect(lineOfSight({ x: view.camera.x, z: view.camera.z }, actor, view.walls)).toBe(true);
+    }
+    expect(late.actors[0].x).toBeGreaterThan(early.actors[0]?.x ?? -2);
+    for (let i = 0; i < 200 && session.phase === "review"; i += 1) session.update(0.05, idle);
+    expect(session.phase).toBe("live");
+    expect(session.rep).toBe(0);
   });
 
   it("lets a hold loss stand, because that is the lesson", () => {

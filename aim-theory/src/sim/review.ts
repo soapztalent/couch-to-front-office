@@ -104,8 +104,8 @@ export function eyeFor(spec: RepSpec, reason: string, actors: Actor[], botX: num
 }
 
 export function opponentScene(review: ReviewRun, t: number): { camera: Camera; walls: Seg[]; actors: Actor[] } {
-  const sample = traceAt(review.samples, t);
   const walls = review.call === "isolate" ? [EDGE_WALL, FAR_WALL] : [EDGE_WALL];
+  const sample = reviewSample(review, t, walls);
   const eye = review.call === "hold" ? { x: sample.botX, z: LANE.playerZ } : review.eye;
   const player = review.call === "hold" ? { x: HOLD_PLAYER.x, z: HOLD_PLAYER.z } : { x: sample.x, z: sample.z };
   const pixel = pixelFor(review);
@@ -155,13 +155,36 @@ function firstSeen(samples: TraceSample[], eye: V2, walls: Seg[]): number {
   return samples[0]?.t ?? 0;
 }
 
+/** Play the moment they were seen, stretched across the note, instead of looping the time in cover. */
+function reviewSample(review: ReviewRun, t: number, walls: Seg[]): TraceSample {
+  const samples = review.samples;
+  if (samples.length === 0) return traceAt(samples, 0);
+  const u = Math.max(0, Math.min(1, t / Math.max(0.2, review.duration)));
+  const eased = 1 - (1 - u) * (1 - u);
+  if (review.call === "hold") {
+    const t0 = samples[0].t;
+    const t1 = samples[samples.length - 1].t;
+    return traceAt(samples, t0 + (t1 - t0) * eased);
+  }
+  const eye = review.eye;
+  let seen0 = -1;
+  let seen1 = -1;
+  for (let i = 0; i < samples.length; i += 1) {
+    if (!lineOfSight(eye, { x: samples[i].x, z: samples[i].z }, walls)) continue;
+    if (seen0 < 0) seen0 = i;
+    seen1 = i;
+  }
+  if (seen0 < 0) return traceAt(samples, samples[0].t + Math.sin(t * 0.6) * 0.02);
+  const lead = Math.max(samples[0].t, samples[seen0].t - 0.18);
+  const end = samples[seen1].t;
+  return traceAt(samples, lead + Math.max(0, end - lead) * eased);
+}
+
 function traceAt(samples: TraceSample[], t: number): TraceSample {
   if (samples.length === 0) {
     return { t: 0, x: LANE.startX, z: LANE.playerZ, yaw: 0.48, pitch: 0, botX: -1.15 };
   }
-  const t0 = samples[0].t;
-  const span = Math.max(0.05, samples[samples.length - 1].t - t0);
-  const local = t0 + ((((t % span) + span) % span));
+  const local = Math.max(samples[0].t, Math.min(samples[samples.length - 1].t, t));
   let i = 1;
   while (i < samples.length && samples[i].t < local) i += 1;
   const b = samples[Math.min(i, samples.length - 1)];
