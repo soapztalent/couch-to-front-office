@@ -1,5 +1,7 @@
 import { LESSONS } from "../lesson/course";
 import { formatCm, type Settings } from "../persist/storage";
+import { SKILLS } from "../skill/course";
+import { STEP_TITLE, type StepId } from "../skill/steps";
 
 const RANGE = [
   { id: "snap", title: "Snap", copy: "Flicks. One click, then the next." },
@@ -13,7 +15,9 @@ export function Home(props: {
   settings: Settings;
   bests: Record<string, number>;
   done: string[];
+  step: StepId;
   onLesson: (id: string) => void;
+  onSkill: (id: string) => void;
   onRange: (id: string) => void;
   onSettings: () => void;
 }) {
@@ -52,8 +56,28 @@ export function Home(props: {
             </button>
           ))}
         </div>
+        <div className="section-label">Skills</div>
+        <p className="note">
+          You are on {STEP_TITLE[props.step]}. Click, track, then switch. You move up when the weak one holds.
+        </p>
+        <div className="lesson-list">
+          {SKILLS.map((skill) => (
+            <button key={skill.id} className="lesson-card" onClick={() => props.onSkill(skill.id)}>
+              <span className="idx">{skill.index}</span>
+              <span>
+                <h2>{skill.title}</h2>
+                <p>{skill.summary}</p>
+              </span>
+              <span className="meta">
+                {props.done.includes(skill.id) ? "Done" : STEP_TITLE[props.step]}
+                <br />
+                {props.bests[skill.id] != null ? `Best ${props.bests[skill.id]}` : "No score yet"}
+              </span>
+            </button>
+          ))}
+        </div>
         <div className="section-label">Range</div>
-        <p className="note">Mouse fundamentals for this phase. Same sensitivity, same pointer lock, scored the same way.</p>
+        <p className="note">Open practice. Same sensitivity, same pointer lock, scored the same way.</p>
         <div className="range-grid">
           {RANGE.map((item) => (
             <button key={item.id} className="range-card" onClick={() => props.onRange(item.id)}>

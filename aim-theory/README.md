@@ -9,7 +9,7 @@ Lessons:
 3. **Wide or Jiggle** — take the fight, or take information.
 4. **One Angle** — isolate so only one player can see you.
 
-The range (Snap, Follow, Chain, Rush, Line) is flicking, tracking, switching, speed, and smoothness. Same sensitivity model, same pointer lock.
+Skills are the mouse work around that: Mark is the click, Glide is the track, Relay is the switch. Step is where you are. You move from Open to Even to Fine only when the weak skill holds. The range (Snap, Follow, Chain, Rush, Line) is open practice for the same ideas. Same sensitivity model, same pointer lock.
 
 Controller, pen, and touch are later phases. They are not in this build. Lessons ask an input device for degrees of look and a strafe axis. The only device is `src/input/mouse-keyboard.ts`.
 

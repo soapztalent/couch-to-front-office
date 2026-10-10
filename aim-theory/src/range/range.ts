@@ -2,6 +2,15 @@ import { clamp } from "../sim/geom";
 
 export type RangeMode = "snap" | "follow" | "chain" | "rush" | "line";
 
+/** Optional difficulty for a skill drill. Omitted values keep the open range as it is. */
+export type RangeTune = {
+  radius?: number;
+  spread?: number;
+  speed?: number;
+  chain?: number;
+  centered?: boolean;
+};
+
 type Target = { yaw: number; pitch: number; radius: number; born: number; live: boolean };
 
 export type RangeSnapshot = {
@@ -50,14 +59,21 @@ export class RangeSession {
     readonly mode: RangeMode,
     readonly duration = 20,
     seed = 1,
+    readonly tune: RangeTune = {},
   ) {
     this.rng = mulberry(seed || 1);
     if (mode === "chain") {
-      this.targets = [0, 1, 2].map((i) => this.spawn(0, (i - 1) * 12, i === 0));
-    } else if (mode === "follow" || mode === "line") {
-      this.targets = [this.spawn(0, 0, true)];
+      const n = Math.max(2, this.tune.chain ?? 3);
+      this.targets = Array.from({ length: n }, (_, i) => this.spawn(0, (i - (n - 1) / 2) * 12, i === 0));
     } else {
       this.targets = [this.spawn(0, 0, true)];
+    }
+    if (this.tune.centered) {
+      const live = this.targets.find((t) => t.live) ?? this.targets[0];
+      if (live) {
+        live.yaw = 0;
+        live.pitch = 0;
+      }
     }
   }
 
@@ -122,14 +138,14 @@ export class RangeSession {
       });
       this.targets[this.targets.findIndex((t) => t.live)].born = this.elapsed;
     } else {
-      const spread = this.mode === "rush" ? 14 : 18;
+      const spread = this.tune.spread ?? (this.mode === "rush" ? 14 : 18);
       const min = this.mode === "rush" ? 3 : 4;
       const dist = min + this.rng() * spread;
       const a = this.rng() * Math.PI * 2;
       best.yaw = clamp(this.yaw + Math.cos(a) * dist, -50, 50);
       best.pitch = clamp(this.pitch + Math.sin(a) * dist * 0.55, -24, 24);
       best.born = this.elapsed;
-      best.radius = this.mode === "rush" ? 0.85 : 1.15;
+      best.radius = this.tune.radius ?? (this.mode === "rush" ? 0.85 : 1.15);
     }
   }
 
@@ -152,17 +168,17 @@ export class RangeSession {
   private moveBots(): void {
     if (this.mode !== "follow" && this.mode !== "line") return;
     const t = this.targets[0];
-    const speed = this.mode === "line" ? 0.55 : 1;
+    const speed = (this.mode === "line" ? 0.55 : 1) * (this.tune.speed ?? 1);
     t.yaw = Math.sin(this.elapsed * 1.3 * speed) * 14 + Math.sin(this.elapsed * 0.45 * speed) * 6;
     t.pitch = Math.sin(this.elapsed * 0.9 * speed + 1) * 7;
-    t.radius = this.mode === "line" ? 1.5 : 1.35;
+    t.radius = this.tune.radius ?? (this.mode === "line" ? 1.5 : 1.35);
   }
 
   private spawn(time: number, yaw: number, live: boolean): Target {
     return {
       yaw,
       pitch: (this.rng() - 0.5) * 8,
-      radius: this.mode === "rush" ? 0.85 : 1.15,
+      radius: this.tune.radius ?? (this.mode === "rush" ? 0.85 : 1.15),
       born: time,
       live,
     };

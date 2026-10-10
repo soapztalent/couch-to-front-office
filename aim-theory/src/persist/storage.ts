@@ -53,15 +53,18 @@ export const DEFAULT_SETTINGS: Settings = {
   crosshair: DEFAULT_CROSS,
 };
 
+export type StepId = "open" | "even" | "fine";
+
 type Store = {
   settings: Settings;
   bests: Record<string, number>;
   history: HistoryEntry[];
   done: string[];
+  step: StepId;
 };
 
 function empty(): Store {
-  return { settings: structuredClone(DEFAULT_SETTINGS), bests: {}, history: [], done: [] };
+  return { settings: structuredClone(DEFAULT_SETTINGS), bests: {}, history: [], done: [], step: "open" };
 }
 
 function read(): Store {
@@ -74,6 +77,7 @@ function read(): Store {
       bests: parsed.bests ?? {},
       history: parsed.history ?? [],
       done: parsed.done ?? [],
+      step: parsed.step === "even" || parsed.step === "fine" ? parsed.step : "open",
     };
   } catch {
     return empty();
@@ -100,6 +104,16 @@ export function loadBests(): Record<string, number> {
 
 export function loadDone(): string[] {
   return read().done;
+}
+
+export function loadStep(): StepId {
+  return read().step;
+}
+
+export function saveStep(step: StepId): void {
+  const store = read();
+  store.step = step;
+  write(store);
 }
 
 export function markDone(id: string): void {

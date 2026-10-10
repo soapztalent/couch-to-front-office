@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { createAimDevice, type AimDevice } from "../input";
 import type { Settings } from "../persist/storage";
-import { drawCrosshair } from "../sim/draw";
-import { cameraBasis, forward, projectOnBasis } from "../sim/geom";
 import { attachSurface, textSlot } from "../sim/surface";
+import { drawRange } from "./draw";
 import { Sfx } from "../sim/sfx";
 import { line } from "../voice/lines";
 import { Speaker } from "../voice/speaker";
@@ -174,28 +173,16 @@ function RangeCanvas(props: {
       if (session.hits > hits) sfx.hit();
       if (session.misses > misses) sfx.miss();
       const snap = session.snapshot();
-      const { cssW, cssH, ctx } = { ...surface.size(), ctx: surface.ctx };
+      const { cssW, cssH } = surface.size();
       if (cssW >= 2 && cssH >= 2) {
-        ctx.fillStyle = "#12110e";
-        ctx.fillRect(0, 0, cssW, cssH);
-        const cam = { x: 0, y: 0, z: 0, yaw: (session.yaw * Math.PI) / 180, pitch: (session.pitch * Math.PI) / 180 };
-        const basis = cameraBasis(cam, { w: cssW, h: cssH, fov: props.settings.fov });
-        for (const target of snap.targets) {
-          const dir = forward((target.yaw * Math.PI) / 180, (target.pitch * Math.PI) / 180);
-          const p = projectOnBasis(cam, { x: dir.x * 8, y: dir.y * 8, z: dir.z * 8 }, basis);
-          if (!p.visible) continue;
-          const edge = projectOnBasis(cam, { x: dir.x * 8 + 0.12, y: dir.y * 8, z: dir.z * 8 }, basis);
-          const r = Math.max(8, Math.hypot(edge.x - p.x, edge.y - p.y) * (target.radius / 1.2));
-          ctx.beginPath();
-          ctx.fillStyle = props.mode === "chain" && !target.live ? "#5c574c" : "#f4efe4";
-          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.fillStyle = "#1a1814";
-          ctx.arc(p.x, p.y, Math.max(2, r * 0.18), 0, Math.PI * 2);
-          ctx.fill();
-        }
-        drawCrosshair(ctx, cssW, cssH, props.settings.crosshair);
+        drawRange(surface.ctx, cssW, cssH, {
+          fov: props.settings.fov,
+          crosshair: props.settings.crosshair,
+          yaw: session.yaw,
+          pitch: session.pitch,
+          targets: snap.targets,
+          dimIdle: props.mode === "chain",
+        });
       }
       putScore(String(snap.score));
       putTime(snap.secondsLeft.toFixed(1));
