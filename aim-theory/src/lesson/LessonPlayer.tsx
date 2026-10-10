@@ -595,6 +595,7 @@ function DrillStage(props: {
           fov: settings.fov,
           crosshair: settings.crosshair,
           flash,
+          sway: view.playerSpeed,
         });
       }
       const root = rootRef.current;
@@ -749,6 +750,7 @@ function PovCanvas(props: {
           fov: props.settings.fov,
           crosshair: props.settings.crosshair,
           flash: null,
+          sway: Math.abs(Math.sin(hit.local * 3.2)) * 1.6,
         });
       }
       if (!frozen && hit.lineId !== shown) {

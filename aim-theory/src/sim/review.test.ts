@@ -53,12 +53,15 @@ describe("opponent review", () => {
     expect(session.rep).toBe(0);
   });
 
-  it("lets a hold loss stand, because that is the lesson", () => {
+  it("shows a hold loss from the swinger, then moves on", () => {
     const session = new LaneSession([{ call: "hold", cueId: "edge-cue-hold", enemy: "close" }], (id) => id, false);
     for (let i = 0; i < 400 && session.phase === "live"; i += 1) session.update(0.016, idle);
-    expect(session.phase).toBe("banner");
+    expect(session.phase).toBe("review");
+    expect(session.view().pov).toBe("opponent");
+    expect(session.view().sawId).toBe("rev-ok-hold-saw");
     expect(session.results[0]?.reason).toBe("held-loss");
-    expect(session.view().pov).toBe("you");
+    for (let i = 0; i < 800 && session.phase === "review"; i += 1) session.update(0.016, idle);
+    expect(session.phase).toBe("done");
   });
 
   it("picks the line from the run, not a generic miss", () => {
@@ -95,27 +98,38 @@ describe("opponent review", () => {
         misses: 0,
       })?.fixId,
     ).toBe("rev-iso-both-fix");
-    expect(
-      reviewNote({
-        call: "hold",
-        reason: "held-loss",
-        won: false,
-        placementDeg: null,
-        shotSpeed: null,
-        lowHead: false,
-        misses: 0,
-      }),
-    ).toBeNull();
+    const held = reviewNote({
+      call: "hold",
+      reason: "held-loss",
+      won: false,
+      placementDeg: null,
+      shotSpeed: null,
+      lowHead: false,
+      misses: 0,
+    });
+    expect(held?.retry).toBe(false);
+    expect(held?.sawId).toBe("rev-ok-hold-saw");
+    const clean = reviewNote({
+      call: "swing",
+      reason: "kill",
+      won: true,
+      placementDeg: 1,
+      shotSpeed: 0,
+      lowHead: false,
+      misses: 0,
+    });
+    expect(clean?.retry).toBe(false);
+    expect(clean?.sawId).toBe("rev-ok-swing-saw");
     expect(
       reviewNote({
         call: "swing",
-        reason: "kill",
-        won: true,
-        placementDeg: 1,
-        shotSpeed: 0,
+        reason: "died",
+        won: false,
+        placementDeg: 8,
+        shotSpeed: 0.2,
         lowHead: false,
         misses: 0,
-      }),
-    ).toBeNull();
+      })?.retry,
+    ).toBe(true);
   });
 });

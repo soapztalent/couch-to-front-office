@@ -1,4 +1,5 @@
 import type { RepResult } from "./lane";
+import { lessonById } from "../lesson/course";
 import { line, type ScriptLine } from "../voice/lines";
 
 export type Debrief = {
@@ -15,11 +16,16 @@ function median(xs: number[]): number | null {
   return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
 }
 
+function familyOf(id: string): string {
+  return lessonById(id)?.family ?? id;
+}
+
 export function scoreReps(id: string, reps: RepResult[]): number {
-  if (id === "edge") return scoreEdge(reps);
-  if (id === "swing") return scoreSwing(reps);
-  if (id === "choice") return scoreChoice(reps);
-  if (id === "isolate") return scoreIsolate(reps);
+  const family = familyOf(id);
+  if (family === "edge") return scoreEdge(reps);
+  if (family === "swing") return scoreSwing(reps);
+  if (family === "choice") return scoreChoice(reps);
+  if (family === "isolate") return scoreIsolate(reps);
   return 0;
 }
 
@@ -72,8 +78,17 @@ function scoreIsolate(reps: RepResult[]): number {
   return Math.max(0, Math.min(1000, Math.round(s)));
 }
 
+const CORE = new Set(["edge", "swing", "choice", "isolate"]);
+
 export function buildDebrief(id: string, reps: RepResult[]): Debrief {
   const score = scoreReps(id, reps);
+  const lesson = lessonById(id);
+  if (lesson && !CORE.has(lesson.id)) {
+    const wins = reps.filter((r) => r.won || r.reason === "held-loss").length;
+    const right = wins > 0 ? `Clean on ${wins} of ${reps.length}.` : "Nothing to keep yet.";
+    const fix = wins === reps.length ? "Same motion on the next one." : "Watch their eyes, then take that rep again.";
+    return { lines: [line(wins > 0 ? `${lesson.id}-good` : `${lesson.id}-miss`)], right, fix, score };
+  }
   if (id === "edge") return edgeDebrief(reps, score);
   if (id === "swing") return swingDebrief(reps, score);
   if (id === "choice") return choiceDebrief(reps, score);

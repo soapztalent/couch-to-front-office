@@ -188,8 +188,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--aim); outli
 .door-view {
   animation: rise-in 0.45s ease both;
   max-width: 960px;
+  max-height: calc(100dvh - 108px);
   margin-top: 4vh;
   padding: 8px 28px 28px 0;
+  overflow: auto;
   background: linear-gradient(90deg, rgba(7, 9, 13, 0.88) 0%, rgba(7, 9, 13, 0.78) 72%, transparent 100%);
 }
 .door-head { display: flex; align-items: baseline; gap: 28px; margin: 1vh 0 8px; }

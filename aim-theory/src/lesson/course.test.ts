@@ -22,7 +22,12 @@ describe("course script", () => {
       for (let i = 1; i < (lesson.pov?.length ?? 0); i += 1) {
         expect(lesson.pov?.[i].tag).not.toBe(lesson.pov?.[i - 1].tag);
       }
-      for (const id of TAUGHT[lesson.id]) expect(spoken, lesson.id).toContain(id);
+      if (TAUGHT[lesson.id]) {
+        for (const id of TAUGHT[lesson.id]) expect(spoken, lesson.id).toContain(id);
+      }
+      expect(lesson.reps.length, lesson.id).toBeGreaterThanOrEqual(4);
+      expect(lesson.family, lesson.id).toBeTruthy();
+      expect(lesson.door, lesson.id).toMatch(/theory|course/);
       for (const id of [...spoken, lesson.brief, ...lesson.reps.map((r) => r.cueId)]) {
         expect(LINES[id], id).toBeTruthy();
         expect(LINES[id].text.length).toBeGreaterThan(8);
@@ -42,5 +47,9 @@ describe("course script", () => {
       expect(clip.total).toBeGreaterThan(12);
     }
     expect(ids.size).toBeGreaterThan(20);
+    expect(LESSONS.length).toBeGreaterThanOrEqual(25);
+    expect(LESSONS.length).toBeLessThanOrEqual(50);
+    const titles = new Set(LESSONS.map((lesson) => lesson.title));
+    expect(titles.size).toBe(LESSONS.length);
   });
 });

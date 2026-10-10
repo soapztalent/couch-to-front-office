@@ -261,6 +261,18 @@ const RAW = [
   ["rev-iso-late-fix", "Pre-aim me before you clear. One fight, already aimed."],
   ["rev-iso-low-saw", "You found my angle and aimed at my legs."],
   ["rev-iso-low-fix", "Head height on the way out. Then the next angle."],
+  ["rev-ok-swing-saw", "You came out wide and you were already on my head. I was still holding the edge."],
+  ["rev-ok-swing-fix", "That's the swing. Fast, clear, stop, then the shot."],
+  ["rev-ok-slow-saw", "You got me, but you crept onto my pixel. I had time I should not have had."],
+  ["rev-ok-slow-fix", "Leave faster. The crosshair is already at my head before you move."],
+  ["rev-ok-jig-saw", "A shoulder, then nothing. I never got the shot off."],
+  ["rev-ok-jig-fix", "That's a look. Out, see me, and straight back."],
+  ["rev-ok-iso-saw", "You took the close one first. I couldn't see you until it was my turn."],
+  ["rev-ok-iso-fix", "One angle, then the next. The far one stays shut."],
+  ["rev-ok-hold-saw", "I swung wide and you were still posted on that pixel. You saw me late."],
+  ["rev-ok-hold-fix", "Holding the edge loses to that swing. You just felt it."],
+  ["rev-ok-flick-saw", "You flicked off the edge and caught me after I had left that pixel."],
+  ["rev-ok-flick-fix", "That was a guess. When the swing is yours, you take the timing."],
 ] as const;
 
 export const LINES: Record<string, ScriptLine> = Object.fromEntries(

@@ -1,8 +1,13 @@
 import type { RepSpec } from "../sim/lane";
 import type { PovId } from "../sim/pov";
 import type { ShowId } from "../sim/shows";
+import { MORE_LESSONS } from "./catalog";
 
-export type LessonId = "edge" | "swing" | "choice" | "isolate";
+export type LessonId = string;
+
+export type LessonFamily = "edge" | "swing" | "choice" | "isolate";
+
+export type LessonDoor = "theory" | "course";
 
 export type PovShot = {
   id: PovId;
@@ -16,6 +21,9 @@ export type Lesson = {
   index: string;
   title: string;
   summary: string;
+  /** Which score and which door this lesson belongs to. */
+  family: LessonFamily;
+  door: LessonDoor;
   explain: string[];
   show?: ShowId;
   showBeats: string[];
@@ -33,6 +41,8 @@ export const LESSONS: Lesson[] = [
     index: "01",
     title: "The Peaker's Edge",
     summary: "Why a fast swing sees the holder first, and why posting on a pixel loses.",
+    family: "edge",
+    door: "theory",
     explain: [],
     showBeats: [],
     pov: [
@@ -58,6 +68,8 @@ export const LESSONS: Lesson[] = [
     index: "02",
     title: "The Swing",
     summary: "Crosshair on the head before you move. Strafe. Stop. Shoot.",
+    family: "swing",
+    door: "theory",
     explain: [],
     showBeats: [],
     pov: [
@@ -82,6 +94,8 @@ export const LESSONS: Lesson[] = [
     index: "03",
     title: "Wide or Jiggle",
     summary: "Swing when you are taking the fight. Jiggle when you only need to look.",
+    family: "choice",
+    door: "theory",
     explain: [],
     showBeats: [],
     pov: [
@@ -106,6 +120,8 @@ export const LESSONS: Lesson[] = [
     index: "04",
     title: "One Angle",
     summary: "Slice the near angle before the far one can see you.",
+    family: "isolate",
+    door: "theory",
     explain: [],
     showBeats: [],
     pov: [
@@ -122,6 +138,7 @@ export const LESSONS: Lesson[] = [
       { call: "isolate", cueId: "iso-cue", enemy: "close" },
     ],
   },
+  ...MORE_LESSONS,
 ];
 
 export function lessonById(id: string): Lesson | undefined {

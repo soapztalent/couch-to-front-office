@@ -99,7 +99,7 @@ export function Home(props: {
             ) : null}
             {door === "theory" ? (
               <div className="lesson-list">
-                {LESSONS.map((lesson) => (
+                {LESSONS.filter((lesson) => lesson.door === "theory").map((lesson) => (
                   <button key={lesson.id} className="lesson-card" onClick={() => props.onLesson(lesson.id)}>
                     <span className="idx">{lesson.index}</span>
                     <span>
@@ -128,6 +128,20 @@ export function Home(props: {
                       {props.done.includes(skill.id) ? "Done" : STEP_TITLE[props.step]}
                       <br />
                       {props.bests[skill.id] != null ? `Best ${props.bests[skill.id]}` : "No score yet"}
+                    </span>
+                  </button>
+                ))}
+                {LESSONS.filter((lesson) => lesson.door === "course").map((lesson) => (
+                  <button key={lesson.id} className="lesson-card" onClick={() => props.onLesson(lesson.id)}>
+                    <span className="idx">{lesson.index}</span>
+                    <span>
+                      <h2>{lesson.title}</h2>
+                      <p>{lesson.summary}</p>
+                    </span>
+                    <span className="meta">
+                      {props.done.includes(lesson.id) ? "Done" : "Lesson"}
+                      <br />
+                      {props.bests[lesson.id] != null ? `Best ${props.bests[lesson.id]}` : "No score yet"}
                     </span>
                   </button>
                 ))}

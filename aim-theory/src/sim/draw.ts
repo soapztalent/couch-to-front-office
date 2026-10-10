@@ -11,6 +11,8 @@ export type WorldDraw = {
   fov: number;
   crosshair: Crosshair;
   flash: "hit" | "miss" | "hurt" | null;
+  /** Strafe speed. The gun settles when this drops. */
+  sway?: number;
 };
 
 const SKY = "#10141c";
@@ -37,26 +39,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
   );
   strokeTop(ctx, world.camera, basis, { x: -2.4, y: 2.8, z: -2 }, { x: -2.4, y: 2.8, z: 3 });
 
-  for (const wall of world.walls) {
-    const tall = 2.9;
-    ctx.fillStyle = "#243044";
-    fillQuad(
-      ctx,
-      world.camera,
-      basis,
-      { x: wall.a.x, y: 0, z: wall.a.z },
-      { x: wall.a.x, y: tall, z: wall.a.z },
-      { x: wall.b.x, y: tall, z: wall.b.z },
-      { x: wall.b.x, y: 0, z: wall.b.z },
-    );
-    strokeTop(
-      ctx,
-      world.camera,
-      basis,
-      { x: wall.a.x, y: tall, z: wall.a.z },
-      { x: wall.b.x, y: tall, z: wall.b.z },
-    );
-  }
+  drawSolid(ctx, world.camera, basis, { a: { x: -2.2, z: 7.4 }, b: { x: 5.2, z: 7.4 } }, "#1a2230");
+  for (const wall of world.walls) drawSolid(ctx, world.camera, basis, wall, "#243044");
 
   if (world.pip) drawPip(ctx, world.camera, basis, world.pip);
   for (const actor of world.actors) {
@@ -75,6 +59,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
   }
 
   drawCrosshair(ctx, cssW, cssH, world.crosshair);
+  drawGun(ctx, cssW, cssH, world.sway ?? 0);
 }
 
 /** Sky, ground, and a one-pixel horizon. No gradients and no shadows. */
@@ -159,28 +144,80 @@ function drawPip(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, pip: 
   ctx.stroke();
 }
 
+function drawSolid(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, wall: Seg, fill: string): void {
+  const tall = 2.9;
+  const dx = wall.b.x - wall.a.x;
+  const dz = wall.b.z - wall.a.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const nx = (-dz / len) * 0.2;
+  const nz = (dx / len) * 0.2;
+  ctx.fillStyle = fill;
+  fillQuad(
+    ctx,
+    cam,
+    basis,
+    { x: wall.a.x, y: 0, z: wall.a.z },
+    { x: wall.a.x, y: tall, z: wall.a.z },
+    { x: wall.b.x, y: tall, z: wall.b.z },
+    { x: wall.b.x, y: 0, z: wall.b.z },
+  );
+  ctx.fillStyle = "#1a2433";
+  fillQuad(
+    ctx,
+    cam,
+    basis,
+    { x: wall.a.x, y: 0, z: wall.a.z },
+    { x: wall.a.x, y: tall, z: wall.a.z },
+    { x: wall.a.x + nx, y: tall, z: wall.a.z + nz },
+    { x: wall.a.x + nx, y: 0, z: wall.a.z + nz },
+  );
+  strokeTop(ctx, cam, basis, { x: wall.a.x, y: tall, z: wall.a.z }, { x: wall.b.x, y: tall, z: wall.b.z });
+  strokeTop(ctx, cam, basis, { x: wall.a.x, y: tall, z: wall.a.z }, { x: wall.a.x + nx, y: tall, z: wall.a.z + nz });
+}
+
 function drawActor(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, actor: Actor): void {
   const head = projectOnBasis(cam, { x: actor.x, y: LANE.head, z: actor.z }, basis);
+  const shoulder = projectOnBasis(cam, { x: actor.x, y: 1.32, z: actor.z }, basis);
+  const hip = projectOnBasis(cam, { x: actor.x, y: 0.86, z: actor.z }, basis);
   const foot = projectOnBasis(cam, { x: actor.x, y: 0, z: actor.z }, basis);
   const side = projectOnBasis(cam, { x: actor.x + 0.2, y: LANE.head, z: actor.z }, basis);
-  if (!head.visible || !foot.visible || !side.visible) return;
+  if (!head.visible || !foot.visible || !shoulder.visible || !hip.visible || !side.visible) return;
   const r = Math.max(6, Math.hypot(side.x - head.x, side.y - head.y));
-  const bodyH = Math.max(18, foot.y - head.y);
-  ctx.fillStyle = "#c5d0dc";
-  ctx.fillRect(head.x - r * 0.55, head.y + r * 0.15, r * 1.1, bodyH * 0.72);
+  const wide = r * 1.35;
+  ctx.fillStyle = "#8e9bab";
+  ctx.fillRect(hip.x - wide * 0.42, hip.y, wide * 0.32, Math.max(8, foot.y - hip.y));
+  ctx.fillRect(hip.x + wide * 0.1, hip.y, wide * 0.32, Math.max(8, foot.y - hip.y));
+  ctx.fillStyle = "#d5dde6";
+  ctx.fillRect(shoulder.x - wide * 0.72, shoulder.y, wide * 1.44, Math.max(10, hip.y - shoulder.y));
+  ctx.fillStyle = "#b7c3d1";
+  ctx.fillRect(shoulder.x - wide * 0.95, shoulder.y, wide * 0.28, r * 1.1);
+  ctx.fillRect(shoulder.x + wide * 0.67, shoulder.y, wide * 0.28, r * 1.1);
   ctx.beginPath();
   ctx.fillStyle = HEAD;
   ctx.arc(head.x, head.y, r, 0, Math.PI * 2);
   ctx.fill();
+  ctx.fillStyle = INK;
+  ctx.fillRect(head.x - r * 0.55, head.y - r * 0.08, r * 1.1, Math.max(2, r * 0.28));
   ctx.beginPath();
   ctx.strokeStyle = LIP;
   ctx.lineWidth = 2;
   ctx.arc(head.x, head.y, r + 3, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.beginPath();
-  ctx.fillStyle = INK;
-  ctx.arc(head.x, head.y, Math.max(2, r * 0.22), 0, Math.PI * 2);
-  ctx.fill();
+}
+
+/** A rifle in the lower right. It kicks while you are still fast, then sits for the shot. */
+function drawGun(ctx: CanvasRenderingContext2D, w: number, h: number, sway: number): void {
+  const kick = Math.min(22, Math.abs(sway) * 14);
+  const x = Math.round(w * 0.58 + kick);
+  const y = h + Math.round(kick * 0.35);
+  ctx.fillStyle = "#121820";
+  ctx.fillRect(x + 18, y - 86, 22, 92);
+  ctx.fillStyle = "#243044";
+  ctx.fillRect(x - 78, y - 124, 168, 26);
+  ctx.fillStyle = "#0c1016";
+  ctx.fillRect(x + 70, y - 118, 96, 8);
+  ctx.fillStyle = LIP;
+  ctx.fillRect(x - 6, y - 132, 16, 5);
 }
 
 /** Four ticks around a shot. One stroke, no blur. */

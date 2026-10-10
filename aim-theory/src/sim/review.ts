@@ -27,6 +27,8 @@ export type ReviewNote = {
   fixId: string;
   sawFor: number;
   duration: number;
+  /** A miss goes back on the same rep. A clean rep moves on after they see it. */
+  retry: boolean;
 };
 
 export type ReviewRun = ReviewNote & {
@@ -47,15 +49,29 @@ type Miss = {
   misses: number;
 };
 
-/** A failed rep the coach should replay. A hold that loses to the swing is the lesson, not a miss. */
+/**
+ * Every finished rep is shown from the other side.
+ * A miss names the error and repeats. A clean rep says what they saw, then moves on.
+ * Losing a hold to a fast swing is the lesson, so it teaches and moves on.
+ */
 export function reviewNote(miss: Miss): ReviewNote | null {
-  if (miss.won) return null;
-  if (miss.call === "hold" && miss.reason === "held-loss") return null;
+  if (miss.call === "hold" && miss.reason === "held-loss") return timed(pair("rev-ok-hold"), false);
+  if (miss.won) {
+    if (miss.call === "jiggle") return timed(pair("rev-ok-jig"), false);
+    if (miss.call === "isolate") return timed(pair("rev-ok-iso"), false);
+    if (miss.call === "hold") return timed(pair("rev-ok-flick"), false);
+    if (miss.reason === "slow-kill") return timed(pair("rev-ok-slow"), false);
+    return timed(pair("rev-ok-swing"), false);
+  }
   const ids = pairFor(miss);
   if (!ids) return null;
+  return timed(ids, true);
+}
+
+function timed(ids: { sawId: string; fixId: string }, retry: boolean): ReviewNote {
   const sawFor = linePlaySeconds(line(ids.sawId).text);
   const duration = sawFor + linePlaySeconds(line(ids.fixId).text);
-  return { ...ids, sawFor, duration };
+  return { ...ids, sawFor, duration, retry };
 }
 
 function pairFor(miss: Miss): { sawId: string; fixId: string } | null {

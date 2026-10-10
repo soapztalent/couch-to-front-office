@@ -126,7 +126,11 @@ export class LaneSession {
     }
     if (this.phase === "review") {
       this.reviewT += dt;
-      if (this.reviewT >= (this.review?.duration ?? 0)) this.beginRep();
+      if (this.reviewT >= (this.review?.duration ?? 0)) {
+        const again = this.review?.retry !== false;
+        if (again) this.beginRep();
+        else this.advance();
+      }
       return;
     }
     if (this.phase === "banner") {
@@ -459,6 +463,21 @@ export class LaneSession {
       : null;
     if (note) {
       this.snap();
+      if (!note.retry) {
+        this.results.push({
+          call: spec.call,
+          cueId: spec.cueId,
+          won,
+          reason,
+          entrySpeed: this.entrySpeed,
+          placementDeg: placement,
+          shotSpeed: this.shotSpeed,
+          shotErrorDeg: this.shotError,
+          lowHead: this.lowHead,
+          misses: this.misses,
+          overcommitted: this.overcommitted,
+        });
+      }
       this.review = {
         ...note,
         eye: eyeFor(spec, reason, this.actors, this.botX),
