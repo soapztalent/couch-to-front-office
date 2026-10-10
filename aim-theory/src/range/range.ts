@@ -13,6 +13,8 @@ export type RangeTune = {
 
 type Target = { yaw: number; pitch: number; radius: number; born: number; live: boolean };
 
+export type RangeMark = { kind: "hit" | "miss"; yaw: number; pitch: number; age: number };
+
 export type RangeSnapshot = {
   targets: Target[];
   score: number;
@@ -20,6 +22,8 @@ export type RangeSnapshot = {
   misses: number;
   secondsLeft: number;
   mode: RangeMode;
+  mark: RangeMark | null;
+  glued: boolean;
 };
 
 function mulberry(seed: number): () => number {
@@ -51,6 +55,8 @@ export class RangeSession {
   samples = 0;
   private targets: Target[] = [];
   private elapsed = 0;
+  mark: RangeMark | null = null;
+  glued = false;
   private nextTick = 0.05;
   private rng = mulberry(1);
   private prevErr = 0;
@@ -84,6 +90,8 @@ export class RangeSession {
   update(dt: number, lookYaw: number, lookPitch: number, shot: boolean, firing: boolean): void {
     if (this.finished) return;
     this.elapsed += dt;
+    if (this.mark) this.mark.age += dt;
+    this.glued = false;
     this.yaw += lookYaw;
     this.pitch = clamp(this.pitch + lookPitch, -40, 40);
     this.moveBots();
@@ -93,6 +101,7 @@ export class RangeSession {
       if (this.samples > 0) this.jitter += Math.abs(err - this.prevErr);
       this.prevErr = err;
       this.samples += 1;
+      this.glued = firing && err <= t.radius;
       while (this.nextTick <= this.elapsed) {
         this.nextTick += 0.05;
         if (!firing) continue;
@@ -120,8 +129,10 @@ export class RangeSession {
     if (!best || bestErr > best.radius) {
       this.misses += 1;
       this.points -= this.mode === "rush" ? 28 : 22;
+      this.mark = { kind: "miss", yaw: this.yaw, pitch: this.pitch, age: 0 };
       return;
     }
+    this.mark = { kind: "hit", yaw: best.yaw, pitch: best.pitch, age: 0 };
     const rt = (this.elapsed - best.born) * 1000;
     const bonus = clamp((420 - rt) / 320, 0, 1) * 40;
     this.points += 80 + bonus;
@@ -157,6 +168,8 @@ export class RangeSession {
       misses: this.misses + this.trackOff,
       secondsLeft: Math.max(0, this.duration - this.elapsed),
       mode: this.mode,
+      mark: this.mark ? { ...this.mark } : null,
+      glued: this.glued,
     };
   }
 

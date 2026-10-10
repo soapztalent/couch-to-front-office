@@ -320,9 +320,11 @@ function DrillCanvas(props: {
           crosshair: settings.crosshair,
           yaw: view.yaw,
           pitch: view.pitch,
-          targets: view.snapshot().targets,
+          targets: snap.targets,
           dimIdle: true,
           grid: true,
+          mark: snap.mark,
+          glued: snap.glued,
         });
       }
       putScore(String(snap.score));

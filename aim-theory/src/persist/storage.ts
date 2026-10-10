@@ -32,14 +32,14 @@ export type HistoryEntry = {
 const KEY = "aim-theory.v1";
 
 const DEFAULT_CROSS: Crosshair = {
-  color: "#f4f1e8",
-  length: 8,
+  color: "#f4f7fb",
+  length: 6,
   gap: 4,
   thickness: 2,
   outline: true,
-  outlineColor: "#0c0c0a",
+  outlineColor: "#05070a",
   dot: false,
-  dotSize: 2,
+  dotSize: 1,
 };
 
 export const DEFAULT_SETTINGS: Settings = {

@@ -15,7 +15,7 @@ export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) 
     if (!ctx) return;
     canvas.width = 160;
     canvas.height = 160;
-    ctx.fillStyle = "#0e0d0b";
+    ctx.fillStyle = "#07090d";
     ctx.fillRect(0, 0, 160, 160);
     drawCrosshair(ctx, 160, 160, s.crosshair);
   }, [s.crosshair]);

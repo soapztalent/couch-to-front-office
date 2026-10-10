@@ -182,6 +182,8 @@ function RangeCanvas(props: {
           pitch: session.pitch,
           targets: snap.targets,
           dimIdle: props.mode === "chain",
+          mark: snap.mark,
+          glued: snap.glued,
         });
       }
       putScore(String(snap.score));

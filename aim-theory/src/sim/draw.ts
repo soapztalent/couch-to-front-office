@@ -13,24 +13,19 @@ export type WorldDraw = {
   flash: "hit" | "miss" | "hurt" | null;
 };
 
+const SKY = "#10141c";
+const GROUND = "#07090d";
+const GRID = "rgba(168, 188, 214, 0.22)";
+const LIP = "#d6ff46";
+const HEAD = "#f4f7fb";
+const INK = "#07090d";
+
 export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: number, world: WorldDraw): void {
   const basis = cameraBasis(world.camera, { w: cssW, h: cssH, fov: world.fov });
-  ctx.fillStyle = "#12110e";
-  ctx.fillRect(0, 0, cssW, cssH);
+  paintBackdrop(ctx, world.camera, basis, cssW, cssH);
+  paintFloor(ctx, world.camera, basis, -4, 8, -2, 8, 1, 0);
 
-  const horizon = projectOnBasis(world.camera, { x: world.camera.x, y: 0, z: world.camera.z + 8 }, basis);
-  const hy = horizon.visible ? horizon.y : cssH * 0.58;
-  ctx.fillStyle = "#1c1b17";
-  ctx.fillRect(0, 0, cssW, Math.max(0, hy));
-  ctx.fillStyle = "#241f18";
-  ctx.fillRect(0, Math.max(0, hy), cssW, cssH);
-
-  ctx.strokeStyle = "rgba(226, 255, 87, 0.05)";
-  ctx.lineWidth = 1;
-  for (let x = -3; x <= 6; x += 0.5) strokeLine(ctx, world.camera, basis, { x, y: 0, z: -2 }, { x, y: 0, z: 6 });
-  for (let z = -2; z <= 6; z += 0.5) strokeLine(ctx, world.camera, basis, { x: -3, y: 0, z }, { x: 6, y: 0, z });
-
-  ctx.fillStyle = "#2a2822";
+  ctx.fillStyle = "#1a2230";
   fillQuad(
     ctx,
     world.camera,
@@ -40,10 +35,11 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
     { x: -2.4, y: 2.8, z: 3 },
     { x: -2.4, y: 0, z: 3 },
   );
+  strokeTop(ctx, world.camera, basis, { x: -2.4, y: 2.8, z: -2 }, { x: -2.4, y: 2.8, z: 3 });
 
   for (const wall of world.walls) {
     const tall = 2.9;
-    ctx.fillStyle = "#3c3932";
+    ctx.fillStyle = "#243044";
     fillQuad(
       ctx,
       world.camera,
@@ -53,9 +49,13 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
       { x: wall.b.x, y: tall, z: wall.b.z },
       { x: wall.b.x, y: 0, z: wall.b.z },
     );
-    ctx.strokeStyle = "#e2ff57";
-    ctx.lineWidth = 3;
-    strokeLine(ctx, world.camera, basis, { x: wall.a.x, y: 0, z: wall.a.z }, { x: wall.a.x, y: tall, z: wall.a.z });
+    strokeTop(
+      ctx,
+      world.camera,
+      basis,
+      { x: wall.a.x, y: tall, z: wall.a.z },
+      { x: wall.b.x, y: tall, z: wall.b.z },
+    );
   }
 
   if (world.pip) drawPip(ctx, world.camera, basis, world.pip);
@@ -66,22 +66,72 @@ export function drawWorld(ctx: CanvasRenderingContext2D, cssW: number, cssH: num
     drawActor(ctx, world.camera, basis, actor);
   }
 
-  if (world.flash) {
-    ctx.fillStyle =
-      world.flash === "hit" ? "rgba(47, 158, 107, 0.16)" : world.flash === "hurt" ? "rgba(216, 74, 50, 0.22)" : "rgba(216, 74, 50, 0.08)";
-    ctx.fillRect(0, 0, cssW, cssH);
+  if (world.flash === "hurt") {
+    ctx.fillStyle = "#ff4d3a";
+    ctx.fillRect(0, 0, 4, cssH);
+    ctx.fillRect(cssW - 4, 0, 4, cssH);
+  } else if (world.flash === "hit" || world.flash === "miss") {
+    drawImpact(ctx, cssW / 2, cssH / 2, world.flash);
   }
 
   drawCrosshair(ctx, cssW, cssH, world.crosshair);
 }
 
-function strokeLine(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, a: V3, b: V3): void {
+/** Sky, ground, and a one-pixel horizon. No gradients and no shadows. */
+function paintBackdrop(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, cssW: number, cssH: number): void {
+  ctx.fillStyle = GROUND;
+  ctx.fillRect(0, 0, cssW, cssH);
+  const ahead = 48;
+  const horizon = projectOnBasis(
+    cam,
+    { x: cam.x + Math.sin(cam.yaw) * ahead, y: cam.y, z: cam.z + Math.cos(cam.yaw) * ahead },
+    basis,
+  );
+  const hy = horizon.visible ? horizon.y : cssH * 0.5;
+  const top = Math.max(0, Math.min(cssH, hy));
+  ctx.fillStyle = SKY;
+  ctx.fillRect(0, 0, cssW, top);
+  ctx.strokeStyle = "rgba(214, 255, 70, 0.45)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, hy);
+  ctx.lineTo(cssW, hy);
+  ctx.stroke();
+}
+
+function paintFloor(
+  ctx: CanvasRenderingContext2D,
+  cam: Camera,
+  basis: Basis,
+  x0: number,
+  x1: number,
+  z0: number,
+  z1: number,
+  step: number,
+  y: number,
+): void {
+  ctx.strokeStyle = GRID;
+  ctx.lineWidth = 1;
+  ctx.lineCap = "butt";
+  ctx.beginPath();
+  for (let x = x0; x <= x1; x += step) addSegment(ctx, cam, basis, { x, y, z: z0 }, { x, y, z: z1 });
+  for (let z = z0; z <= z1; z += step) addSegment(ctx, cam, basis, { x: x0, y, z }, { x: x1, y, z });
+  ctx.stroke();
+}
+
+function addSegment(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, a: V3, b: V3): void {
   const pa = projectOnBasis(cam, a, basis);
   const pb = projectOnBasis(cam, b, basis);
   if (!pa.visible || !pb.visible) return;
-  ctx.beginPath();
   ctx.moveTo(pa.x, pa.y);
   ctx.lineTo(pb.x, pb.y);
+}
+
+function strokeTop(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, a: V3, b: V3): void {
+  ctx.strokeStyle = LIP;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  addSegment(ctx, cam, basis, a, b);
   ctx.stroke();
 }
 
@@ -98,18 +148,15 @@ function fillQuad(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, a: V
 function drawPip(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, pip: V2): void {
   const p = projectOnBasis(cam, { x: pip.x, y: LANE.head, z: pip.z }, basis);
   if (!p.visible) return;
-  ctx.save();
-  ctx.translate(p.x, p.y);
-  ctx.strokeStyle = "#e2ff57";
+  ctx.strokeStyle = LIP;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, -7);
-  ctx.lineTo(7, 0);
-  ctx.lineTo(0, 7);
-  ctx.lineTo(-7, 0);
+  ctx.moveTo(p.x, p.y - 8);
+  ctx.lineTo(p.x + 7, p.y);
+  ctx.lineTo(p.x, p.y + 8);
+  ctx.lineTo(p.x - 7, p.y);
   ctx.closePath();
   ctx.stroke();
-  ctx.restore();
 }
 
 function drawActor(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, actor: Actor): void {
@@ -119,30 +166,45 @@ function drawActor(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, act
   if (!head.visible || !foot.visible || !side.visible) return;
   const r = Math.max(6, Math.hypot(side.x - head.x, side.y - head.y));
   const bodyH = Math.max(18, foot.y - head.y);
-  ctx.fillStyle = "#d9c7a4";
-  ctx.fillRect(head.x - r * 0.7, head.y + r * 0.2, r * 1.4, bodyH * 0.72);
+  ctx.fillStyle = "#c5d0dc";
+  ctx.fillRect(head.x - r * 0.55, head.y + r * 0.15, r * 1.1, bodyH * 0.72);
   ctx.beginPath();
-  ctx.fillStyle = "#f4efe4";
+  ctx.fillStyle = HEAD;
   ctx.arc(head.x, head.y, r, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.fillStyle = "#1a1814";
-  ctx.arc(head.x, head.y, Math.max(2, r * 0.28), 0, Math.PI * 2);
+  ctx.strokeStyle = LIP;
+  ctx.lineWidth = 2;
+  ctx.arc(head.x, head.y, r + 3, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.fillStyle = INK;
+  ctx.arc(head.x, head.y, Math.max(2, r * 0.22), 0, Math.PI * 2);
   ctx.fill();
 }
 
+/** Four ticks around a shot. One stroke, no blur. */
+export function drawImpact(ctx: CanvasRenderingContext2D, x: number, y: number, kind: "hit" | "miss"): void {
+  ctx.strokeStyle = kind === "hit" ? LIP : "#ff4d3a";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "butt";
+  ctx.beginPath();
+  const inner = 16;
+  const outer = 26;
+  ctx.moveTo(x - outer, y);
+  ctx.lineTo(x - inner, y);
+  ctx.moveTo(x + inner, y);
+  ctx.lineTo(x + outer, y);
+  ctx.moveTo(x, y - outer);
+  ctx.lineTo(x, y - inner);
+  ctx.moveTo(x, y + inner);
+  ctx.lineTo(x, y + outer);
+  ctx.stroke();
+}
+
 export function drawCrosshair(ctx: CanvasRenderingContext2D, w: number, h: number, c: Crosshair): void {
-  const x = w / 2;
-  const y = h / 2;
-  const arm = (dx1: number, dy1: number, dx2: number, dy2: number, width: number, color: string) => {
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.lineCap = "square";
-    ctx.moveTo(x + dx1, y + dy1);
-    ctx.lineTo(x + dx2, y + dy2);
-    ctx.stroke();
-  };
+  const x = Math.round(w / 2);
+  const y = Math.round(h / 2);
   const gap = c.gap;
   const len = c.length;
   const arms: [number, number, number, number][] = [
@@ -151,10 +213,19 @@ export function drawCrosshair(ctx: CanvasRenderingContext2D, w: number, h: numbe
     [0, -gap - len, 0, -gap],
     [0, gap, 0, gap + len],
   ];
-  if (c.outline) {
-    for (const a of arms) arm(a[0], a[1], a[2], a[3], c.thickness + 2, c.outlineColor);
-  }
-  for (const a of arms) arm(a[0], a[1], a[2], a[3], c.thickness, c.color);
+  ctx.lineCap = "butt";
+  const strokeArms = (width: number, color: string) => {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    for (const a of arms) {
+      ctx.moveTo(x + a[0], y + a[1]);
+      ctx.lineTo(x + a[2], y + a[3]);
+    }
+    ctx.stroke();
+  };
+  if (c.outline) strokeArms(c.thickness + 2, c.outlineColor);
+  strokeArms(c.thickness, c.color);
   if (c.dot) {
     if (c.outline) {
       ctx.beginPath();
@@ -167,4 +238,23 @@ export function drawCrosshair(ctx: CanvasRenderingContext2D, w: number, h: numbe
     ctx.arc(x, y, c.dotSize, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+export function paintRangeField(ctx: CanvasRenderingContext2D, cam: Camera, basis: Basis, cssW: number, cssH: number): void {
+  paintBackdrop(ctx, cam, basis, cssW, cssH);
+  paintFloor(ctx, cam, basis, -16, 16, 3, 24, 2, -1.35);
+  ctx.strokeStyle = "rgba(168, 188, 214, 0.16)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const yaw of [-40, -20, 0, 20, 40]) {
+    const rad = (yaw * Math.PI) / 180;
+    addSegment(
+      ctx,
+      cam,
+      basis,
+      { x: Math.sin(rad) * 6, y: -1.2, z: Math.cos(rad) * 6 },
+      { x: Math.sin(rad) * 22, y: 6, z: Math.cos(rad) * 22 },
+    );
+  }
+  ctx.stroke();
 }

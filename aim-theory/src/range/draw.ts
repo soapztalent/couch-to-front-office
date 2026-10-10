@@ -1,8 +1,12 @@
 import type { Crosshair } from "../persist/storage";
-import { drawCrosshair } from "../sim/draw";
+import { drawCrosshair, drawImpact, paintRangeField } from "../sim/draw";
 import { cameraBasis, forward, projectOnBasis } from "../sim/geom";
 
 export type RangeDot = { yaw: number; pitch: number; radius: number; live: boolean };
+
+export type RangeMark = { kind: "hit" | "miss"; yaw: number; pitch: number; age: number };
+
+const MARK_LIFE = 0.12;
 
 /** The range picture. The loop calls this; it does not touch the DOM. */
 export function drawRange(
@@ -18,51 +22,46 @@ export function drawRange(
     dimIdle?: boolean;
     grid?: boolean;
     flash?: boolean;
+    mark?: RangeMark | null;
+    glued?: boolean;
   },
 ): void {
-  ctx.fillStyle = "#12110e";
-  ctx.fillRect(0, 0, cssW, cssH);
   const cam = { x: 0, y: 0, z: 0, yaw: (view.yaw * Math.PI) / 180, pitch: (view.pitch * Math.PI) / 180 };
   const basis = cameraBasis(cam, { w: cssW, h: cssH, fov: view.fov });
-  if (view.grid) {
-    ctx.strokeStyle = "rgba(232, 220, 190, 0.18)";
-    ctx.lineWidth = 1;
-    for (let yaw = -50; yaw <= 50; yaw += 10) {
-      const top = projectOnBasis(cam, point(yaw, -12), basis);
-      const bot = projectOnBasis(cam, point(yaw, 16), basis);
-      if (!top.visible && !bot.visible) continue;
-      ctx.beginPath();
-      ctx.moveTo(top.x, top.y);
-      ctx.lineTo(bot.x, bot.y);
-      ctx.stroke();
-    }
-  }
+  paintRangeField(ctx, cam, basis, cssW, cssH);
   for (const target of view.targets) {
     const dir = forward((target.yaw * Math.PI) / 180, (target.pitch * Math.PI) / 180);
     const p = projectOnBasis(cam, { x: dir.x * 8, y: dir.y * 8, z: dir.z * 8 }, basis);
     if (!p.visible) continue;
     const edge = projectOnBasis(cam, { x: dir.x * 8 + 0.12, y: dir.y * 8, z: dir.z * 8 }, basis);
     const r = Math.max(8, Math.hypot(edge.x - p.x, edge.y - p.y) * (target.radius / 1.2));
-    ctx.beginPath();
-    ctx.fillStyle = view.dimIdle && !target.live ? "#5c574c" : "#f4efe4";
-    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.fillStyle = "#1a1814";
-    ctx.arc(p.x, p.y, Math.max(2, r * 0.18), 0, Math.PI * 2);
-    ctx.fill();
+    const live = !(view.dimIdle && !target.live);
+    drawPlate(ctx, p.x, p.y, r, live, Boolean(view.glued && target.live));
+  }
+  const mark = view.mark;
+  if (mark && mark.age >= 0 && mark.age <= MARK_LIFE) {
+    const dir = forward((mark.yaw * Math.PI) / 180, (mark.pitch * Math.PI) / 180);
+    const p = projectOnBasis(cam, { x: dir.x * 8, y: dir.y * 8, z: dir.z * 8 }, basis);
+    if (p.visible) drawImpact(ctx, p.x, p.y, mark.kind);
+  } else if (view.flash) {
+    drawImpact(ctx, cssW / 2, cssH / 2, "hit");
   }
   drawCrosshair(ctx, cssW, cssH, view.crosshair);
-  if (view.flash) {
-    ctx.strokeStyle = "#e2ff57";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cssW / 2, cssH / 2, 18, 0, Math.PI * 2);
-    ctx.stroke();
-  }
 }
 
-function point(yawDeg: number, pitchDeg: number): { x: number; y: number; z: number } {
-  const dir = forward((yawDeg * Math.PI) / 180, (pitchDeg * Math.PI) / 180);
-  return { x: dir.x * 8, y: dir.y * 8, z: dir.z * 8 };
+function drawPlate(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, live: boolean, glued: boolean): void {
+  ctx.beginPath();
+  ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+  ctx.strokeStyle = live ? (glued ? "#ffffff" : "#d6ff46") : "#3a4454";
+  ctx.lineWidth = live ? 2 : 1.5;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.fillStyle = live ? "#f4f7fb" : "#121722";
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  if (!live) return;
+  ctx.beginPath();
+  ctx.fillStyle = "#07090d";
+  ctx.arc(x, y, Math.max(2, r * 0.22), 0, Math.PI * 2);
+  ctx.fill();
 }

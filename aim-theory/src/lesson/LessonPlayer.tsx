@@ -545,6 +545,7 @@ function DrillStage(props: {
     const putState = textSlot(stateRef.current);
     const putBanner = textSlot(bannerRef.current);
     const idle = { yaw: 0, pitch: 0, strafe: 0, forward: 0, firePressed: false, fireHeld: false };
+    let held: { kind: "hit" | "miss" | "hurt"; until: number } | null = null;
 
     const tick = (now: number) => {
       if (stopped) return;
@@ -558,6 +559,8 @@ function DrillStage(props: {
       if (current.pulse === "hit") sfx.hit();
       if (current.pulse === "miss") sfx.miss();
       if (current.pulse === "hurt") sfx.hurt();
+      if (current.pulse) held = { kind: current.pulse, until: now + 140 };
+      const flash = held && now < held.until ? held.kind : null;
       const view = current.view();
       const { cssW, cssH } = surface.size();
       if (cssW >= 2 && cssH >= 2) {
@@ -568,7 +571,7 @@ function DrillStage(props: {
           pip: view.pip,
           fov: settings.fov,
           crosshair: settings.crosshair,
-          flash: current.pulse,
+          flash,
         });
       }
       putRep(`${view.rep}/${view.repCount}`);
