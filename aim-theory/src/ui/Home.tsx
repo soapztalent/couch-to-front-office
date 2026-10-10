@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LESSONS } from "../lesson/course";
-import { formatCm, type Settings } from "../persist/storage";
+import type { Settings } from "../persist/storage";
 import { nextSkill, SKILLS } from "../skill/course";
 import { STEP_TITLE, type StepId } from "../skill/steps";
 
@@ -17,7 +17,7 @@ type Door = "theory" | "course" | "range";
 const DOORS: { id: Door; index: string; title: string; copy: string }[] = [
   { id: "theory", index: "01", title: "Theory", copy: "The fight around the crosshair." },
   { id: "course", index: "02", title: "Course", copy: "Click, track, then switch." },
-  { id: "range", index: "03", title: "Range", copy: "Open practice." },
+  { id: "range", index: "03", title: "Range", copy: "The reps, then open practice." },
 ];
 
 export function Home(props: {
@@ -28,9 +28,32 @@ export function Home(props: {
   onLesson: (id: string) => void;
   onSkill: (id: string) => void;
   onRange: (id: string) => void;
+  onBoard: (id: string) => void;
   onSettings: () => void;
 }) {
   const [door, setDoor] = useState<Door | null>(null);
+  function lessonRow(lesson: (typeof LESSONS)[number]) {
+    return (
+      <div key={lesson.id} className="lesson-row">
+        <button className="lesson-card lesson-hit" onClick={() => props.onLesson(lesson.id)}>
+          <span className="idx">{lesson.index}</span>
+          <span>
+            <h2>{lesson.title}</h2>
+            <p>{lesson.summary}</p>
+          </span>
+          <span className="meta">
+            {props.done.includes(lesson.id) ? "Done" : "Lesson"}
+            <br />
+            {props.bests[lesson.id] != null ? `Best ${props.bests[lesson.id]}` : "No score yet"}
+          </span>
+        </button>
+        <button className="text-btn board-link" data-board={lesson.id} onClick={() => props.onBoard(lesson.id)}>
+          Board
+        </button>
+      </div>
+    );
+  }
+
   const next = nextSkill(props.done);
   const best = props.bests[next.id];
   const open = DOORS.find((item) => item.id === door);
@@ -52,11 +75,8 @@ export function Home(props: {
             <span>Mouse and keyboard</span>
           </div>
         </div>
-        <button className="sens-chip" onClick={props.onSettings}>
-          <strong>{formatCm(props.settings)} cm/360</strong>
-          <em>
-            {props.settings.dpi} DPI · sens {props.settings.sens} · {props.settings.fov}° FOV
-          </em>
+        <button className="ghost-btn" data-settings onClick={props.onSettings}>
+          Settings
         </button>
       </header>
       <main className="home">
@@ -98,22 +118,7 @@ export function Home(props: {
               <p className="note">Open practice. Same sensitivity, same pointer lock, scored the same way.</p>
             ) : null}
             {door === "theory" ? (
-              <div className="lesson-list">
-                {LESSONS.filter((lesson) => lesson.door === "theory").map((lesson) => (
-                  <button key={lesson.id} className="lesson-card" onClick={() => props.onLesson(lesson.id)}>
-                    <span className="idx">{lesson.index}</span>
-                    <span>
-                      <h2>{lesson.title}</h2>
-                      <p>{lesson.summary}</p>
-                    </span>
-                    <span className="meta">
-                      {props.done.includes(lesson.id) ? "Done" : "Lesson"}
-                      <br />
-                      {props.bests[lesson.id] != null ? `Best ${props.bests[lesson.id]}` : "No score yet"}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <div className="lesson-list">{LESSONS.filter((lesson) => lesson.door === "theory").map(lessonRow)}</div>
             ) : null}
             {door === "course" ? (
               <div className="lesson-list">
@@ -131,27 +136,18 @@ export function Home(props: {
                     </span>
                   </button>
                 ))}
-                {LESSONS.filter((lesson) => lesson.door === "course").map((lesson) => (
-                  <button key={lesson.id} className="lesson-card" onClick={() => props.onLesson(lesson.id)}>
-                    <span className="idx">{lesson.index}</span>
-                    <span>
-                      <h2>{lesson.title}</h2>
-                      <p>{lesson.summary}</p>
-                    </span>
-                    <span className="meta">
-                      {props.done.includes(lesson.id) ? "Done" : "Lesson"}
-                      <br />
-                      {props.bests[lesson.id] != null ? `Best ${props.bests[lesson.id]}` : "No score yet"}
-                    </span>
-                  </button>
-                ))}
+                {LESSONS.filter((lesson) => lesson.door === "course").map(lessonRow)}
               </div>
             ) : null}
             {door === "range" ? (
               <div className="lesson-list">
+                {LESSONS.filter((lesson) => lesson.door === "range").map(lessonRow)}
+                <p className="section-label">Open practice</p>
                 {RANGE.map((item, index) => (
                   <button key={item.id} className="lesson-card" onClick={() => props.onRange(item.id)}>
-                    <span className="idx">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="idx">
+                      {String(LESSONS.filter((lesson) => lesson.door === "range").length + index + 1).padStart(2, "0")}
+                    </span>
                     <span>
                       <h2>{item.title}</h2>
                       <p>{item.copy}</p>

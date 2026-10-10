@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { GAME_LABEL, GAME_YAW, type GameId, cmPer360, sensFromCm } from "../sens/sensitivity";
+import { GAME_LABEL, GAME_NOTE, GAME_YAW, type GameId, cmPer360, sensFromCm } from "../sens/sensitivity";
 import { drawCrosshair } from "../sim/draw";
 import { withGame, type Settings as SettingsT } from "../persist/storage";
 
@@ -29,7 +29,7 @@ export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) 
       <header className="top">
         <div className="mark">
           <b>Settings</b>
-          <span>Saved on this machine</span>
+          <span>{Number.isFinite(cm) ? `${cm.toFixed(1)} cm/360` : "—"}</span>
         </div>
         <button className="ghost-btn" onClick={props.onBack}>
           Back
@@ -38,7 +38,18 @@ export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) 
       <div className="settings">
         <section className="panel">
           <h2>Sensitivity</h2>
+          <p className="cm">{Number.isFinite(cm) ? `${cm.toFixed(1)} cm/360` : "—"}</p>
           <p className="note">Switching games keeps your centimeters per 360 and rewrites the in-game sens number.</p>
+          <label className="field">
+            Board name
+            <input
+              data-board-name
+              maxLength={16}
+              placeholder="Your name"
+              value={s.name}
+              onChange={(e) => patch({ name: e.target.value })}
+            />
+          </label>
           <label className="field">
             Game
             <select
@@ -67,7 +78,7 @@ export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) 
             />
           </label>
           <label className="field">
-            In-game sens
+            {s.game === "fortnite" ? "Sens (%)" : "In-game sens"}
             <input
               type="number"
               min={0.001}
@@ -107,7 +118,7 @@ export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) 
               />
             </label>
           ) : (
-            <p className="note">Yaw {s.yaw}. Fortnite uses the percent as the sens number, so 8 means 8%.</p>
+            <p className="note">Yaw {s.yaw}. {GAME_NOTE[s.game] ?? ""}</p>
           )}
           <p className="cm">{Number.isFinite(cm) ? `${cm.toFixed(1)} cm/360` : "—"}</p>
           <label className="field">

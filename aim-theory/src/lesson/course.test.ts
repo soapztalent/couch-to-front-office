@@ -27,7 +27,7 @@ describe("course script", () => {
       }
       expect(lesson.reps.length, lesson.id).toBeGreaterThanOrEqual(4);
       expect(lesson.family, lesson.id).toBeTruthy();
-      expect(lesson.door, lesson.id).toMatch(/theory|course/);
+      expect(lesson.door, lesson.id).toMatch(/theory|course|range/);
       for (const id of [...spoken, lesson.brief, ...lesson.reps.map((r) => r.cueId)]) {
         expect(LINES[id], id).toBeTruthy();
         expect(LINES[id].text.length).toBeGreaterThan(8);
@@ -47,8 +47,10 @@ describe("course script", () => {
       expect(clip.total).toBeGreaterThan(12);
     }
     expect(ids.size).toBeGreaterThan(20);
-    expect(LESSONS.length).toBeGreaterThanOrEqual(25);
-    expect(LESSONS.length).toBeLessThanOrEqual(50);
+    expect(LESSONS.length).toBe(50);
+    expect(LESSONS.some((lesson) => lesson.door === "theory")).toBe(true);
+    expect(LESSONS.some((lesson) => lesson.door === "course")).toBe(true);
+    expect(LESSONS.some((lesson) => lesson.door === "range")).toBe(true);
     const titles = new Set(LESSONS.map((lesson) => lesson.title));
     expect(titles.size).toBe(LESSONS.length);
   });

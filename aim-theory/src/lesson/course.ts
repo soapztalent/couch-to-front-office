@@ -7,7 +7,7 @@ export type LessonId = string;
 
 export type LessonFamily = "edge" | "swing" | "choice" | "isolate";
 
-export type LessonDoor = "theory" | "course";
+export type LessonDoor = "theory" | "course" | "range";
 
 export type PovShot = {
   id: PovId;

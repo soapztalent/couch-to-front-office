@@ -10,6 +10,7 @@ import { Sfx } from "../sim/sfx";
 import { drawShow, type ShowId } from "../sim/shows";
 import { line } from "../voice/lines";
 import { Speaker } from "../voice/speaker";
+import { ScoreBoard } from "../ui/Board";
 import type { Lesson } from "./course";
 
 type Phase = "intro" | "explain" | "show" | "pov" | "arm" | "drill" | "pause" | "debrief";
@@ -30,6 +31,7 @@ export function LessonPlayer(props: {
   settings: Settings;
   best?: number;
   onExit: () => void;
+  onName: (name: string) => void;
   onRecord: (score: number, complete: boolean) => { best: number; isNew: boolean };
 }) {
   const cinematic = Boolean(props.lesson.pov?.length);
@@ -318,6 +320,13 @@ export function LessonPlayer(props: {
             <p>{debrief.right}</p>
             <p>{debrief.fix}</p>
             <p data-coach-line={lineId}>{spoken}</p>
+            <ScoreBoard
+              lessonId={props.lesson.id}
+              title={props.lesson.title}
+              score={debrief.score}
+              name={props.settings.name}
+              onName={props.onName}
+            />
             <div className="row">
               <button className="solid-btn" onClick={props.onExit}>
                 Course
@@ -445,6 +454,13 @@ export function LessonPlayer(props: {
                 <i className={speaking ? "dot on" : "dot"} /> Coach
               </div>
               <p data-coach-line={lineId}>{spoken}</p>
+              <ScoreBoard
+                lessonId={props.lesson.id}
+                title={props.lesson.title}
+                score={debrief.score}
+                name={props.settings.name}
+                onName={props.onName}
+              />
               <div className="row">
                 <button className="solid-btn" onClick={props.onExit}>
                   Course

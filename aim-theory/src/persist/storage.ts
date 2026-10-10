@@ -19,6 +19,8 @@ export type Settings = {
   fov: number;
   volume: number;
   sfx: number;
+  /** Name posted on a lesson board. */
+  name: string;
   crosshair: Crosshair;
 };
 
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fov: 106,
   volume: 1,
   sfx: 0.45,
+  name: "",
   crosshair: DEFAULT_CROSS,
 };
 
@@ -73,7 +76,12 @@ function read(): Store {
     if (!raw) return empty();
     const parsed = JSON.parse(raw) as Partial<Store>;
     return {
-      settings: { ...DEFAULT_SETTINGS, ...parsed.settings, crosshair: { ...DEFAULT_CROSS, ...parsed.settings?.crosshair } },
+      settings: {
+        ...DEFAULT_SETTINGS,
+        ...parsed.settings,
+        name: typeof parsed.settings?.name === "string" ? parsed.settings.name : "",
+        crosshair: { ...DEFAULT_CROSS, ...parsed.settings?.crosshair },
+      },
       bests: parsed.bests ?? {},
       history: parsed.history ?? [],
       done: parsed.done ?? [],
