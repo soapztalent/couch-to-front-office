@@ -55,7 +55,35 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--aim); outli
 .ghost-btn { border-radius: 4px; background: rgba(7, 9, 13, 0.72); }
 .text-btn { border: 0; padding: 0; color: var(--muted); }
 
-.home { padding: 12px 32px 64px; max-width: 1080px; }
+.home { padding: 22px 32px 64px; max-width: 1080px; }
+.continue {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: var(--ink-2);
+  border: 1px solid rgba(214, 255, 70, 0.7);
+  border-radius: 6px;
+  padding: 22px 18px;
+}
+.continue h2 { margin: 0 0 4px; font-size: 28px; font-weight: 600; }
+.continue p { margin: 0; color: var(--paper-dim); }
+.continue .kicker { color: var(--aim); }
+.doors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.door {
+  text-align: left;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 18px 16px;
+}
+.door:hover { border-color: rgba(214, 255, 70, 0.7); }
+.door h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+.door p { margin: 0; color: var(--muted); }
+.door-head { display: flex; align-items: center; gap: 16px; margin: 4px 0 14px; }
+.door-head .section-label { margin: 0; }
 .lede { max-width: 46rem; color: var(--paper-dim); font-size: 18px; line-height: 1.45; }
 .section-label { margin: 36px 0 12px; color: var(--muted); letter-spacing: 0.16em; text-transform: uppercase; font-size: 12px; }
 .lesson-list { display: grid; gap: 10px; }
@@ -257,6 +285,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--aim); outli
   .settings, .split, .debrief-grid { grid-template-columns: 1fr 1fr; }
   .paper { padding: 24px; }
   .paper h1 { font-size: 42px; }
-  .lesson-card { grid-template-columns: 48px 1fr; }
+  .lesson-card, .continue { grid-template-columns: 48px 1fr; }
+  .doors { grid-template-columns: 1fr; }
+  .continue .meta { display: none; }
   .meta { display: none; }
 }

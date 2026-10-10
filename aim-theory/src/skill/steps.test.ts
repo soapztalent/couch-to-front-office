@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { SKILLS } from "./course";
+import { nextSkill, SKILLS } from "./course";
 import { gapDeg, sampleGlide, sampleMark, sampleRelay, sampleStep, skillAt, skillTimeline } from "./clip";
 import { placeStep } from "./steps";
 import { LINES } from "../voice/lines";
 
 const BANNED = ["aimer", "tammas", "kovaak", "pasu", "1wall", "tile frenzy", "popcorn", "fugla", "aimbeast", "voltaic"];
+
+describe("next skill", () => {
+  it("continues at the first skill that is still open", () => {
+    expect(nextSkill([]).id).toBe("mark");
+    expect(nextSkill(["mark"]).id).toBe("glide");
+    expect(nextSkill(["mark", "glide", "relay", "step"]).id).toBe("step");
+  });
+});
 
 describe("skill steps", () => {
   it("moves up one step only when every skill clears", () => {

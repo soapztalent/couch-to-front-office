@@ -73,6 +73,11 @@ export function skillById(id: string): SkillLesson | undefined {
   return SKILLS.find((skill) => skill.id === id);
 }
 
+/** The continue action. The first skill still open, or Step once the three are done. */
+export function nextSkill(done: readonly string[]): SkillLesson {
+  return SKILLS.find((skill) => !done.includes(skill.id)) ?? SKILLS[SKILLS.length - 1];
+}
+
 export const SKILL_LABEL: Record<SkillKind, string> = {
   mark: "Mark",
   glide: "Glide",
