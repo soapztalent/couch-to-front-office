@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ndcOf } from "./glview";
+import { humanSpan, ndcOf } from "./glview";
 
 describe("first person projection", () => {
   it("puts a point on the look axis at the center", () => {
@@ -16,6 +16,17 @@ describe("first person projection", () => {
     const up = ndcOf(cam, { x: 0, y: 2, z: 8 }, 90, 1);
     expect(right.x).toBeGreaterThan(0.1);
     expect(up.y).toBeGreaterThan(0.1);
+  });
+
+  it("stands a human with a face in front of the skull", () => {
+    const span = humanSpan();
+    expect(span.minY).toBeGreaterThan(-0.02);
+    expect(span.minY).toBeLessThan(0.08);
+    expect(span.maxY).toBeGreaterThan(1.65);
+    expect(span.maxY).toBeLessThan(1.95);
+    expect(span.face).toBeGreaterThan(0.1);
+    expect(span.verts).toBeGreaterThan(800);
+    expect(span.verts).toBeLessThan(22000);
   });
 
   it("follows a yaw toward +x", () => {

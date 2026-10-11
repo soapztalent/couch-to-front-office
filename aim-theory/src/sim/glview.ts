@@ -6,8 +6,8 @@ import { playfieldScale } from "./surface";
 import { EDGE_WALL, ENEMY_CLOSE, FAR_WALL, LANE } from "./world";
 
 /**
- * Original first-person room. Boxes only: a bay, a corner, a block player, a viewmodel.
- * Nothing here is a copied map or a copied gun.
+ * Original first-person room. The figure, the carbine, and the bay are built here.
+ * Nothing is a copied character, map, or gun.
  */
 export type PlateView = {
   fov: number;
@@ -33,26 +33,41 @@ export type WorldView = {
 
 type RGB = [number, number, number];
 
-const FLOOR: RGB = [0.04, 0.048, 0.062];
-const GRID: RGB = [0.2, 0.24, 0.3];
-const CEIL: RGB = [0.07, 0.084, 0.11];
-const WALL: RGB = [0.1, 0.125, 0.165];
-const CORNER: RGB = [0.14, 0.18, 0.23];
+const SKIN: RGB = [0.74, 0.56, 0.46];
+const SKIN_DEEP: RGB = [0.52, 0.36, 0.3];
+const HAIR: RGB = [0.06, 0.055, 0.05];
+const SCLERA: RGB = [0.72, 0.69, 0.64];
+const IRIS: RGB = [0.08, 0.07, 0.06];
+const LIP_COLOR: RGB = [0.46, 0.26, 0.24];
+const JACKET: RGB = [0.46, 0.49, 0.54];
+const JACKET_DARK: RGB = [0.28, 0.3, 0.34];
+const PANTS: RGB = [0.18, 0.19, 0.22];
+const BOOT: RGB = [0.07, 0.07, 0.08];
+const PLASTER: RGB = [0.28, 0.3, 0.33];
+const PLASTER_DIM: RGB = [0.2, 0.22, 0.25];
+const CONCRETE: RGB = [0.16, 0.165, 0.175];
+const SEAM: RGB = [0.07, 0.075, 0.085];
+const METAL: RGB = [0.34, 0.36, 0.38];
+const METAL_DARK: RGB = [0.16, 0.17, 0.18];
+const POLY: RGB = [0.09, 0.095, 0.1];
+const WOOD: RGB = [0.28, 0.18, 0.11];
+const WOOD_DARK: RGB = [0.16, 0.1, 0.06];
 const LIP: RGB = [0.839, 1, 0.275];
-const HEAD: RGB = [0.93, 0.95, 0.97];
-const BODY: RGB = [0.62, 0.68, 0.75];
-const LEG: RGB = [0.32, 0.36, 0.42];
-const VISOR: RGB = [0.03, 0.035, 0.045];
-const GUN: RGB = [0.07, 0.086, 0.11];
-const GUN2: RGB = [0.16, 0.2, 0.26];
 const HOT: RGB = [1, 0.3, 0.23];
-const DIM: RGB = [0.16, 0.18, 0.22];
-const CRATE: RGB = [0.13, 0.15, 0.18];
-const NORTH: RGB = [0.12, 0.15, 0.19];
-const PILLAR: RGB = [0.11, 0.14, 0.18];
+const LAMP: RGB = [0.95, 0.92, 0.82];
 
+/** 0 skin, 1 cloth, 2 metal, 3 wall, 4 floor, 5 emissive. */
+const M_SKIN = 0;
+const M_CLOTH = 1;
+const M_METAL = 2;
+const M_WALL = 3;
+const M_FLOOR = 4;
+const M_EMIT = 5;
+
+const STRIDE = 10;
 const ROOM = { x0: -6.6, x1: 7.4, z0: -4.4, z1: 12.6, y1: 3.55 };
 const STAND = { x: -0.85, y: 1.62, z: -1.15 };
+const FIGURE_H = 1.7;
 
 const HOME_ACTOR: Actor = { x: ENEMY_CLOSE.x, z: ENEMY_CLOSE.z, alive: true, role: "near" };
 const HOME_WALLS: Seg[] = [EDGE_WALL, FAR_WALL];
@@ -69,7 +84,67 @@ const HOME_CROSS: Crosshair = {
 
 const VERT = `
 attribute vec3 aPos;
+attribute vec3 aNrm;
 attribute vec3 aColor;
+attribute float aMat;
+uniform mat4 uMvp;
+uniform mat3 uNmat;
+varying vec3 vColor;
+varying vec3 vN;
+varying float vMat;
+varying float vY;
+void main() {
+  vColor = aColor;
+  vN = uNmat * aNrm;
+  vMat = aMat;
+  vY = aPos.y;
+  gl_Position = uMvp * vec4(aPos, 1.0);
+}
+`;
+
+const FRAG = `
+precision mediump float;
+varying vec3 vColor;
+varying vec3 vN;
+varying float vMat;
+varying float vY;
+uniform vec3 uKey;
+uniform vec3 uFill;
+uniform vec3 uUp;
+void main() {
+  vec3 N = normalize(vN);
+  vec3 V = vec3(0.0, 0.0, 1.0);
+  float ndl = max(dot(N, uKey), 0.0);
+  float wrap = clamp(dot(N, uKey) * 0.5 + 0.5, 0.0, 1.0);
+  float fill = max(dot(N, uFill), 0.0);
+  float hemi = clamp(dot(N, uUp) * 0.5 + 0.5, 0.0, 1.0);
+  vec3 H = normalize(uKey + V);
+  float spec = pow(max(dot(N, H), 0.0), 32.0);
+  float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);
+  float skin = step(vMat, 0.5);
+  float cloth = step(0.5, vMat) * step(vMat, 1.5);
+  float metal = step(1.5, vMat) * step(vMat, 2.5);
+  float emit = step(4.5, vMat);
+  float lit = mix(ndl, wrap, skin * 0.9 + cloth * 0.4);
+  vec3 amb = mix(vec3(0.07, 0.074, 0.082), vec3(0.2, 0.21, 0.23), hemi);
+  vec3 specCol = mix(vec3(0.04), vColor, metal);
+  float specK = skin * 0.02 + cloth * 0.012 + metal * 0.7 + 0.008;
+  float ground = mix(0.4, 1.0, smoothstep(0.0, 1.15, vY));
+  float crown = mix(0.7, 1.0, smoothstep(3.45, 1.7, vY));
+  float contact = mix(1.0, ground * crown, step(2.5, vMat) * (1.0 - emit));
+  vec3 color = vColor * (amb + lit * vec3(0.78, 0.74, 0.66) + fill * vec3(0.26, 0.28, 0.32)) * contact;
+  color += specCol * spec * specK;
+  color += mix(vec3(0.04), vColor, metal) * fres * (0.08 + metal * 0.22);
+  color = mix(color, vColor, emit);
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+const UNLIT_VERT = `
+attribute vec3 aPos;
+attribute vec3 aNrm;
+attribute vec3 aColor;
+attribute float aMat;
 uniform mat4 uMvp;
 varying vec3 vColor;
 void main() {
@@ -78,7 +153,7 @@ void main() {
 }
 `;
 
-const FRAG = `
+const UNLIT_FRAG = `
 precision mediump float;
 varying vec3 vColor;
 void main() {
@@ -105,43 +180,39 @@ class Batch {
     this.data = next;
   }
 
-  vert(x: number, y: number, z: number, r: number, g: number, b: number): void {
-    this.room(6);
+  vert(x: number, y: number, z: number, nx: number, ny: number, nz: number, r: number, g: number, b: number, mat: number): void {
+    this.room(STRIDE);
     const i = this.n;
     this.data[i] = x;
     this.data[i + 1] = y;
     this.data[i + 2] = z;
-    this.data[i + 3] = r;
-    this.data[i + 4] = g;
-    this.data[i + 5] = b;
-    this.n += 6;
+    this.data[i + 3] = nx;
+    this.data[i + 4] = ny;
+    this.data[i + 5] = nz;
+    this.data[i + 6] = r;
+    this.data[i + 7] = g;
+    this.data[i + 8] = b;
+    this.data[i + 9] = mat;
+    this.n += STRIDE;
   }
 
-  quad(
-    x0: number,
-    y0: number,
-    z0: number,
-    x1: number,
-    y1: number,
-    z1: number,
-    x2: number,
-    y2: number,
-    z2: number,
-    x3: number,
-    y3: number,
-    z3: number,
-    color: RGB,
-    shade: number,
+  face(
+    x0: number, y0: number, z0: number,
+    x1: number, y1: number, z1: number,
+    x2: number, y2: number, z2: number,
+    x3: number, y3: number, z3: number,
+    nx: number, ny: number, nz: number,
+    color: RGB, mat: number,
   ): void {
-    const r = color[0] * shade;
-    const g = color[1] * shade;
-    const b = color[2] * shade;
-    this.vert(x0, y0, z0, r, g, b);
-    this.vert(x1, y1, z1, r, g, b);
-    this.vert(x2, y2, z2, r, g, b);
-    this.vert(x0, y0, z0, r, g, b);
-    this.vert(x2, y2, z2, r, g, b);
-    this.vert(x3, y3, z3, r, g, b);
+    const r = color[0];
+    const g = color[1];
+    const b = color[2];
+    this.vert(x0, y0, z0, nx, ny, nz, r, g, b, mat);
+    this.vert(x1, y1, z1, nx, ny, nz, r, g, b, mat);
+    this.vert(x2, y2, z2, nx, ny, nz, r, g, b, mat);
+    this.vert(x0, y0, z0, nx, ny, nz, r, g, b, mat);
+    this.vert(x2, y2, z2, nx, ny, nz, r, g, b, mat);
+    this.vert(x3, y3, z3, nx, ny, nz, r, g, b, mat);
   }
 
   copy(src: Float32Array): void {
@@ -151,93 +222,566 @@ class Batch {
   }
 }
 
-let bakedRoom: Float32Array | null = null;
+class Fig {
+  p: number[] = [];
+  c: number[] = [];
+  m: number[] = [];
+  ix: number[] = [];
 
-function roomMesh(): Float32Array {
-  if (bakedRoom) return bakedRoom;
-  const batch = new Batch(24000);
-  pushRoom(batch);
-  bakedRoom = batch.data.slice(0, batch.n);
-  return bakedRoom;
+  add(x: number, y: number, z: number, color: RGB, mat: number): number {
+    const i = this.p.length / 3;
+    this.p.push(x, y, z);
+    this.c.push(color[0], color[1], color[2]);
+    this.m.push(mat);
+    return i;
+  }
+
+  triOut(a: number, b: number, c: number, ox: number, oy: number, oz: number): void {
+    const ax = this.p[a * 3];
+    const ay = this.p[a * 3 + 1];
+    const az = this.p[a * 3 + 2];
+    const bx = this.p[b * 3];
+    const by = this.p[b * 3 + 1];
+    const bz = this.p[b * 3 + 2];
+    const cx = this.p[c * 3];
+    const cy = this.p[c * 3 + 1];
+    const cz = this.p[c * 3 + 2];
+    const ux = bx - ax;
+    const uy = by - ay;
+    const uz = bz - az;
+    const vx = cx - ax;
+    const vy = cy - ay;
+    const vz = cz - az;
+    const nx = uy * vz - uz * vy;
+    const ny = uz * vx - ux * vz;
+    const nz = ux * vy - uy * vx;
+    const mx = (ax + bx + cx) / 3 - ox;
+    const my = (ay + by + cy) / 3 - oy;
+    const mz = (az + bz + cz) / 3 - oz;
+    if (nx * mx + ny * my + nz * mz < 0) this.ix.push(a, c, b);
+    else this.ix.push(a, b, c);
+  }
+
+  pack(): Float32Array {
+    const count = this.p.length / 3;
+    const nx = new Float32Array(count);
+    const ny = new Float32Array(count);
+    const nz = new Float32Array(count);
+    for (let t = 0; t < this.ix.length; t += 3) {
+      const a = this.ix[t];
+      const b = this.ix[t + 1];
+      const c = this.ix[t + 2];
+      const ax = this.p[a * 3];
+      const ay = this.p[a * 3 + 1];
+      const az = this.p[a * 3 + 2];
+      const ux = this.p[b * 3] - ax;
+      const uy = this.p[b * 3 + 1] - ay;
+      const uz = this.p[b * 3 + 2] - az;
+      const vx = this.p[c * 3] - ax;
+      const vy = this.p[c * 3 + 1] - ay;
+      const vz = this.p[c * 3 + 2] - az;
+      const fnx = uy * vz - uz * vy;
+      const fny = uz * vx - ux * vz;
+      const fnz = ux * vy - uy * vx;
+      nx[a] += fnx;
+      ny[a] += fny;
+      nz[a] += fnz;
+      nx[b] += fnx;
+      ny[b] += fny;
+      nz[b] += fnz;
+      nx[c] += fnx;
+      ny[c] += fny;
+      nz[c] += fnz;
+    }
+    const out = new Float32Array(this.ix.length * STRIDE);
+    let o = 0;
+    for (let t = 0; t < this.ix.length; t += 1) {
+      const i = this.ix[t];
+      const len = Math.hypot(nx[i], ny[i], nz[i]) || 1;
+      out[o] = this.p[i * 3];
+      out[o + 1] = this.p[i * 3 + 1];
+      out[o + 2] = this.p[i * 3 + 2];
+      out[o + 3] = nx[i] / len;
+      out[o + 4] = ny[i] / len;
+      out[o + 5] = nz[i] / len;
+      out[o + 6] = this.c[i * 3];
+      out[o + 7] = this.c[i * 3 + 1];
+      out[o + 8] = this.c[i * 3 + 2];
+      out[o + 9] = this.m[i];
+      o += STRIDE;
+    }
+    return out;
+  }
 }
 
-function pushBox(batch: Batch, x: number, y: number, z: number, w: number, h: number, d: number, color: RGB): void {
+function ellipsoid(fig: Fig, cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, slices: number, stacks: number, color: RGB, mat: number, keep?: (y: number, z: number) => boolean): void {
+  const rows: number[][] = [];
+  for (let iy = 0; iy <= stacks; iy += 1) {
+    const phi = (iy / stacks) * Math.PI;
+    const sy = Math.cos(phi);
+    const sr = Math.sin(phi);
+    if (iy === 0 || iy === stacks) {
+      rows.push([fig.add(cx, cy + sy * ry, cz, color, mat)]);
+      continue;
+    }
+    const row: number[] = [];
+    for (let ix = 0; ix < slices; ix += 1) {
+      const theta = (ix / slices) * Math.PI * 2;
+      const sx = sr * Math.cos(theta);
+      const sz = sr * Math.sin(theta);
+      row.push(fig.add(cx + sx * rx, cy + sy * ry, cz + sz * rz, color, mat));
+    }
+    rows.push(row);
+  }
+  for (let iy = 0; iy < stacks; iy += 1) {
+    const top = rows[iy];
+    const bot = rows[iy + 1];
+    for (let ix = 0; ix < slices; ix += 1) {
+      const ix2 = (ix + 1) % slices;
+      const sample = top.length === 1 ? bot[ix] : top[ix];
+      if (keep && !keep(fig.p[sample * 3 + 1], fig.p[sample * 3 + 2])) continue;
+      if (top.length === 1) fig.triOut(top[0], bot[ix2], bot[ix], cx, cy, cz);
+      else if (bot.length === 1) fig.triOut(top[ix], top[ix2], bot[0], cx, cy, cz);
+      else {
+        fig.triOut(top[ix], top[ix2], bot[ix], cx, cy, cz);
+        fig.triOut(top[ix2], bot[ix2], bot[ix], cx, cy, cz);
+      }
+    }
+  }
+}
+
+function tube(fig: Fig, ax: number, ay: number, az: number, bx: number, by: number, bz: number, radius: number, slices: number, color: RGB, mat: number): void {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const dz = bz - az;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  const wx = dx / len;
+  const wy = dy / len;
+  const wz = dz / len;
+  let hx = 0;
+  let hy = 1;
+  let hz = 0;
+  if (Math.abs(wy) > 0.85) {
+    hx = 1;
+    hy = 0;
+  }
+  let ux = hy * wz - hz * wy;
+  let uy = hz * wx - hx * wz;
+  let uz = hx * wy - hy * wx;
+  const ul = Math.hypot(ux, uy, uz) || 1;
+  ux /= ul;
+  uy /= ul;
+  uz /= ul;
+  const vx = wy * uz - wz * uy;
+  const vy = wz * ux - wx * uz;
+  const vz = wx * uy - wy * ux;
+  const rowA: number[] = [];
+  const rowB: number[] = [];
+  for (let i = 0; i < slices; i += 1) {
+    const t = (i / slices) * Math.PI * 2;
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    const ox = (ux * c + vx * s) * radius;
+    const oy = (uy * c + vy * s) * radius;
+    const oz = (uz * c + vz * s) * radius;
+    rowA.push(fig.add(ax + ox, ay + oy, az + oz, color, mat));
+    rowB.push(fig.add(bx + ox, by + oy, bz + oz, color, mat));
+  }
+  rowA.push(rowA[0]);
+  rowB.push(rowB[0]);
+  const mx = (ax + bx) * 0.5;
+  const my = (ay + by) * 0.5;
+  const mz = (az + bz) * 0.5;
+  for (let i = 0; i < slices; i += 1) {
+    fig.triOut(rowA[i], rowB[i], rowA[i + 1], mx, my, mz);
+    fig.triOut(rowA[i + 1], rowB[i], rowB[i + 1], mx, my, mz);
+  }
+  const ca = fig.add(ax, ay, az, color, mat);
+  const cb = fig.add(bx, by, bz, color, mat);
+  for (let i = 0; i < slices; i += 1) {
+    fig.triOut(ca, rowA[i], rowA[i + 1], mx, my, mz);
+    fig.triOut(cb, rowB[i], rowB[i + 1], mx, my, mz);
+  }
+}
+
+function ring(fig: Fig, y: number, rx: number, rz: number, z: number, slices: number, color: RGB, mat: number): number[] {
+  const row: number[] = [];
+  for (let i = 0; i < slices; i += 1) {
+    const t = (i / slices) * Math.PI * 2;
+    row.push(fig.add(Math.cos(t) * rx, y, z + Math.sin(t) * rz, color, mat));
+  }
+  row.push(row[0]);
+  return row;
+}
+
+function loft(fig: Fig, rows: number[][], cx: number, cy: number, cz: number): void {
+  const slices = rows[0].length - 1;
+  for (let r = 0; r < rows.length - 1; r += 1) {
+    for (let i = 0; i < slices; i += 1) {
+      fig.triOut(rows[r][i], rows[r][i + 1], rows[r + 1][i], cx, cy, cz);
+      fig.triOut(rows[r][i + 1], rows[r + 1][i + 1], rows[r + 1][i], cx, cy, cz);
+    }
+  }
+}
+
+function cap(fig: Fig, row: number[], cx: number, cy: number, cz: number, color: RGB, mat: number, insideY: number): void {
+  const center = fig.add(cx, cy, cz, color, mat);
+  const slices = row.length - 1;
+  for (let i = 0; i < slices; i += 1) fig.triOut(center, row[i], row[i + 1], cx, insideY, cz);
+}
+
+function limb(fig: Fig, ax: number, ay: number, az: number, bx: number, by: number, bz: number, radius: number, color: RGB, mat: number): void {
+  tube(fig, ax, ay, az, bx, by, bz, radius, 11, color, mat);
+}
+
+function buildHuman(fig: Fig): void {
+  const slices = 12;
+  const headY = 1.6;
+  ellipsoid(fig, 0, headY, 0, 0.084, 0.108, 0.092, 14, 10, SKIN, M_SKIN);
+  ellipsoid(fig, 0, headY - 0.035, 0.02, 0.07, 0.052, 0.078, 12, 6, SKIN, M_SKIN);
+  ellipsoid(fig, 0, 1.66, -0.028, 0.102, 0.086, 0.11, 12, 8, HAIR, M_CLOTH, (y, z) => y > 1.69 || z < 0.015);
+  ellipsoid(fig, -0.078, 1.55, 0.01, 0.018, 0.045, 0.02, 6, 4, HAIR, M_CLOTH);
+  ellipsoid(fig, 0.078, 1.55, 0.01, 0.018, 0.045, 0.02, 6, 4, HAIR, M_CLOTH);
+
+  const eye = (x: number) => {
+    ellipsoid(fig, x, 1.612, 0.086, 0.016, 0.012, 0.01, 7, 4, SKIN_DEEP, M_SKIN);
+    ellipsoid(fig, x, 1.61, 0.093, 0.013, 0.009, 0.008, 8, 4, SCLERA, M_SKIN);
+    ellipsoid(fig, x, 1.61, 0.1, 0.0065, 0.0065, 0.004, 6, 3, IRIS, M_CLOTH);
+    ellipsoid(fig, x, 1.62, 0.094, 0.015, 0.006, 0.01, 6, 3, SKIN, M_SKIN);
+    ellipsoid(fig, x, 1.626, 0.09, 0.018, 0.005, 0.01, 6, 3, HAIR, M_CLOTH);
+  };
+  eye(-0.03);
+  eye(0.03);
+  ellipsoid(fig, 0, 1.578, 0.096, 0.011, 0.024, 0.014, 7, 5, SKIN_DEEP, M_SKIN);
+  ellipsoid(fig, 0, 1.552, 0.104, 0.013, 0.011, 0.012, 6, 4, SKIN, M_SKIN);
+  ellipsoid(fig, 0, 1.526, 0.096, 0.022, 0.006, 0.008, 6, 3, LIP_COLOR, M_CLOTH);
+  ellipsoid(fig, -0.09, headY - 0.01, 0, 0.014, 0.03, 0.01, 6, 4, SKIN, M_SKIN);
+  ellipsoid(fig, 0.09, headY - 0.01, 0, 0.014, 0.03, 0.01, 6, 4, SKIN, M_SKIN);
+  limb(fig, 0, 1.45, 0.008, 0, 1.53, 0.01, 0.044, SKIN, M_SKIN);
+  tube(fig, 0, 1.44, 0.012, 0, 1.5, 0.014, 0.062, 8, JACKET, M_CLOTH);
+
+  const jacket: [number, number, number, number][] = [
+    [0.98, 0.15, 0.092, 0.012],
+    [1.12, 0.175, 0.105, 0.02],
+    [1.26, 0.2, 0.115, 0.028],
+    [1.38, 0.23, 0.105, 0.016],
+    [1.46, 0.13, 0.075, 0.008],
+  ];
+  const pants: [number, number, number, number][] = [
+    [0.68, 0.155, 0.1, 0],
+    [0.82, 0.162, 0.105, 0.002],
+    [0.96, 0.148, 0.09, 0.006],
+  ];
+  const jacketRows = jacket.map(([y, rx, rz, z]) => ring(fig, y, rx, rz, z, slices, JACKET, M_CLOTH));
+  const pantRows = pants.map(([y, rx, rz, z]) => ring(fig, y, rx, rz, z, slices, PANTS, M_CLOTH));
+  loft(fig, jacketRows, 0, 1.22, 0);
+  loft(fig, pantRows, 0, 0.82, 0);
+  cap(fig, pantRows[0], 0, 0.68, 0, PANTS, M_CLOTH, 0.9);
+  tube(fig, 0, 0.96, 0.02, 0, 1.0, 0.022, 0.155, 10, JACKET_DARK, M_CLOTH);
+  tube(fig, 0, 1.04, 0.1, 0, 1.3, 0.13, 0.007, 5, JACKET_DARK, M_CLOTH);
+  ellipsoid(fig, -0.07, 1.28, 0.09, 0.07, 0.05, 0.04, 8, 4, JACKET, M_CLOTH);
+  ellipsoid(fig, 0.07, 1.28, 0.09, 0.07, 0.05, 0.04, 8, 4, JACKET, M_CLOTH);
+  ellipsoid(fig, -0.22, 1.38, 0.015, 0.08, 0.055, 0.07, 8, 5, JACKET, M_CLOTH);
+  ellipsoid(fig, 0.22, 1.38, 0.015, 0.08, 0.055, 0.07, 8, 5, JACKET, M_CLOTH);
+
+  const arm = (s: number) => {
+    limb(fig, s * 0.24, 1.36, 0.02, s * 0.32, 1.04, 0.08, 0.058, JACKET, M_CLOTH);
+    ellipsoid(fig, s * 0.29, 1.2, 0.06, 0.04, 0.07, 0.04, 6, 4, JACKET, M_CLOTH);
+    limb(fig, s * 0.32, 1.04, 0.08, s * 0.26, 0.74, 0.1, 0.042, JACKET_DARK, M_CLOTH);
+    ellipsoid(fig, s * 0.3, 1.02, 0.08, 0.046, 0.046, 0.046, 6, 4, JACKET_DARK, M_CLOTH);
+    ellipsoid(fig, s * 0.25, 0.71, 0.11, 0.03, 0.02, 0.042, 6, 3, SKIN, M_SKIN);
+    ellipsoid(fig, s * 0.22, 0.72, 0.12, 0.012, 0.012, 0.016, 5, 3, SKIN, M_SKIN);
+  };
+  arm(-1);
+  arm(1);
+
+  const leg = (s: number) => {
+    limb(fig, s * 0.1, 0.74, 0.01, s * 0.12, 0.42, 0.03, 0.078, PANTS, M_CLOTH);
+    ellipsoid(fig, s * 0.12, 0.42, 0.03, 0.055, 0.05, 0.055, 6, 4, PANTS, M_CLOTH);
+    limb(fig, s * 0.12, 0.42, 0.03, s * 0.1, 0.07, 0.02, 0.05, PANTS, M_CLOTH);
+    ellipsoid(fig, s * 0.1, 0.05, 0.015, 0.05, 0.045, 0.07, 6, 4, BOOT, M_CLOTH);
+    ellipsoid(fig, s * 0.1, 0.038, 0.09, 0.046, 0.026, 0.075, 6, 3, BOOT, M_CLOTH);
+  };
+  leg(-1);
+  leg(1);
+}
+
+let bakedHuman: Float32Array | null = null;
+
+function humanMesh(): Float32Array {
+  if (bakedHuman) return bakedHuman;
+  const fig = new Fig();
+  buildHuman(fig);
+  bakedHuman = fig.pack();
+  return bakedHuman;
+}
+
+/** Head, face, and feet of the baked figure. Used to keep the aim silhouette honest. */
+export function humanSpan(): { minY: number; maxY: number; face: number; verts: number } {
+  const mesh = humanMesh();
+  let minY = 99;
+  let maxY = -99;
+  let face = 0;
+  for (let i = 0; i < mesh.length; i += STRIDE) {
+    const y = mesh[i + 1];
+    const z = mesh[i + 2];
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+    if (y > 1.45 && y < 1.75 && z > face) face = z;
+  }
+  return { minY, maxY, face, verts: mesh.length / STRIDE };
+}
+
+function pushHuman(batch: Batch, x: number, foot: number, z: number, scale: number, faceX: number, faceZ: number, tone: number): void {
+  const mesh = humanMesh();
+  const yaw = Math.atan2(faceX - x, faceZ - z);
+  const sy = Math.sin(yaw);
+  const cy = Math.cos(yaw);
+  for (let i = 0; i < mesh.length; i += STRIDE) {
+    const lx = mesh[i] * scale;
+    const ly = mesh[i + 1] * scale;
+    const lz = mesh[i + 2] * scale;
+    const nx = mesh[i + 3];
+    const ny = mesh[i + 4];
+    const nz = mesh[i + 5];
+    batch.vert(
+      x + lx * cy + lz * sy,
+      foot + ly,
+      z - lx * sy + lz * cy,
+      nx * cy + nz * sy,
+      ny,
+      -nx * sy + nz * cy,
+      mesh[i + 6] * tone,
+      mesh[i + 7] * tone,
+      mesh[i + 8] * tone,
+      mesh[i + 9],
+    );
+  }
+  pushContact(batch, x, foot + 0.02, z, 0.34 * scale, 0.22 * scale);
+}
+
+function pushContact(batch: Batch, x: number, y: number, z: number, rx: number, rz: number): void {
+  const slices = 12;
+  const rings = 4;
+  const tone = (t: number): RGB => {
+    return [0.01 + t * 0.05, 0.01 + t * 0.052, 0.012 + t * 0.054];
+  };
+  let inner: number[][] | null = null;
+  const center = [x, y, z];
+  for (let r = 1; r <= rings; r += 1) {
+    const t = r / rings;
+    const row: number[][] = [];
+    for (let i = 0; i <= slices; i += 1) {
+      const a = (i / slices) * Math.PI * 2;
+      row.push([x + Math.cos(a) * rx * t, y, z + Math.sin(a) * rz * t]);
+    }
+    const color = tone(t);
+    const prev = inner ?? row.map(() => center);
+    for (let i = 0; i < slices; i += 1) {
+      const a = prev[i];
+      const b = prev[i + 1] ?? prev[0];
+      const c = row[i + 1];
+      const d = row[i];
+      batch.face(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2], 0, 1, 0, color, M_EMIT);
+    }
+    inner = row;
+  }
+}
+
+function pushBox(batch: Batch, x: number, y: number, z: number, w: number, h: number, d: number, color: RGB, mat: number): void {
   const x1 = x + w;
   const y1 = y + h;
   const z1 = z + d;
-  batch.quad(x, y1, z, x1, y1, z, x1, y1, z1, x, y1, z1, color, 1);
-  batch.quad(x, y, z1, x1, y, z1, x1, y, z, x, y, z, color, 0.42);
-  batch.quad(x, y, z1, x1, y, z1, x1, y1, z1, x, y1, z1, color, 0.82);
-  batch.quad(x1, y, z, x, y, z, x, y1, z, x1, y1, z, color, 0.58);
-  batch.quad(x1, y, z1, x1, y, z, x1, y1, z, x1, y1, z1, color, 0.72);
-  batch.quad(x, y, z, x, y, z1, x, y1, z1, x, y1, z, color, 0.5);
+  batch.face(x, y1, z, x1, y1, z, x1, y1, z1, x, y1, z1, 0, 1, 0, color, mat);
+  batch.face(x, y, z1, x1, y, z1, x1, y, z, x, y, z, 0, -1, 0, color, mat);
+  batch.face(x, y, z1, x1, y, z1, x1, y1, z1, x, y1, z1, 0, 0, 1, color, mat);
+  batch.face(x1, y, z, x, y, z, x, y1, z, x1, y1, z, 0, 0, -1, color, mat);
+  batch.face(x1, y, z1, x1, y, z, x1, y1, z, x1, y1, z1, 1, 0, 0, color, mat);
+  batch.face(x, y, z, x, y, z1, x, y1, z1, x, y1, z, -1, 0, 0, color, mat);
 }
+
+let bakedRoom: Float32Array | null = null;
 
 function pushRoom(batch: Batch): void {
   const { x0, x1, z0, z1, y1 } = ROOM;
   const w = x1 - x0;
   const d = z1 - z0;
-  pushBox(batch, x0, -0.25, z0, w, 0.25, d, FLOOR);
-  pushBox(batch, x0, y1, z0, w, 0.22, d, CEIL);
-  pushBox(batch, x0 - 0.28, 0, z0, 0.28, y1, d, WALL);
-  pushBox(batch, x1, 0, z0, 0.28, y1, d, WALL);
-  pushBox(batch, x0, 0, z0 - 0.28, w, y1, 0.28, WALL);
-  pushBox(batch, x0, 0, z1, w, y1, 0.28, NORTH);
+  pushBox(batch, x0, -0.25, z0, w, 0.25, d, CONCRETE, M_FLOOR);
+  pushBox(batch, x0, y1, z0, w, 0.18, d, PLASTER_DIM, M_WALL);
+  pushBox(batch, x0 - 0.28, 0, z0, 0.28, y1, d, PLASTER, M_WALL);
+  pushBox(batch, x1, 0, z0, 0.28, y1, d, PLASTER, M_WALL);
+  pushBox(batch, x0, 0, z0 - 0.28, w, y1, 0.28, PLASTER, M_WALL);
+  pushBox(batch, x0, 0, z1, w, y1, 0.28, PLASTER_DIM, M_WALL);
+  pushBox(batch, x0, 0, z0, w, 0.08, 0.06, PLASTER_DIM, M_WALL);
+  pushBox(batch, x0, 0, z1 - 0.06, w, 0.08, 0.06, PLASTER_DIM, M_WALL);
+  pushBox(batch, x0, 0, z0, 0.06, 0.08, d, PLASTER_DIM, M_WALL);
+  pushBox(batch, x1 - 0.06, 0, z0, 0.06, 0.08, d, PLASTER_DIM, M_WALL);
+  for (let x = -6; x < 8; x += 1) {
+    for (let z = -4; z < 13; z += 1) {
+      const alt = (x + z) & 1;
+      const tile: RGB = alt ? [0.145, 0.15, 0.16] : [0.185, 0.19, 0.2];
+      batch.face(x, 0.008, z, x + 1, 0.008, z, x + 1, 0.008, z + 1, x, 0.008, z + 1, 0, 1, 0, tile, M_FLOOR);
+    }
+  }
   const gy = 0.012;
-  for (let x = -6; x <= 7; x += 1) batch.quad(x - 0.012, gy, z0, x + 0.012, gy, z0, x + 0.012, gy, z1, x - 0.012, gy, z1, GRID, 1);
-  for (let z = -4; z <= 12; z += 1) batch.quad(x0, gy, z - 0.012, x1, gy, z - 0.012, x1, gy, z + 0.012, x0, gy, z + 0.012, GRID, 1);
-  pushBox(batch, -4.35, 0, -2.55, 0.72, 0.46, 0.72, CRATE);
-  pushBox(batch, 5.35, 0, 6.4, 0.42, y1, 0.42, PILLAR);
-  pushBox(batch, 0.4, y1 - 0.06, 2.2, 1.4, 0.04, 0.28, LIP);
+  for (let x = -6; x <= 7; x += 1) {
+    batch.face(x - 0.012, gy, z0, x + 0.012, gy, z0, x + 0.012, gy, z1, x - 0.012, gy, z1, 0, 1, 0, SEAM, M_FLOOR);
+  }
+  for (let z = -4; z <= 12; z += 1) {
+    batch.face(x0, gy, z - 0.012, x1, gy, z - 0.012, x1, gy, z + 0.012, x0, gy, z + 0.012, 0, 1, 0, SEAM, M_FLOOR);
+  }
+  pushBox(batch, -4.35, 0, -2.55, 0.72, 0.08, 0.72, WOOD_DARK, M_CLOTH);
+  pushBox(batch, -4.32, 0.08, -2.52, 0.66, 0.06, 0.66, WOOD, M_CLOTH);
+  pushBox(batch, -4.32, 0.14, -2.52, 0.66, 0.06, 0.66, WOOD_DARK, M_CLOTH);
+  pushBox(batch, -4.32, 0.2, -2.52, 0.66, 0.08, 0.66, WOOD, M_CLOTH);
+  pushBox(batch, 5.35, 0, 6.4, 0.42, y1, 0.42, PLASTER_DIM, M_WALL);
+  pushBox(batch, 0.15, y1 - 0.12, 1.6, 2.3, 0.04, 1.2, [0.22, 0.2, 0.16], M_EMIT);
+  pushBox(batch, 0.35, y1 - 0.1, 1.85, 1.9, 0.07, 0.78, METAL_DARK, M_METAL);
+  pushBox(batch, 0.55, y1 - 0.035, 2.05, 1.5, 0.02, 0.42, LAMP, M_EMIT);
+  for (let i = 0; i < 4; i += 1) {
+    const z = 1.2 + i * 2.4;
+    pushBox(batch, x1 - 0.04, 0.45, z, 0.045, 2.15, 1.15, PLASTER_DIM, M_WALL);
+  }
+  for (let i = 0; i < 5; i += 1) {
+    const x = -3.2 + i * 2.2;
+    pushBox(batch, x, 0.45, z1 - 0.04, 1.05, 2.15, 0.045, PLASTER_DIM, M_WALL);
+  }
+}
+
+function roomMesh(): Float32Array {
+  if (bakedRoom) return bakedRoom;
+  const batch = new Batch(48000);
+  pushRoom(batch);
+  bakedRoom = batch.data.slice(0, batch.n);
+  return bakedRoom;
 }
 
 function pushWall(batch: Batch, wall: Seg): void {
   const dx = wall.b.x - wall.a.x;
   const dz = wall.b.z - wall.a.z;
   const len = Math.hypot(dx, dz) || 1;
-  const nx = (-dz / len) * 0.07;
-  const nz = (dx / len) * 0.07;
-  const tall = 2.82;
+  const nx = (-dz / len) * 0.08;
+  const nz = (dx / len) * 0.08;
+  const tall = 2.72;
   const a = wall.a;
   const b = wall.b;
   const a2 = { x: a.x + nx, z: a.z + nz };
   const b2 = { x: b.x + nx, z: b.z + nz };
   const y0 = 0;
-  batch.quad(a.x, y0, a.z, b.x, y0, b.z, b.x, tall, b.z, a.x, tall, a.z, CORNER, 0.9);
-  batch.quad(b2.x, y0, b2.z, a2.x, y0, a2.z, a2.x, tall, a2.z, b2.x, tall, b2.z, CORNER, 0.55);
-  batch.quad(a2.x, y0, a2.z, a.x, y0, a.z, a.x, tall, a.z, a2.x, tall, a2.z, CORNER, 0.7);
-  batch.quad(b.x, y0, b.z, b2.x, y0, b2.z, b2.x, tall, b2.z, b.x, tall, b.z, CORNER, 0.66);
-  batch.quad(a.x, tall, a.z, b.x, tall, b.z, b.x, tall + 0.045, b.z, a.x, tall + 0.045, a.z, LIP, 1);
-}
-
-function pushFighter(batch: Batch, x: number, foot: number, z: number, scale: number, body: RGB, head: RGB, ring: boolean): void {
-  const s = scale;
-  const y = foot;
-  pushBox(batch, x - 0.1 * s, y, z - 0.05 * s, 0.08 * s, 0.78 * s, 0.1 * s, LEG);
-  pushBox(batch, x + 0.02 * s, y, z - 0.05 * s, 0.08 * s, 0.78 * s, 0.1 * s, LEG);
-  pushBox(batch, x - 0.16 * s, y + 0.74 * s, z - 0.08 * s, 0.32 * s, 0.46 * s, 0.16 * s, body);
-  pushBox(batch, x - 0.3 * s, y + 1.05 * s, z - 0.07 * s, 0.14 * s, 0.14 * s, 0.14 * s, body);
-  pushBox(batch, x + 0.16 * s, y + 1.05 * s, z - 0.07 * s, 0.14 * s, 0.14 * s, 0.14 * s, body);
-  pushBox(batch, x - 0.1 * s, y + 1.28 * s, z - 0.09 * s, 0.2 * s, 0.3 * s, 0.18 * s, head);
-  pushBox(batch, x - 0.105 * s, y + 1.4 * s, z - 0.096 * s, 0.21 * s, 0.05 * s, 0.192 * s, VISOR);
-  if (ring) pushBox(batch, x - 0.13 * s, y + 1.56 * s, z - 0.11 * s, 0.26 * s, 0.025 * s, 0.22 * s, LIP);
+  const side = (x0: number, z0: number, x1: number, z1: number): [number, number, number] => {
+    const ux = x1 - x0;
+    const uz = z1 - z0;
+    const fl = Math.hypot(uz, ux) || 1;
+    return [uz / fl, 0, -ux / fl];
+  };
+  const nFront = side(a.x, a.z, b.x, b.z);
+  batch.face(a.x, y0, a.z, b.x, y0, b.z, b.x, tall, b.z, a.x, tall, a.z, nFront[0], nFront[1], nFront[2], PLASTER, M_WALL);
+  const nBack = side(b2.x, b2.z, a2.x, a2.z);
+  batch.face(b2.x, y0, b2.z, a2.x, y0, a2.z, a2.x, tall, a2.z, b2.x, tall, b2.z, nBack[0], nBack[1], nBack[2], PLASTER_DIM, M_WALL);
+  const capA: [number, number, number] = [-dx / len, 0, -dz / len];
+  const capB: [number, number, number] = [dx / len, 0, dz / len];
+  batch.face(a2.x, y0, a2.z, a.x, y0, a.z, a.x, tall, a.z, a2.x, tall, a2.z, capA[0], capA[1], capA[2], PLASTER_DIM, M_WALL);
+  batch.face(b.x, y0, b.z, b2.x, y0, b2.z, b2.x, tall, b2.z, b.x, tall, b.z, capB[0], capB[1], capB[2], PLASTER_DIM, M_WALL);
+  batch.face(a.x, tall, a.z, b.x, tall, b.z, b2.x, tall, b2.z, a2.x, tall, a2.z, 0, 1, 0, PLASTER, M_WALL);
+  batch.face(a.x, tall + 0.012, a.z, b.x, tall + 0.012, b.z, b.x, tall + 0.028, b.z, a.x, tall + 0.028, a.z, nFront[0], 0.2, nFront[2], LIP, M_EMIT);
+  const xMin = Math.min(a.x, b.x, a2.x, b2.x);
+  const xMax = Math.max(a.x, b.x, a2.x, b2.x);
+  const zMin = Math.min(a.z, b.z, a2.z, b2.z);
+  const zMax = Math.max(a.z, b.z, a2.z, b2.z);
+  pushBox(batch, xMin, 0, zMin, Math.max(0.04, xMax - xMin), 0.07, Math.max(0.04, zMax - zMin), PLASTER_DIM, M_WALL);
+  for (let i = 1; i < 7; i += 1) {
+    const t = i / 7;
+    const px = a.x + dx * t;
+    const pz = a.z + dz * t;
+    pushBox(batch, px - 0.025, 0.2, pz - 0.025, 0.05, tall - 0.45, 0.05, PLASTER_DIM, M_WALL);
+  }
 }
 
 function pushGun(batch: Batch, sway: number): void {
-  const kick = Math.min(0.07, Math.abs(sway) * 0.028);
-  const ox = 0.16 + kick;
-  const oy = -0.2 - kick * 0.25;
-  const oz = -0.55;
-  pushBox(batch, ox - 0.03, oy - 0.045, oz - 0.02, 0.06, 0.07, 0.28, GUN2);
-  pushBox(batch, ox - 0.012, oy - 0.012, oz - 0.34, 0.024, 0.024, 0.34, GUN);
-  pushBox(batch, ox - 0.018, oy - 0.14, oz + 0.04, 0.036, 0.12, 0.05, GUN);
-  pushBox(batch, ox - 0.025, oy - 0.03, oz + 0.22, 0.05, 0.055, 0.16, GUN);
-  pushBox(batch, ox - 0.01, oy + 0.04, oz + 0.02, 0.02, 0.018, 0.07, LIP);
+  const kick = Math.min(0.05, Math.abs(sway) * 0.02);
+  const ox = 0.18 + kick;
+  const oy = -0.22 - kick * 0.2;
+  const oz = -0.48;
+  pushBox(batch, ox - 0.028, oy - 0.04, oz - 0.02, 0.056, 0.055, 0.26, METAL, M_METAL);
+  pushBox(batch, ox - 0.02, oy - 0.028, oz + 0.2, 0.04, 0.04, 0.14, POLY, M_CLOTH);
+  limbGun(batch, ox, oy - 0.002, oz - 0.36, ox, oy - 0.002, oz - 0.02, 0.011, METAL_DARK, M_METAL);
+  limbGun(batch, ox, oy - 0.002, oz - 0.38, ox, oy - 0.002, oz - 0.34, 0.014, METAL, M_METAL);
+  pushBox(batch, ox - 0.02, oy - 0.03, oz - 0.16, 0.04, 0.028, 0.16, POLY, M_CLOTH);
+  pushBox(batch, ox - 0.014, oy - 0.12, oz + 0.02, 0.028, 0.1, 0.045, POLY, M_CLOTH);
+  pushBox(batch, ox - 0.016, oy - 0.11, oz - 0.02, 0.032, 0.07, 0.03, METAL_DARK, M_METAL);
+  pushBox(batch, ox - 0.006, oy + 0.02, oz + 0.04, 0.012, 0.018, 0.05, METAL, M_METAL);
+  pushBox(batch, ox - 0.004, oy + 0.012, oz - 0.2, 0.008, 0.02, 0.012, LIP, M_EMIT);
+  pushViewHand(batch, ox, oy, oz);
+}
+
+let bakedHand: Float32Array | null = null;
+
+function viewHandMesh(): Float32Array {
+  if (bakedHand) return bakedHand;
+  const fig = new Fig();
+  limb(fig, 0.14, -0.22, 0.16, 0.05, -0.1, 0.055, 0.034, JACKET, M_CLOTH);
+  limb(fig, 0.05, -0.1, 0.055, 0.032, -0.068, 0.03, 0.024, SKIN, M_SKIN);
+  ellipsoid(fig, 0.038, -0.048, 0.018, 0.03, 0.046, 0.036, 10, 6, SKIN, M_SKIN);
+  limb(fig, 0.018, -0.018, 0.042, -0.008, -0.026, 0.012, 0.011, SKIN, M_SKIN);
+  ellipsoid(fig, -0.01, -0.028, 0.01, 0.011, 0.009, 0.011, 6, 4, SKIN, M_SKIN);
+  for (let i = 0; i < 4; i += 1) {
+    const z = -0.016 + i * 0.015;
+    limb(fig, 0.042, -0.072, z, 0.016, -0.084, z - 0.01, 0.0085, SKIN, M_SKIN);
+    limb(fig, 0.016, -0.084, z - 0.01, -0.002, -0.074, z - 0.004, 0.0075, SKIN, M_SKIN);
+  }
+  bakedHand = fig.pack();
+  return bakedHand;
+}
+
+function pushViewHand(batch: Batch, ox: number, oy: number, oz: number): void {
+  const mesh = viewHandMesh();
+  for (let i = 0; i < mesh.length; i += STRIDE) {
+    batch.vert(ox + mesh[i], oy + mesh[i + 1], oz + mesh[i + 2], mesh[i + 3], mesh[i + 4], mesh[i + 5], mesh[i + 6], mesh[i + 7], mesh[i + 8], mesh[i + 9]);
+  }
+}
+
+function limbGun(batch: Batch, ax: number, ay: number, az: number, bx: number, by: number, bz: number, radius: number, color: RGB, mat: number): void {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const dz = bz - az;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  const wx = dx / len;
+  const wy = dy / len;
+  const wz = dz / len;
+  let ux = wy;
+  let uy = -wx;
+  let uz = 0;
+  const ul = Math.hypot(ux, uy, uz) || 1;
+  ux /= ul;
+  uy /= ul;
+  const vx = wy * uz - wz * uy;
+  const vy = wz * ux - wx * uz;
+  const vz = wx * uy - wy * ux;
+  const slices = 10;
+  for (let i = 0; i < slices; i += 1) {
+    const t0 = (i / slices) * Math.PI * 2;
+    const t1 = ((i + 1) / slices) * Math.PI * 2;
+    const c0 = Math.cos(t0);
+    const s0 = Math.sin(t0);
+    const c1 = Math.cos(t1);
+    const s1 = Math.sin(t1);
+    const o0x = (ux * c0 + vx * s0) * radius;
+    const o0y = (uy * c0 + vy * s0) * radius;
+    const o0z = (uz * c0 + vz * s0) * radius;
+    const o1x = (ux * c1 + vx * s1) * radius;
+    const o1y = (uy * c1 + vy * s1) * radius;
+    const o1z = (uz * c1 + vz * s1) * radius;
+    const nx = (o0x + o1x) * 0.5;
+    const ny = (o0y + o1y) * 0.5;
+    const nz = (o0z + o1z) * 0.5;
+    const nl = Math.hypot(nx, ny, nz) || 1;
+    batch.face(ax + o0x, ay + o0y, az + o0z, bx + o0x, by + o0y, bz + o0z, bx + o1x, by + o1y, bz + o1z, ax + o1x, ay + o1y, az + o1z, nx / nl, ny / nl, nz / nl, color, mat);
+  }
 }
 
 function rgbOf(hex: string): RGB {
   const raw = hex.trim().replace("#", "");
-  const full = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw;
+  const full = raw.length === 3 ? raw.split("").map((ch) => ch + ch).join("") : raw;
   const n = Number.parseInt(full, 16);
   if (!Number.isFinite(n) || full.length !== 6) return [0.96, 0.97, 0.98];
   return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
@@ -283,6 +827,16 @@ function multiply(out: Float32Array, a: Float32Array, b: Float32Array): void {
       out[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
     }
   }
+}
+
+function eyeDir(view: Float32Array, x: number, y: number, z: number, out: Float32Array): void {
+  const len = Math.hypot(x, y, z) || 1;
+  const nx = x / len;
+  const ny = y / len;
+  const nz = z / len;
+  out[0] = view[0] * nx + view[4] * ny + view[8] * nz;
+  out[1] = view[1] * nx + view[5] * ny + view[9] * nz;
+  out[2] = view[2] * nx + view[6] * ny + view[10] * nz;
 }
 
 /** Where a world point lands. x right, y up, in front when w > 0. */
@@ -355,6 +909,7 @@ function platePoint(cam: Camera, yawDeg: number, pitchDeg: number): { x: number;
 }
 
 const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+const IDENTITY3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
 
 function pushCross(batch: Batch, w: number, h: number, cross: Crosshair): void {
   const color = rgbOf(cross.color);
@@ -364,7 +919,7 @@ function pushCross(batch: Batch, w: number, h: number, cross: Crosshair): void {
     const y0 = (-y / h) * 2;
     const x1 = ((x + rw) / w) * 2;
     const y1 = (-(y + rh) / h) * 2;
-    batch.quad(x0, y0, 0, x1, y0, 0, x1, y1, 0, x0, y1, 0, rgb, 1);
+    batch.face(x0, y0, 0, x1, y0, 0, x1, y1, 0, x0, y1, 0, 0, 0, 1, rgb, M_EMIT);
   };
   const paint = (grow: number, rgb: RGB) => {
     const t = cross.thickness + grow;
@@ -387,12 +942,37 @@ function pushImpact(batch: Batch, w: number, h: number, x: number, y: number, ki
     const b = (-(y + y0) / h) * 2;
     const c = ((x + x0 + rw) / w) * 2;
     const d = (-(y + y0 + rh) / h) * 2;
-    batch.quad(a, b, 0, c, b, 0, c, d, 0, a, d, 0, rgb, 1);
+    batch.face(a, b, 0, c, b, 0, c, d, 0, a, d, 0, 0, 0, 1, rgb, M_EMIT);
   };
   tick(-26, -1.5, 10, 3);
   tick(16, -1.5, 10, 3);
   tick(-1.5, -26, 3, 10);
   tick(-1.5, 16, 3, 10);
+}
+
+function link(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string): WebGLProgram {
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  if (!vs || !fs) throw new Error("shader unavailable");
+  gl.shaderSource(vs, vertSrc);
+  gl.shaderSource(fs, fragSrc);
+  gl.compileShader(vs);
+  gl.compileShader(fs);
+  if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(vs) || "vertex shader");
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(fs) || "fragment shader");
+  const program = gl.createProgram();
+  if (!program) throw new Error("program unavailable");
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.bindAttribLocation(program, 0, "aPos");
+  gl.bindAttribLocation(program, 1, "aNrm");
+  gl.bindAttribLocation(program, 2, "aColor");
+  gl.bindAttribLocation(program, 3, "aMat");
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "link");
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  return program;
 }
 
 export function attachWorld(canvas: HTMLCanvasElement): WorldView {
@@ -406,24 +986,14 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   });
   if (!gl) throw new Error("webgl2 unavailable");
 
-  const vs = gl.createShader(gl.VERTEX_SHADER);
-  const fs = gl.createShader(gl.FRAGMENT_SHADER);
-  if (!vs || !fs) throw new Error("shader unavailable");
-  gl.shaderSource(vs, VERT);
-  gl.shaderSource(fs, FRAG);
-  gl.compileShader(vs);
-  gl.compileShader(fs);
-  if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(vs) || "vertex shader");
-  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(fs) || "fragment shader");
-  const program = gl.createProgram();
-  if (!program) throw new Error("program unavailable");
-  gl.attachShader(program, vs);
-  gl.attachShader(program, fs);
-  gl.bindAttribLocation(program, 0, "aPos");
-  gl.bindAttribLocation(program, 1, "aColor");
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "link");
+  const program = link(gl, VERT, FRAG);
+  const unlit = link(gl, UNLIT_VERT, UNLIT_FRAG);
   const mvpLoc = gl.getUniformLocation(program, "uMvp");
+  const nLoc = gl.getUniformLocation(program, "uNmat");
+  const keyLoc = gl.getUniformLocation(program, "uKey");
+  const fillLoc = gl.getUniformLocation(program, "uFill");
+  const upLoc = gl.getUniformLocation(program, "uUp");
+  const hudMvp = gl.getUniformLocation(unlit, "uMvp");
 
   const buffer = gl.createBuffer();
   const vao = gl.createVertexArray();
@@ -431,16 +1001,24 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(0);
   gl.enableVertexAttribArray(1);
-  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
-  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+  gl.enableVertexAttribArray(2);
+  gl.enableVertexAttribArray(3);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, STRIDE * 4, 0);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, STRIDE * 4, 12);
+  gl.vertexAttribPointer(2, 3, gl.FLOAT, false, STRIDE * 4, 24);
+  gl.vertexAttribPointer(3, 1, gl.FLOAT, false, STRIDE * 4, 36);
   gl.bindVertexArray(null);
 
-  const world = new Batch(48000);
-  const gun = new Batch(2048);
-  const hud = new Batch(2048);
+  const world = new Batch(900000);
+  const gun = new Batch(16000);
+  const hud = new Batch(4096);
   const viewM = new Float32Array(16);
   const projM = new Float32Array(16);
   const mvpM = new Float32Array(16);
+  const nMat = new Float32Array(9);
+  const key = new Float32Array(3);
+  const fill = new Float32Array(3);
+  const up = new Float32Array(3);
   let cssW = 0;
   let cssH = 0;
   let dpr = 1;
@@ -470,44 +1048,76 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     lost = true;
   });
 
-  const flush = (batch: Batch, mvp: Float32Array, depth: boolean) => {
-    if (batch.n < 18) return;
-    gl.uniformMatrix4fv(mvpLoc, false, mvp);
+  const upload = (batch: Batch) => {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, batch.data.subarray(0, batch.n), gl.DYNAMIC_DRAW);
-    if (depth) gl.enable(gl.DEPTH_TEST);
-    else gl.disable(gl.DEPTH_TEST);
-    gl.drawArrays(gl.TRIANGLES, 0, batch.n / 6);
   };
 
-  const frame = (cam: Camera, fov: number, fill: (batch: Batch) => void, cross: Crosshair, sway: number, flash: WorldDraw["flash"]) => {
+  const drawLit = (batch: Batch, mvp: Float32Array, nrm: Float32Array, depth: boolean) => {
+    if (batch.n < STRIDE * 3) return;
+    gl.useProgram(program);
+    gl.uniformMatrix4fv(mvpLoc, false, mvp);
+    gl.uniformMatrix3fv(nLoc, false, nrm);
+    gl.uniform3fv(keyLoc, key);
+    gl.uniform3fv(fillLoc, fill);
+    gl.uniform3fv(upLoc, up);
+    upload(batch);
+    if (depth) gl.enable(gl.DEPTH_TEST);
+    else gl.disable(gl.DEPTH_TEST);
+    gl.drawArrays(gl.TRIANGLES, 0, batch.n / STRIDE);
+  };
+
+  const drawHud = (batch: Batch) => {
+    if (batch.n < STRIDE * 3) return;
+    gl.useProgram(unlit);
+    gl.uniformMatrix4fv(hudMvp, false, IDENTITY);
+    upload(batch);
+    gl.disable(gl.DEPTH_TEST);
+    gl.drawArrays(gl.TRIANGLES, 0, batch.n / STRIDE);
+  };
+
+  const lights = (view: Float32Array) => {
+    eyeDir(view, 0.35, 0.88, 0.28, key);
+    eyeDir(view, -0.55, 0.32, -0.22, fill);
+    eyeDir(view, 0, 1, 0, up);
+    nMat[0] = view[0];
+    nMat[1] = view[1];
+    nMat[2] = view[2];
+    nMat[3] = view[4];
+    nMat[4] = view[5];
+    nMat[5] = view[6];
+    nMat[6] = view[8];
+    nMat[7] = view[9];
+    nMat[8] = view[10];
+  };
+
+  const frame = (cam: Camera, fov: number, fillScene: (batch: Batch) => void, cross: Crosshair, sway: number, flash: WorldDraw["flash"]) => {
     if (lost || cssW < 2 || cssH < 2) return;
     const aspect = canvas.width / canvas.height || cssW / cssH;
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(0.027, 0.035, 0.051, 1);
+    gl.clearColor(0.02, 0.025, 0.032, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(program);
     gl.bindVertexArray(vao);
     gl.disable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
     world.reset();
-    fill(world);
+    fillScene(world);
     viewOf(cam, viewM);
     perspective(projM, fov, aspect);
     multiply(mvpM, projM, viewM);
-    flush(world, mvpM, true);
+    lights(viewM);
+    drawLit(world, mvpM, nMat, true);
     gun.reset();
     pushGun(gun, sway);
-    flush(gun, projM, false);
+    drawLit(gun, projM, IDENTITY3, false);
     hud.reset();
     if (flash === "hurt") {
-      const bar = 5;
-      const span = (bar / cssW) * 2;
-      hud.quad(-1, -1, 0, -1 + span, -1, 0, -1 + span, 1, 0, -1, 1, 0, HOT, 1);
-      hud.quad(1 - span, -1, 0, 1, -1, 0, 1, 1, 0, 1 - span, 1, 0, HOT, 1);
+      const span = (5 / cssW) * 2;
+      hud.face(-1, -1, 0, -1 + span, -1, 0, -1 + span, 1, 0, -1, 1, 0, 0, 0, 1, HOT, M_EMIT);
+      hud.face(1 - span, -1, 0, 1, -1, 0, 1, 1, 0, 1 - span, 1, 0, 0, 0, 1, HOT, M_EMIT);
     }
     pushCross(hud, cssW, cssH, cross);
-    flush(hud, IDENTITY, false);
+    drawHud(hud);
     gl.bindVertexArray(null);
   };
 
@@ -519,13 +1129,15 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
         batch.copy(roomMesh());
         for (const wall of scene.walls) pushWall(batch, wall);
         const from = { x: scene.camera.x, z: scene.camera.z };
+        let covered = false;
         for (const actor of scene.actors) {
           if (!actor.alive) continue;
           if (!lineOfSight(from, actor, scene.walls)) continue;
-          pushFighter(batch, actor.x, 0, actor.z, 1, BODY, HEAD, true);
+          pushHuman(batch, actor.x, 0, actor.z, 1, scene.camera.x, scene.camera.z, 1);
+          if (scene.pip && Math.hypot(actor.x - scene.pip.x, actor.z - scene.pip.z) < 0.35) covered = true;
         }
-        if (scene.pip) {
-          pushBox(batch, scene.pip.x - 0.045, LANE.head - 0.045, scene.pip.z - 0.045, 0.09, 0.09, 0.09, LIP);
+        if (scene.pip && !covered) {
+          pushBox(batch, scene.pip.x - 0.03, LANE.head - 0.03, scene.pip.z - 0.03, 0.06, 0.06, 0.06, LIP, M_EMIT);
         }
       },
       scene.crosshair,
@@ -556,11 +1168,9 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
             const spot = platePoint(cam, target.yaw, target.pitch);
             const live = !(picture.dimIdle && !target.live);
             const half = Math.max(0.05, spot.dist * Math.tan((target.radius * Math.PI) / 180));
-            const height = 1.6;
-            const scale = (half * 2) / height;
-            const body = live ? (picture.glued && target.live ? HEAD : BODY) : DIM;
-            const head = live ? HEAD : DIM;
-            pushFighter(batch, spot.x, spot.y - height * 0.5 * scale, spot.z, scale, body, head, live);
+            const scale = (half * 2) / FIGURE_H;
+            const tone = live ? (picture.glued && target.live ? 1.15 : 1) : 0.45;
+            pushHuman(batch, spot.x, spot.y - FIGURE_H * 0.5 * scale, spot.z, scale, cam.x, cam.z, tone);
           }
         },
         picture.crosshair,
@@ -576,10 +1186,9 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
         const ndc = ndcOf(cam, spot, picture.fov, canvas.width / canvas.height || 1);
         if (ndc.w > 0) pushImpact(hud, cssW, cssH, (ndc.x * cssW) / 2, (-ndc.y * cssH) / 2, mark.kind);
       }
-      if (hud.n >= 18) {
-        gl.useProgram(program);
+      if (hud.n >= STRIDE * 3) {
         gl.bindVertexArray(vao);
-        flush(hud, IDENTITY, false);
+        drawHud(hud);
         gl.bindVertexArray(null);
       }
     },
@@ -604,8 +1213,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     destroy: () => {
       observer.disconnect();
       gl.deleteProgram(program);
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
+      gl.deleteProgram(unlit);
       gl.deleteBuffer(buffer);
       gl.deleteVertexArray(vao);
     },
