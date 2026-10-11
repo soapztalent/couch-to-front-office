@@ -88,55 +88,60 @@ attribute vec3 aNrm;
 attribute vec3 aColor;
 attribute float aMat;
 uniform mat4 uMvp;
+uniform mat4 uModel;
 uniform mat3 uNmat;
-varying vec3 vColor;
-varying vec3 vN;
-varying float vMat;
-varying float vY;
-void main() {
-  vColor = aColor;
-  vN = uNmat * aNrm;
-  vMat = aMat;
-  vY = aPos.y;
-  gl_Position = uMvp * vec4(aPos, 1.0);
-}
-`;
-
-const FRAG = `
-precision mediump float;
-varying vec3 vColor;
-varying vec3 vN;
-varying float vMat;
-varying float vY;
+uniform float uTone;
 uniform vec3 uKey;
 uniform vec3 uFill;
 uniform vec3 uUp;
+varying vec3 vColor;
+varying float vMat;
+varying float vY;
 void main() {
-  vec3 N = normalize(vN);
+  vec4 world = uModel * vec4(aPos, 1.0);
+  vec3 albedo = aColor * uTone;
+  vec3 N = normalize(uNmat * aNrm);
   vec3 V = vec3(0.0, 0.0, 1.0);
   float ndl = max(dot(N, uKey), 0.0);
   float wrap = clamp(dot(N, uKey) * 0.5 + 0.5, 0.0, 1.0);
   float fill = max(dot(N, uFill), 0.0);
   float hemi = clamp(dot(N, uUp) * 0.5 + 0.5, 0.0, 1.0);
   vec3 H = normalize(uKey + V);
-  float spec = pow(max(dot(N, H), 0.0), 32.0);
-  float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);
-  float skin = step(vMat, 0.5);
-  float cloth = step(0.5, vMat) * step(vMat, 1.5);
-  float metal = step(1.5, vMat) * step(vMat, 2.5);
-  float emit = step(4.5, vMat);
+  float spec = max(dot(N, H), 0.0);
+  spec = spec * spec;
+  spec = spec * spec;
+  spec = spec * spec;
+  float fres = 1.0 - max(dot(N, V), 0.0);
+  fres = fres * fres;
+  float skin = step(aMat, 0.5);
+  float cloth = step(0.5, aMat) * step(aMat, 1.5);
+  float metal = step(1.5, aMat) * step(aMat, 2.5);
+  float emit = step(4.5, aMat);
   float lit = mix(ndl, wrap, skin * 0.9 + cloth * 0.4);
   vec3 amb = mix(vec3(0.07, 0.074, 0.082), vec3(0.2, 0.21, 0.23), hemi);
-  vec3 specCol = mix(vec3(0.04), vColor, metal);
+  vec3 specCol = mix(vec3(0.04), albedo, metal);
   float specK = skin * 0.02 + cloth * 0.012 + metal * 0.7 + 0.008;
+  vec3 color = albedo * (amb + lit * vec3(0.78, 0.74, 0.66) + fill * vec3(0.26, 0.28, 0.32));
+  color += specCol * spec * specK;
+  color += mix(vec3(0.04), albedo, metal) * fres * (0.08 + metal * 0.22);
+  vColor = mix(color, albedo, emit);
+  vMat = aMat;
+  vY = world.y;
+  gl_Position = uMvp * world;
+}
+`;
+
+const FRAG = `
+precision mediump float;
+varying vec3 vColor;
+varying float vMat;
+varying float vY;
+void main() {
+  float emit = step(4.5, vMat);
   float ground = mix(0.4, 1.0, smoothstep(0.0, 1.15, vY));
   float crown = mix(0.7, 1.0, smoothstep(3.45, 1.7, vY));
   float contact = mix(1.0, ground * crown, step(2.5, vMat) * (1.0 - emit));
-  vec3 color = vColor * (amb + lit * vec3(0.78, 0.74, 0.66) + fill * vec3(0.26, 0.28, 0.32)) * contact;
-  color += specCol * spec * specK;
-  color += mix(vec3(0.04), vColor, metal) * fres * (0.08 + metal * 0.22);
-  color = mix(color, vColor, emit);
-  gl_FragColor = vec4(color, 1.0);
+  gl_FragColor = vec4(vColor * contact, 1.0);
 }
 `;
 
@@ -512,7 +517,13 @@ function humanMesh(): Float32Array {
   if (bakedHuman) return bakedHuman;
   const fig = new Fig();
   buildHuman(fig);
-  bakedHuman = fig.pack();
+  const body = fig.pack();
+  const shadow = new Batch(4096);
+  pushContact(shadow, 0, 0.02, 0, 0.34, 0.22);
+  const out = new Float32Array(body.length + shadow.n);
+  out.set(body, 0);
+  out.set(shadow.data.subarray(0, shadow.n), body.length);
+  bakedHuman = out;
   return bakedHuman;
 }
 
@@ -530,34 +541,6 @@ export function humanSpan(): { minY: number; maxY: number; face: number; verts: 
     if (y > 1.45 && y < 1.75 && z > face) face = z;
   }
   return { minY, maxY, face, verts: mesh.length / STRIDE };
-}
-
-function pushHuman(batch: Batch, x: number, foot: number, z: number, scale: number, faceX: number, faceZ: number, tone: number): void {
-  const mesh = humanMesh();
-  const yaw = Math.atan2(faceX - x, faceZ - z);
-  const sy = Math.sin(yaw);
-  const cy = Math.cos(yaw);
-  for (let i = 0; i < mesh.length; i += STRIDE) {
-    const lx = mesh[i] * scale;
-    const ly = mesh[i + 1] * scale;
-    const lz = mesh[i + 2] * scale;
-    const nx = mesh[i + 3];
-    const ny = mesh[i + 4];
-    const nz = mesh[i + 5];
-    batch.vert(
-      x + lx * cy + lz * sy,
-      foot + ly,
-      z - lx * sy + lz * cy,
-      nx * cy + nz * sy,
-      ny,
-      -nx * sy + nz * cy,
-      mesh[i + 6] * tone,
-      mesh[i + 7] * tone,
-      mesh[i + 8] * tone,
-      mesh[i + 9],
-    );
-  }
-  pushContact(batch, x, foot + 0.02, z, 0.34 * scale, 0.22 * scale);
 }
 
 function pushContact(batch: Batch, x: number, y: number, z: number, rx: number, rz: number): void {
@@ -711,7 +694,6 @@ function pushGun(batch: Batch, sway: number): void {
   pushBox(batch, ox - 0.016, oy - 0.11, oz - 0.02, 0.032, 0.07, 0.03, METAL_DARK, M_METAL);
   pushBox(batch, ox - 0.006, oy + 0.02, oz + 0.04, 0.012, 0.018, 0.05, METAL, M_METAL);
   pushBox(batch, ox - 0.004, oy + 0.012, oz - 0.2, 0.008, 0.02, 0.012, LIP, M_EMIT);
-  pushViewHand(batch, ox, oy, oz);
 }
 
 let bakedHand: Float32Array | null = null;
@@ -731,13 +713,6 @@ function viewHandMesh(): Float32Array {
   }
   bakedHand = fig.pack();
   return bakedHand;
-}
-
-function pushViewHand(batch: Batch, ox: number, oy: number, oz: number): void {
-  const mesh = viewHandMesh();
-  for (let i = 0; i < mesh.length; i += STRIDE) {
-    batch.vert(ox + mesh[i], oy + mesh[i + 1], oz + mesh[i + 2], mesh[i + 3], mesh[i + 4], mesh[i + 5], mesh[i + 6], mesh[i + 7], mesh[i + 8], mesh[i + 9]);
-  }
 }
 
 function limbGun(batch: Batch, ax: number, ay: number, az: number, bx: number, by: number, bz: number, radius: number, color: RGB, mat: number): void {
@@ -989,33 +964,50 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   const program = link(gl, VERT, FRAG);
   const unlit = link(gl, UNLIT_VERT, UNLIT_FRAG);
   const mvpLoc = gl.getUniformLocation(program, "uMvp");
+  const modelLoc = gl.getUniformLocation(program, "uModel");
   const nLoc = gl.getUniformLocation(program, "uNmat");
+  const toneLoc = gl.getUniformLocation(program, "uTone");
   const keyLoc = gl.getUniformLocation(program, "uKey");
   const fillLoc = gl.getUniformLocation(program, "uFill");
   const upLoc = gl.getUniformLocation(program, "uUp");
   const hudMvp = gl.getUniformLocation(unlit, "uMvp");
 
-  const buffer = gl.createBuffer();
+  const roomBuf = gl.createBuffer();
+  const humanBuf = gl.createBuffer();
+  const handBuf = gl.createBuffer();
+  const dyn = gl.createBuffer();
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(0);
   gl.enableVertexAttribArray(1);
   gl.enableVertexAttribArray(2);
   gl.enableVertexAttribArray(3);
-  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, STRIDE * 4, 0);
-  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, STRIDE * 4, 12);
-  gl.vertexAttribPointer(2, 3, gl.FLOAT, false, STRIDE * 4, 24);
-  gl.vertexAttribPointer(3, 1, gl.FLOAT, false, STRIDE * 4, 36);
+  const bindMesh = (buf: WebGLBuffer) => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, STRIDE * 4, 0);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, STRIDE * 4, 12);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, STRIDE * 4, 24);
+    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, STRIDE * 4, 36);
+  };
+  const park = (buf: WebGLBuffer, data: Float32Array) => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    return data.length / STRIDE;
+  };
+  const roomCount = park(roomBuf, roomMesh());
+  const humanCount = park(humanBuf, humanMesh());
+  const handCount = park(handBuf, viewHandMesh());
   gl.bindVertexArray(null);
 
-  const world = new Batch(900000);
-  const gun = new Batch(16000);
+  const world = new Batch(65536);
+  const gun = new Batch(8192);
   const hud = new Batch(4096);
   const viewM = new Float32Array(16);
   const projM = new Float32Array(16);
   const mvpM = new Float32Array(16);
-  const nMat = new Float32Array(9);
+  const modelM = new Float32Array(16);
+  const viewN = new Float32Array(9);
+  const figN = new Float32Array(9);
   const key = new Float32Array(3);
   const fill = new Float32Array(3);
   const up = new Float32Array(3);
@@ -1048,20 +1040,39 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     lost = true;
   });
 
-  const upload = (batch: Batch) => {
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  const uploadDyn = (batch: Batch) => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, dyn);
     gl.bufferData(gl.ARRAY_BUFFER, batch.data.subarray(0, batch.n), gl.DYNAMIC_DRAW);
+    bindMesh(dyn);
   };
 
-  const drawLit = (batch: Batch, mvp: Float32Array, nrm: Float32Array, depth: boolean) => {
-    if (batch.n < STRIDE * 3) return;
+  const drawMesh = (buf: WebGLBuffer, count: number, mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number, depth: boolean) => {
+    if (count < 3) return;
     gl.useProgram(program);
     gl.uniformMatrix4fv(mvpLoc, false, mvp);
+    gl.uniformMatrix4fv(modelLoc, false, model);
     gl.uniformMatrix3fv(nLoc, false, nrm);
+    gl.uniform1f(toneLoc, tone);
     gl.uniform3fv(keyLoc, key);
     gl.uniform3fv(fillLoc, fill);
     gl.uniform3fv(upLoc, up);
-    upload(batch);
+    bindMesh(buf);
+    if (depth) gl.enable(gl.DEPTH_TEST);
+    else gl.disable(gl.DEPTH_TEST);
+    gl.drawArrays(gl.TRIANGLES, 0, count);
+  };
+
+  const drawDyn = (batch: Batch, mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number, depth: boolean) => {
+    if (batch.n < STRIDE * 3) return;
+    gl.useProgram(program);
+    gl.uniformMatrix4fv(mvpLoc, false, mvp);
+    gl.uniformMatrix4fv(modelLoc, false, model);
+    gl.uniformMatrix3fv(nLoc, false, nrm);
+    gl.uniform1f(toneLoc, tone);
+    gl.uniform3fv(keyLoc, key);
+    gl.uniform3fv(fillLoc, fill);
+    gl.uniform3fv(upLoc, up);
+    uploadDyn(batch);
     if (depth) gl.enable(gl.DEPTH_TEST);
     else gl.disable(gl.DEPTH_TEST);
     gl.drawArrays(gl.TRIANGLES, 0, batch.n / STRIDE);
@@ -1071,7 +1082,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     if (batch.n < STRIDE * 3) return;
     gl.useProgram(unlit);
     gl.uniformMatrix4fv(hudMvp, false, IDENTITY);
-    upload(batch);
+    uploadDyn(batch);
     gl.disable(gl.DEPTH_TEST);
     gl.drawArrays(gl.TRIANGLES, 0, batch.n / STRIDE);
   };
@@ -1080,18 +1091,49 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     eyeDir(view, 0.35, 0.88, 0.28, key);
     eyeDir(view, -0.55, 0.32, -0.22, fill);
     eyeDir(view, 0, 1, 0, up);
-    nMat[0] = view[0];
-    nMat[1] = view[1];
-    nMat[2] = view[2];
-    nMat[3] = view[4];
-    nMat[4] = view[5];
-    nMat[5] = view[6];
-    nMat[6] = view[8];
-    nMat[7] = view[9];
-    nMat[8] = view[10];
+    viewN[0] = view[0];
+    viewN[1] = view[1];
+    viewN[2] = view[2];
+    viewN[3] = view[4];
+    viewN[4] = view[5];
+    viewN[5] = view[6];
+    viewN[6] = view[8];
+    viewN[7] = view[9];
+    viewN[8] = view[10];
   };
 
-  const frame = (cam: Camera, fov: number, fillScene: (batch: Batch) => void, cross: Crosshair, sway: number, flash: WorldDraw["flash"]) => {
+  const yawModel = (x: number, y: number, z: number, yaw: number, scale: number) => {
+    const sy = Math.sin(yaw);
+    const cy = Math.cos(yaw);
+    modelM[0] = scale * cy;
+    modelM[1] = 0;
+    modelM[2] = -scale * sy;
+    modelM[3] = 0;
+    modelM[4] = 0;
+    modelM[5] = scale;
+    modelM[6] = 0;
+    modelM[7] = 0;
+    modelM[8] = scale * sy;
+    modelM[9] = 0;
+    modelM[10] = scale * cy;
+    modelM[11] = 0;
+    modelM[12] = x;
+    modelM[13] = y;
+    modelM[14] = z;
+    modelM[15] = 1;
+    const rot = (rx: number, ry: number, rz: number, o: number) => {
+      figN[o] = viewN[0] * rx + viewN[3] * ry + viewN[6] * rz;
+      figN[o + 1] = viewN[1] * rx + viewN[4] * ry + viewN[7] * rz;
+      figN[o + 2] = viewN[2] * rx + viewN[5] * ry + viewN[8] * rz;
+    };
+    rot(cy, 0, -sy, 0);
+    rot(0, 1, 0, 3);
+    rot(sy, 0, cy, 6);
+  };
+
+  type Figure = { x: number; y: number; z: number; scale: number; yaw: number; tone: number };
+
+  const frame = (cam: Camera, fov: number, fillWalls: (batch: Batch) => void, figures: Figure[], cross: Crosshair, sway: number, flash: WorldDraw["flash"]) => {
     if (lost || cssW < 2 || cssH < 2) return;
     const aspect = canvas.width / canvas.height || cssW / cssH;
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1100,16 +1142,27 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     gl.bindVertexArray(vao);
     gl.disable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
-    world.reset();
-    fillScene(world);
     viewOf(cam, viewM);
     perspective(projM, fov, aspect);
     multiply(mvpM, projM, viewM);
     lights(viewM);
-    drawLit(world, mvpM, nMat, true);
+    drawMesh(roomBuf, roomCount, mvpM, viewN, IDENTITY, 1, true);
+    world.reset();
+    fillWalls(world);
+    drawDyn(world, mvpM, viewN, IDENTITY, 1, true);
+    for (const fig of figures) {
+      yawModel(fig.x, fig.y, fig.z, fig.yaw, fig.scale);
+      drawMesh(humanBuf, humanCount, mvpM, figN, modelM, fig.tone, true);
+    }
+    const kick = Math.min(0.05, Math.abs(sway) * 0.02);
     gun.reset();
     pushGun(gun, sway);
-    drawLit(gun, projM, IDENTITY3, false);
+    drawDyn(gun, projM, IDENTITY3, IDENTITY, 1, false);
+    modelM.set(IDENTITY);
+    modelM[12] = 0.18 + kick;
+    modelM[13] = -0.22 - kick * 0.2;
+    modelM[14] = -0.48;
+    drawMesh(handBuf, handCount, projM, IDENTITY3, modelM, 1, false);
     hud.reset();
     if (flash === "hurt") {
       const span = (5 / cssW) * 2;
@@ -1122,24 +1175,32 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   };
 
   const paintFight = (scene: WorldDraw) => {
+    const figures: Figure[] = [];
+    const from = { x: scene.camera.x, z: scene.camera.z };
+    let covered = false;
+    for (const actor of scene.actors) {
+      if (!actor.alive) continue;
+      if (!lineOfSight(from, actor, scene.walls)) continue;
+      figures.push({
+        x: actor.x,
+        y: 0,
+        z: actor.z,
+        scale: 1,
+        yaw: Math.atan2(scene.camera.x - actor.x, scene.camera.z - actor.z),
+        tone: 1,
+      });
+      if (scene.pip && Math.hypot(actor.x - scene.pip.x, actor.z - scene.pip.z) < 0.35) covered = true;
+    }
     frame(
       scene.camera,
       scene.fov,
       (batch) => {
-        batch.copy(roomMesh());
         for (const wall of scene.walls) pushWall(batch, wall);
-        const from = { x: scene.camera.x, z: scene.camera.z };
-        let covered = false;
-        for (const actor of scene.actors) {
-          if (!actor.alive) continue;
-          if (!lineOfSight(from, actor, scene.walls)) continue;
-          pushHuman(batch, actor.x, 0, actor.z, 1, scene.camera.x, scene.camera.z, 1);
-          if (scene.pip && Math.hypot(actor.x - scene.pip.x, actor.z - scene.pip.z) < 0.35) covered = true;
-        }
         if (scene.pip && !covered) {
           pushBox(batch, scene.pip.x - 0.03, LANE.head - 0.03, scene.pip.z - 0.03, 0.06, 0.06, 0.06, LIP, M_EMIT);
         }
       },
+      figures,
       scene.crosshair,
       scene.sway ?? 0,
       scene.flash,
@@ -1157,22 +1218,29 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
         yaw: (picture.yaw * Math.PI) / 180,
         pitch: (picture.pitch * Math.PI) / 180,
       };
+      const figures: Figure[] = [];
+      for (const target of picture.targets) {
+        const spot = platePoint(cam, target.yaw, target.pitch);
+        const live = !(picture.dimIdle && !target.live);
+        const half = Math.max(0.05, spot.dist * Math.tan((target.radius * Math.PI) / 180));
+        const scale = (half * 2) / FIGURE_H;
+        figures.push({
+          x: spot.x,
+          y: spot.y - FIGURE_H * 0.5 * scale,
+          z: spot.z,
+          scale,
+          yaw: Math.atan2(cam.x - spot.x, cam.z - spot.z),
+          tone: live ? (picture.glued && target.live ? 1.15 : 1) : 0.45,
+        });
+      }
       frame(
         cam,
         picture.fov,
         (batch) => {
-          batch.copy(roomMesh());
           pushWall(batch, EDGE_WALL);
           pushWall(batch, FAR_WALL);
-          for (const target of picture.targets) {
-            const spot = platePoint(cam, target.yaw, target.pitch);
-            const live = !(picture.dimIdle && !target.live);
-            const half = Math.max(0.05, spot.dist * Math.tan((target.radius * Math.PI) / 180));
-            const scale = (half * 2) / FIGURE_H;
-            const tone = live ? (picture.glued && target.live ? 1.15 : 1) : 0.45;
-            pushHuman(batch, spot.x, spot.y - FIGURE_H * 0.5 * scale, spot.z, scale, cam.x, cam.z, tone);
-          }
         },
+        figures,
         picture.crosshair,
         picture.sway ?? Math.sin(performance.now() / 220) * 0.25,
         null,
@@ -1214,7 +1282,10 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
       observer.disconnect();
       gl.deleteProgram(program);
       gl.deleteProgram(unlit);
-      gl.deleteBuffer(buffer);
+      gl.deleteBuffer(roomBuf);
+      gl.deleteBuffer(humanBuf);
+      gl.deleteBuffer(handBuf);
+      gl.deleteBuffer(dyn);
       gl.deleteVertexArray(vao);
     },
   };
