@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { attachWorld } from "../sim/glview";
 import { LESSONS } from "../lesson/course";
 import type { Settings } from "../persist/storage";
 import { nextSkill, SKILLS } from "../skill/course";
@@ -19,6 +20,37 @@ const DOORS: { id: Door; index: string; title: string; copy: string }[] = [
   { id: "course", index: "02", title: "Course", copy: "Click, track, then switch." },
   { id: "range", index: "03", title: "Range", copy: "The reps, then open practice." },
 ];
+
+function HomeWorld() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const look = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const view = attachWorld(canvas);
+    const onMove = (event: MouseEvent) => {
+      look.current.x = (event.clientX / window.innerWidth) * 2 - 1;
+      look.current.y = (event.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("mousemove", onMove);
+    const started = performance.now();
+    let raf = 0;
+    let stopped = false;
+    const tick = (now: number) => {
+      if (stopped) return;
+      view.drawHome((now - started) / 1000, look.current.x, look.current.y);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("mousemove", onMove);
+      view.destroy();
+    };
+  }, []);
+  return <canvas ref={ref} className="home-world" aria-hidden="true" />;
+}
 
 export function Home(props: {
   settings: Settings;
@@ -60,11 +92,7 @@ export function Home(props: {
 
   return (
     <div className="home-stage" data-screen="home" data-door={door ?? "home"}>
-      <div className="home-field" aria-hidden="true">
-        <div className="home-sky" />
-        <div className="home-horizon" />
-        <div className="home-floor" />
-      </div>
+      <HomeWorld />
       <header className="top">
         <div className="mark">
           <svg className="mark-cross" viewBox="0 0 28 28" aria-hidden="true">

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createAimDevice, type AimDevice } from "../input";
 import type { Settings } from "../persist/storage";
 import { RangeSession } from "../range/range";
-import { drawRange } from "../range/draw";
-import { attachSurface, textSlot } from "../sim/surface";
+import { attachWorld } from "../sim/glview";
+import { textSlot } from "../sim/surface";
 import { Sfx } from "../sim/sfx";
 import { line } from "../voice/lines";
 import { Speaker } from "../voice/speaker";
@@ -177,7 +177,7 @@ function ClipCanvas(props: {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const surface = attachSurface(canvas);
+    const view3d = attachWorld(canvas);
     const started = performance.now();
     let shown = -1;
     let ended = false;
@@ -190,20 +190,17 @@ function ClipCanvas(props: {
       const elapsed = (now - started) / 1000;
       const hit = skillAt(timed.marks, timed.total, elapsed);
       const frame = props.stepMix ? sampleStep(hit.local) : sampleShot(hit.shot, hit.local);
-      const { cssW, cssH } = surface.size();
-      if (cssW >= 2 && cssH >= 2) {
-        const settings = settingsRef.current;
-        drawRange(surface.ctx, cssW, cssH, {
-          fov: settings.fov,
-          crosshair: settings.crosshair,
-          yaw: frame.yaw,
-          pitch: frame.pitch,
-          targets: frame.targets,
-          dimIdle: true,
-          grid: true,
-          flash: frame.flash,
-        });
-      }
+      const settings = settingsRef.current;
+      view3d.drawPlates({
+        fov: settings.fov,
+        crosshair: settings.crosshair,
+        yaw: frame.yaw,
+        pitch: frame.pitch,
+        targets: frame.targets,
+        dimIdle: true,
+        grid: true,
+        flash: frame.flash,
+      });
       const index = timed.marks.findIndex((mark) => mark.lineId === hit.lineId && mark.t0 === hit.t0);
       if (index !== shown) {
         shown = index;
@@ -224,7 +221,7 @@ function ClipCanvas(props: {
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
-      surface.destroy();
+      view3d.destroy();
     };
   }, [props.stepMix]);
 
@@ -277,7 +274,7 @@ function DrillCanvas(props: {
       else if (!device.locked && props.phaseRef.current === "live") props.setPhase("pause");
     };
     document.addEventListener("pointerlockchange", onLock);
-    const surface = attachSurface(canvas);
+    const view3d = attachWorld(canvas);
     const putScore = textSlot(scoreRef.current);
     const putTime = textSlot(timeRef.current);
     const putName = textSlot(nameRef.current);
@@ -313,20 +310,17 @@ function DrillCanvas(props: {
       if (view.hits > hits) sfx.hit();
       if (view.misses > misses) sfx.miss();
       const snap = check ? check.snapshot() : single!.snapshot();
-      const { cssW, cssH } = surface.size();
-      if (cssW >= 2 && cssH >= 2) {
-        drawRange(surface.ctx, cssW, cssH, {
-          fov: settings.fov,
-          crosshair: settings.crosshair,
-          yaw: view.yaw,
-          pitch: view.pitch,
-          targets: snap.targets,
-          dimIdle: true,
-          grid: true,
-          mark: snap.mark,
-          glued: snap.glued,
-        });
-      }
+      view3d.drawPlates({
+        fov: settings.fov,
+        crosshair: settings.crosshair,
+        yaw: view.yaw,
+        pitch: view.pitch,
+        targets: snap.targets,
+        dimIdle: true,
+        grid: true,
+        mark: snap.mark,
+        glued: snap.glued,
+      });
       putScore(String(snap.score));
       putTime(snap.secondsLeft.toFixed(1));
       putName(check ? SKILL_LABEL[check.kind].toUpperCase() : props.skill.title.toUpperCase());
@@ -339,7 +333,7 @@ function DrillCanvas(props: {
       stopped = true;
       cancelAnimationFrame(raf);
       document.removeEventListener("pointerlockchange", onLock);
-      surface.destroy();
+      view3d.destroy();
       device.destroy();
     };
     // One session for this skill and step.

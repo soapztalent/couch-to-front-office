@@ -54,4 +54,27 @@ describe("course script", () => {
     const titles = new Set(LESSONS.map((lesson) => lesson.title));
     expect(titles.size).toBe(LESSONS.length);
   });
+
+  it("drills the fight the title names", () => {
+    for (const lesson of LESSONS) {
+      const calls = [...new Set(lesson.reps.map((rep) => rep.call))];
+      if (lesson.family === "swing") expect(calls, lesson.id).toEqual(["swing"]);
+      if (lesson.family === "isolate") expect(calls, lesson.id).toEqual(["isolate"]);
+      if (lesson.family === "choice") expect(calls, lesson.id).toContain("jiggle");
+      if (lesson.family === "edge") {
+        expect(calls.every((call) => call === "swing" || call === "hold"), lesson.id).toBe(true);
+        expect(calls.some((call) => call === "swing" || call === "hold"), lesson.id).toBe(true);
+      }
+      const title = lesson.title.toLowerCase();
+      if (/\bswing\b|\bwide\b|\bwider\b/.test(title)) {
+        expect(lesson.reps.some((rep) => rep.call === "swing"), lesson.title).toBe(true);
+      }
+      if (lesson.family === "choice" && /\blook\b|\bshoulder\b|\bflash\b|\bjiggle\b/.test(title)) {
+        expect(lesson.reps.some((rep) => rep.call === "jiggle"), lesson.title).toBe(true);
+      }
+      if (/\bhold\b/.test(title)) {
+        expect(lesson.reps.some((rep) => rep.call === "hold"), lesson.title).toBe(true);
+      }
+    }
+  });
 });

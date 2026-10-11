@@ -33,41 +33,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--aim); outli
   overflow: hidden;
   background: #07090d;
 }
-.home-field { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.home-sky {
+.home-world {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse 70% 42% at 62% 34%, #1c2838 0%, transparent 62%),
-    linear-gradient(#121822 0%, #07090d 48%);
-}
-.home-horizon {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 48%;
-  height: 1px;
-  background: rgba(214, 255, 70, 0.5);
-}
-.home-floor {
-  position: absolute;
-  left: -30%;
-  right: -30%;
-  top: 48%;
-  height: 90%;
-  background-image:
-    linear-gradient(to right, rgba(168, 188, 214, 0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(168, 188, 214, 0.2) 1px, transparent 1px);
-  background-size: 88px 88px;
-  transform: perspective(560px) rotateX(64deg);
-  transform-origin: center top;
-  animation: floor-drift 16s linear infinite;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 72%);
-  mask-image: linear-gradient(to bottom, #000 0%, transparent 72%);
-}
-@keyframes floor-drift {
-  from { background-position: 0 0; }
-  to { background-position: 0 88px; }
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
 }
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(18px); }

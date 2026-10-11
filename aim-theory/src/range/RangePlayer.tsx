@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { createAimDevice, type AimDevice } from "../input";
 import type { Settings } from "../persist/storage";
-import { attachSurface, textSlot } from "../sim/surface";
-import { drawRange } from "./draw";
+import { attachWorld } from "../sim/glview";
+import { textSlot } from "../sim/surface";
 import { Sfx } from "../sim/sfx";
 import { line } from "../voice/lines";
 import { Speaker } from "../voice/speaker";
@@ -157,7 +157,7 @@ function RangeCanvas(props: {
       else if (!device.locked && props.phaseRef.current === "live") props.setPhase("pause");
     };
     document.addEventListener("pointerlockchange", onLock);
-    const surface = attachSurface(canvas);
+    const view3d = attachWorld(canvas);
     const putScore = textSlot(scoreRef.current);
     const putTime = textSlot(timeRef.current);
     const putAcc = textSlot(accRef.current);
@@ -173,19 +173,16 @@ function RangeCanvas(props: {
       if (session.hits > hits) sfx.hit();
       if (session.misses > misses) sfx.miss();
       const snap = session.snapshot();
-      const { cssW, cssH } = surface.size();
-      if (cssW >= 2 && cssH >= 2) {
-        drawRange(surface.ctx, cssW, cssH, {
-          fov: props.settings.fov,
-          crosshair: props.settings.crosshair,
-          yaw: session.yaw,
-          pitch: session.pitch,
-          targets: snap.targets,
-          dimIdle: props.mode === "chain",
-          mark: snap.mark,
-          glued: snap.glued,
-        });
-      }
+      view3d.drawPlates({
+        fov: props.settings.fov,
+        crosshair: props.settings.crosshair,
+        yaw: session.yaw,
+        pitch: session.pitch,
+        targets: snap.targets,
+        dimIdle: props.mode === "chain",
+        mark: snap.mark,
+        glued: snap.glued,
+      });
       putScore(String(snap.score));
       putTime(snap.secondsLeft.toFixed(1));
       const acc = snap.hits + snap.misses === 0 ? "—" : `${Math.round((snap.hits / (snap.hits + snap.misses)) * 100)}%`;
@@ -202,7 +199,7 @@ function RangeCanvas(props: {
       stopped = true;
       cancelAnimationFrame(raf);
       document.removeEventListener("pointerlockchange", onLock);
-      surface.destroy();
+      view3d.destroy();
       device.destroy();
     };
   }, [props.mode]);

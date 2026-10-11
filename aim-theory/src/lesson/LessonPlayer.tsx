@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { createAimDevice, type AimDevice } from "../input";
 import type { Settings } from "../persist/storage";
-import { drawWorld } from "../sim/draw";
+import { attachWorld } from "../sim/glview";
 import { attachSurface, textSlot } from "../sim/surface";
 import { buildDebrief, type Debrief } from "../sim/debrief";
 import { LaneSession, type RepResult } from "../sim/lane";
@@ -571,7 +571,7 @@ function DrillStage(props: {
     };
     window.addEventListener("keydown", onKey);
 
-    const surface = attachSurface(canvas);
+    const view3d = attachWorld(canvas);
     const putRep = textSlot(repRef.current);
     const putCue = textSlot(cueRef.current);
     const putState = textSlot(stateRef.current);
@@ -601,19 +601,16 @@ function DrillStage(props: {
       if (current.pulse) held = { kind: current.pulse, until: now + 140 };
       const flash = held && now < held.until ? held.kind : null;
       const view = current.view();
-      const { cssW, cssH } = surface.size();
-      if (cssW >= 2 && cssH >= 2) {
-        drawWorld(surface.ctx, cssW, cssH, {
-          camera: view.camera,
-          walls: view.walls,
-          actors: view.actors,
-          pip: view.pip,
-          fov: settings.fov,
-          crosshair: settings.crosshair,
-          flash,
-          sway: view.playerSpeed,
-        });
-      }
+      view3d.drawFight({
+        camera: view.camera,
+        walls: view.walls,
+        actors: view.actors,
+        pip: view.pip,
+        fov: settings.fov,
+        crosshair: settings.crosshair,
+        flash,
+        sway: view.playerSpeed,
+      });
       const root = rootRef.current;
       if (root) {
         const rev = view.reviewing ? "1" : "0";
@@ -665,7 +662,7 @@ function DrillStage(props: {
       cancelAnimationFrame(raf);
       document.removeEventListener("pointerlockchange", onLock);
       window.removeEventListener("keydown", onKey);
-      surface.destroy();
+      view3d.destroy();
       device.destroy();
     };
     // The drill owns one session for this mount. Restart replaces the ref.
@@ -742,7 +739,7 @@ function PovCanvas(props: {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const surface = attachSurface(canvas);
+    const view3d = attachWorld(canvas);
     const started = performance.now();
     let raf = 0;
     let stopped = false;
@@ -755,20 +752,17 @@ function PovCanvas(props: {
       const elapsed = (now - started) / 1000;
       const t = frozen ? Math.max(0, clip.total - 0.05) : elapsed;
       const hit = clipAt(clip, t);
-      const { cssW, cssH } = surface.size();
-      if (cssW >= 2 && cssH >= 2) {
-        const sample = samplePov(hit.pov, hit.local);
-        drawWorld(surface.ctx, cssW, cssH, {
-          camera: sample.camera,
-          walls: sample.walls,
-          actors: sample.actors,
-          pip: sample.pip,
-          fov: props.settings.fov,
-          crosshair: props.settings.crosshair,
-          flash: null,
-          sway: Math.abs(Math.sin(hit.local * 3.2)) * 1.6,
-        });
-      }
+      const sample = samplePov(hit.pov, hit.local);
+      view3d.drawFight({
+        camera: sample.camera,
+        walls: sample.walls,
+        actors: sample.actors,
+        pip: sample.pip,
+        fov: props.settings.fov,
+        crosshair: props.settings.crosshair,
+        flash: null,
+        sway: Math.abs(Math.sin(hit.local * 3.2)) * 1.6,
+      });
       if (!frozen && hit.lineId !== shown) {
         shown = hit.lineId;
         onLineRef.current(hit);
@@ -783,7 +777,7 @@ function PovCanvas(props: {
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
-      surface.destroy();
+      view3d.destroy();
     };
     // Settings that change the picture. The clock stays on this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
