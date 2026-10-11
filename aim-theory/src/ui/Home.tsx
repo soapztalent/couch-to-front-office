@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { attachWorld } from "../sim/glview";
+import { useState } from "react";
 import { LESSONS } from "../lesson/course";
 import type { Settings } from "../persist/storage";
 import { nextSkill, SKILLS } from "../skill/course";
 import { STEP_TITLE, type StepId } from "../skill/steps";
+import { ScoreBoard } from "./Board";
+import { Settings as SettingsPanel } from "./Settings";
 
 const RANGE = [
   { id: "snap", title: "Snap", copy: "Flicks. One click, then the next." },
@@ -13,87 +14,54 @@ const RANGE = [
   { id: "line", title: "Line", copy: "Smoothness. Match the pace." },
 ] as const;
 
-type Door = "theory" | "course" | "range";
+export type MenuPane = "continue" | "theory" | "course" | "range" | "board" | "settings";
 
-const DOORS: { id: Door; index: string; title: string; copy: string }[] = [
-  { id: "theory", index: "01", title: "Theory", copy: "The fight around the crosshair." },
-  { id: "course", index: "02", title: "Course", copy: "Click, track, then switch." },
-  { id: "range", index: "03", title: "Range", copy: "The reps, then open practice." },
+const NAV: { id: MenuPane; label: string }[] = [
+  { id: "continue", label: "Continue" },
+  { id: "theory", label: "Theory" },
+  { id: "course", label: "Course" },
+  { id: "range", label: "Range" },
+  { id: "board", label: "Board" },
+  { id: "settings", label: "Settings" },
 ];
-
-function HomeWorld() {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const look = useRef({ x: 0, y: 0 });
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const view = attachWorld(canvas);
-    const onMove = (event: MouseEvent) => {
-      look.current.x = (event.clientX / window.innerWidth) * 2 - 1;
-      look.current.y = (event.clientY / window.innerHeight) * 2 - 1;
-    };
-    window.addEventListener("mousemove", onMove);
-    const started = performance.now();
-    let raf = 0;
-    let stopped = false;
-    const tick = (now: number) => {
-      if (stopped) return;
-      view.drawHome((now - started) / 1000, look.current.x, look.current.y);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => {
-      stopped = true;
-      cancelAnimationFrame(raf);
-      window.removeEventListener("mousemove", onMove);
-      view.destroy();
-    };
-  }, []);
-  return <canvas ref={ref} className="home-world" aria-hidden="true" />;
-}
 
 export function Home(props: {
   settings: Settings;
   bests: Record<string, number>;
   done: string[];
   step: StepId;
+  pane: MenuPane;
+  onPane: (pane: MenuPane) => void;
   onLesson: (id: string) => void;
   onSkill: (id: string) => void;
   onRange: (id: string) => void;
-  onBoard: (id: string) => void;
-  onSettings: () => void;
+  onChangeSettings: (next: Settings) => void;
 }) {
-  const [door, setDoor] = useState<Door | null>(null);
-  function lessonRow(lesson: (typeof LESSONS)[number]) {
+  const [boardId, setBoardId] = useState(LESSONS[0]?.id ?? "");
+  const next = nextSkill(props.done);
+  const best = props.bests[next.id];
+  const boardLesson = LESSONS.find((lesson) => lesson.id === boardId) ?? LESSONS[0];
+
+  function lessonCard(lesson: (typeof LESSONS)[number]) {
     return (
-      <div key={lesson.id} className="lesson-row">
-        <button className="lesson-card lesson-hit" onClick={() => props.onLesson(lesson.id)}>
-          <span className="idx">{lesson.index}</span>
-          <span>
-            <h2>{lesson.title}</h2>
-            <p>{lesson.summary}</p>
-          </span>
-          <span className="meta">
-            {props.done.includes(lesson.id) ? "Done" : "Lesson"}
-            <br />
-            {props.bests[lesson.id] != null ? `Best ${props.bests[lesson.id]}` : "No score yet"}
-          </span>
-        </button>
-        <button className="text-btn board-link" data-board={lesson.id} onClick={() => props.onBoard(lesson.id)}>
-          Board
-        </button>
-      </div>
+      <button key={lesson.id} className="lesson-card" onClick={() => props.onLesson(lesson.id)}>
+        <span className="idx">{lesson.index}</span>
+        <span>
+          <h2>{lesson.title}</h2>
+          <p>{lesson.summary}</p>
+        </span>
+        <span className="meta">
+          {props.done.includes(lesson.id) ? "Done" : "Lesson"}
+          <br />
+          {props.bests[lesson.id] != null ? `Best ${props.bests[lesson.id]}` : "No score yet"}
+        </span>
+      </button>
     );
   }
 
-  const next = nextSkill(props.done);
-  const best = props.bests[next.id];
-  const open = DOORS.find((item) => item.id === door);
-
   return (
-    <div className="home-stage" data-screen="home" data-door={door ?? "home"}>
-      <HomeWorld />
-      <header className="top">
+    <div className="menu" data-screen="home" data-pane={props.pane}>
+      <aside className="menu-col">
         <div className="mark">
           <svg className="mark-cross" viewBox="0 0 28 28" aria-hidden="true">
             <path d="M14 3v7M14 18v7M3 14h7M18 14h7" />
@@ -103,91 +71,136 @@ export function Home(props: {
             <span>Mouse and keyboard</span>
           </div>
         </div>
-        <button className="ghost-btn" data-settings onClick={props.onSettings}>
-          Settings
-        </button>
-      </header>
-      <main className="home">
-        {door == null ? (
-          <>
-            <button className="continue" data-continue={next.id} onClick={() => props.onSkill(next.id)}>
-              <span className="kicker">Continue</span>
-              <h2>{next.title}</h2>
-              <p>{next.summary}</p>
-              <span className="continue-meta">
-                {STEP_TITLE[props.step]}
-                {best != null ? ` · Best ${best}` : ""}
-              </span>
+        <nav className="menu-nav" aria-label="Menu">
+          {NAV.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              className={props.pane === item.id ? "is-on" : undefined}
+              data-nav={item.id}
+              data-door={item.id === "theory" || item.id === "course" || item.id === "range" ? item.id : undefined}
+              data-settings={item.id === "settings" ? "" : undefined}
+              aria-current={props.pane === item.id ? "page" : undefined}
+              onClick={() => props.onPane(item.id)}
+            >
+              <span className="idx">{String(index + 1).padStart(2, "0")}</span>
+              {item.label}
             </button>
-            <div className="doors">
-              {DOORS.map((item) => (
-                <button key={item.id} className="door" data-door={item.id} onClick={() => setDoor(item.id)}>
-                  <span className="idx">{item.index}</span>
-                  <h2>{item.title}</h2>
-                  <p>{item.copy}</p>
+          ))}
+        </nav>
+        <p className="menu-foot">{STEP_TITLE[props.step]}</p>
+      </aside>
+      <section className="menu-pane">
+        {props.pane === "continue" ? (
+          <div className="pane-continue">
+            <p className="kicker">Continue</p>
+            <h1>{next.title}</h1>
+            <p className="lede">{next.summary}</p>
+            <p className="pane-meta">
+              {STEP_TITLE[props.step]}
+              {best != null ? ` · Best ${best}` : ""}
+            </p>
+            <button className="solid-btn" data-continue={next.id} onClick={() => props.onSkill(next.id)}>
+              Start
+            </button>
+          </div>
+        ) : null}
+        {props.pane === "theory" ? (
+          <>
+            <header className="pane-head">
+              <p className="kicker">Theory</p>
+              <h1>The fight around the crosshair.</h1>
+            </header>
+            <div className="lesson-list">{LESSONS.filter((lesson) => lesson.door === "theory").map(lessonCard)}</div>
+          </>
+        ) : null}
+        {props.pane === "course" ? (
+          <>
+            <header className="pane-head">
+              <p className="kicker">Course</p>
+              <h1>Click, track, then switch.</h1>
+            </header>
+            <p className="note">
+              You are on {STEP_TITLE[props.step]}. Click, track, then switch. You move up when the weak one holds.
+            </p>
+            <div className="lesson-list">
+              {SKILLS.map((skill) => (
+                <button key={skill.id} className="lesson-card" onClick={() => props.onSkill(skill.id)}>
+                  <span className="idx">{skill.index}</span>
+                  <span>
+                    <h2>{skill.title}</h2>
+                    <p>{skill.summary}</p>
+                  </span>
+                  <span className="meta">
+                    {props.done.includes(skill.id) ? "Done" : STEP_TITLE[props.step]}
+                    <br />
+                    {props.bests[skill.id] != null ? `Best ${props.bests[skill.id]}` : "No score yet"}
+                  </span>
+                </button>
+              ))}
+              {LESSONS.filter((lesson) => lesson.door === "course").map(lessonCard)}
+            </div>
+          </>
+        ) : null}
+        {props.pane === "range" ? (
+          <>
+            <header className="pane-head">
+              <p className="kicker">Range</p>
+              <h1>The reps, then open practice.</h1>
+            </header>
+            <p className="note">Open practice. Same sensitivity, same pointer lock, scored the same way.</p>
+            <div className="lesson-list">
+              {LESSONS.filter((lesson) => lesson.door === "range").map(lessonCard)}
+              <p className="section-label">Open practice</p>
+              {RANGE.map((item, index) => (
+                <button key={item.id} className="lesson-card" onClick={() => props.onRange(item.id)}>
+                  <span className="idx">
+                    {String(LESSONS.filter((lesson) => lesson.door === "range").length + index + 1).padStart(2, "0")}
+                  </span>
+                  <span>
+                    <h2>{item.title}</h2>
+                    <p>{item.copy}</p>
+                  </span>
+                  <span className="meta">{props.bests[item.id] != null ? `Best ${props.bests[item.id]}` : "20s"}</span>
                 </button>
               ))}
             </div>
           </>
-        ) : (
-          <div className="door-view">
-            <div className="door-head">
-              <button className="text-btn" onClick={() => setDoor(null)}>
-                Back
-              </button>
-              <h2>{open?.title}</h2>
-            </div>
-            {door === "course" ? (
-              <p className="note">
-                You are on {STEP_TITLE[props.step]}. Click, track, then switch. You move up when the weak one holds.
-              </p>
-            ) : null}
-            {door === "range" ? (
-              <p className="note">Open practice. Same sensitivity, same pointer lock, scored the same way.</p>
-            ) : null}
-            {door === "theory" ? (
-              <div className="lesson-list">{LESSONS.filter((lesson) => lesson.door === "theory").map(lessonRow)}</div>
-            ) : null}
-            {door === "course" ? (
-              <div className="lesson-list">
-                {SKILLS.map((skill) => (
-                  <button key={skill.id} className="lesson-card" onClick={() => props.onSkill(skill.id)}>
-                    <span className="idx">{skill.index}</span>
-                    <span>
-                      <h2>{skill.title}</h2>
-                      <p>{skill.summary}</p>
-                    </span>
-                    <span className="meta">
-                      {props.done.includes(skill.id) ? "Done" : STEP_TITLE[props.step]}
-                      <br />
-                      {props.bests[skill.id] != null ? `Best ${props.bests[skill.id]}` : "No score yet"}
-                    </span>
-                  </button>
+        ) : null}
+        {props.pane === "board" && boardLesson ? (
+          <>
+            <header className="pane-head">
+              <p className="kicker">Board</p>
+              <h1>Scores for one lesson.</h1>
+            </header>
+            <label className="field board-pick">
+              Lesson
+              <select data-board-pick value={boardLesson.id} onChange={(event) => setBoardId(event.target.value)}>
+                {LESSONS.map((lesson) => (
+                  <option key={lesson.id} value={lesson.id}>
+                    {lesson.index} {lesson.title}
+                  </option>
                 ))}
-                {LESSONS.filter((lesson) => lesson.door === "course").map(lessonRow)}
-              </div>
-            ) : null}
-            {door === "range" ? (
-              <div className="lesson-list">
-                {LESSONS.filter((lesson) => lesson.door === "range").map(lessonRow)}
-                <p className="section-label">Open practice</p>
-                {RANGE.map((item, index) => (
-                  <button key={item.id} className="lesson-card" onClick={() => props.onRange(item.id)}>
-                    <span className="idx">
-                      {String(LESSONS.filter((lesson) => lesson.door === "range").length + index + 1).padStart(2, "0")}
-                    </span>
-                    <span>
-                      <h2>{item.title}</h2>
-                      <p>{item.copy}</p>
-                    </span>
-                    <span className="meta">{props.bests[item.id] != null ? `Best ${props.bests[item.id]}` : "20s"}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        )}
-      </main>
+              </select>
+            </label>
+            <ScoreBoard
+              lessonId={boardLesson.id}
+              title={boardLesson.title}
+              name={props.settings.name}
+              onName={(name) => props.onChangeSettings({ ...props.settings, name })}
+            />
+          </>
+        ) : null}
+        {props.pane === "settings" ? (
+          <>
+            <header className="pane-head">
+              <p className="kicker">Settings</p>
+              <h1>Sens, sight, and sound.</h1>
+            </header>
+            <SettingsPanel settings={props.settings} onChange={props.onChangeSettings} />
+          </>
+        ) : null}
+      </section>
     </div>
   );
 }

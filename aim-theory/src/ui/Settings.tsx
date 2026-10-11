@@ -3,7 +3,7 @@ import { GAME_LABEL, GAME_NOTE, GAME_YAW, type GameId, cmPer360, sensFromCm } fr
 import { drawCrosshair } from "../sim/draw";
 import { withGame, type Settings as SettingsT } from "../persist/storage";
 
-export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) => void; onBack: () => void }) {
+export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) => void; onBack?: () => void }) {
   const s = props.settings;
   const cm = cmPer360(s.dpi, s.sens, s.yaw);
   const preview = useRef<HTMLCanvasElement>(null);
@@ -24,17 +24,7 @@ export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) 
     props.onChange({ ...s, ...partial });
   }
 
-  return (
-    <div className="shell">
-      <header className="top">
-        <div className="mark">
-          <b>Settings</b>
-          <span>{Number.isFinite(cm) ? `${cm.toFixed(1)} cm/360` : "—"}</span>
-        </div>
-        <button className="ghost-btn" onClick={props.onBack}>
-          Back
-        </button>
-      </header>
+  const form = (
       <div className="settings">
         <section className="panel">
           <h2>Sensitivity</h2>
@@ -194,6 +184,21 @@ export function Settings(props: { settings: SettingsT; onChange: (s: SettingsT) 
           ) : null}
         </section>
       </div>
+  );
+
+  if (!props.onBack) return form;
+  return (
+    <div className="shell">
+      <header className="top">
+        <div className="mark">
+          <b>Settings</b>
+          <span>{Number.isFinite(cm) ? `${cm.toFixed(1)} cm/360` : "—"}</span>
+        </div>
+        <button className="ghost-btn" onClick={props.onBack}>
+          Back
+        </button>
+      </header>
+      {form}
     </div>
   );
 }

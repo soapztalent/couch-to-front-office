@@ -7,14 +7,10 @@ import type { RangeMode } from "../range/range";
 import { skillById } from "../skill/course";
 import { SkillPlayer } from "../skill/SkillPlayer";
 import type { StepId } from "../skill/steps";
-import { ScoreBoard } from "./Board";
-import { Home } from "./Home";
-import { Settings as SettingsScreen } from "./Settings";
+import { Home, type MenuPane } from "./Home";
 
 type Route =
   | { name: "home" }
-  | { name: "settings" }
-  | { name: "board"; id: string }
   | { name: "lesson"; id: string }
   | { name: "skill"; id: string }
   | { name: "range"; mode: RangeMode };
@@ -25,6 +21,7 @@ export function App() {
   const [done, setDone] = useState<string[]>(() => loadDone());
   const [step, setStep] = useState<StepId>(() => loadStep());
   const [route, setRoute] = useState<Route>({ name: "home" });
+  const [pane, setPane] = useState<MenuPane>("continue");
 
   function changeSettings(next: Settings) {
     setSettings(next);
@@ -38,11 +35,12 @@ export function App() {
         bests={bests}
         done={done}
         step={step}
+        pane={pane}
+        onPane={setPane}
         onLesson={(id) => setRoute({ name: "lesson", id })}
         onSkill={(id) => setRoute({ name: "skill", id })}
         onRange={(id) => setRoute({ name: "range", mode: id as RangeMode })}
-        onBoard={(id) => setRoute({ name: "board", id })}
-        onSettings={() => setRoute({ name: "settings" })}
+        onChangeSettings={changeSettings}
       />
     );
   }
@@ -55,24 +53,6 @@ export function App() {
     return result;
   }
 
-  if (route.name === "settings") {
-    return <SettingsScreen settings={settings} onChange={changeSettings} onBack={() => setRoute({ name: "home" })} />;
-  }
-  if (route.name === "board") {
-    const lesson = lessonById(route.id);
-    if (!lesson) return home();
-    return (
-      <div className="shell board-page" data-screen="board" data-lesson={lesson.id}>
-        <ScoreBoard
-          lessonId={lesson.id}
-          title={lesson.title}
-          name={settings.name}
-          onName={(name) => changeSettings({ ...settings, name })}
-          onBack={() => setRoute({ name: "home" })}
-        />
-      </div>
-    );
-  }
   if (route.name === "lesson") {
     const lesson = lessonById(route.id);
     if (!lesson) return home();
