@@ -1,6 +1,6 @@
 import { LESSONS, type Lesson } from "../lesson/course";
 import { angleBetweenDeg, forward, yawTo, type Camera } from "../sim/geom";
-import { ENEMY_CLOSE, LANE } from "../sim/world";
+import { LANE } from "../sim/world";
 import { SKILLS } from "../skill/course";
 
 export type CallKind = "lesson" | "skill" | "range";
@@ -24,11 +24,14 @@ const RANGE_CALLS: { id: string; title: string }[] = [
   { id: "line", title: "Line" },
 ];
 
-/** Where you stand when a fight is not running. Looking at the angle. */
+/** Where you stand when a fight is not running. The open floor, not the corner wall. */
 export const BAY_EYE = { x: -0.9, y: LANE.eye, z: -1.15 };
 
+/** The next fight stands in the open, in front of that eye. */
+export const FRONT_MARK = { x: -1.55, z: 3.15 };
+
 export function bayYaw(): number {
-  return yawTo(BAY_EYE, ENEMY_CLOSE);
+  return yawTo(BAY_EYE, FRONT_MARK);
 }
 
 /** The fight already in front of you: the first lesson still open. */
@@ -41,8 +44,8 @@ function along(
   place: CallPlace,
   x: number,
 ): WorldCall[] {
-  const z0 = -2.5;
-  const z1 = 10.2;
+  const z0 = 4.4;
+  const z1 = 11.4;
   const dz = items.length <= 1 ? 0 : Math.min(0.78, (z1 - z0) / (items.length - 1));
   return items.map((item, index) => ({
     id: item.id,
@@ -66,8 +69,8 @@ export function worldCalls(done: readonly string[]): WorldCall[] {
     kind: "lesson",
     title: next.title,
     place: "front",
-    x: ENEMY_CLOSE.x,
-    z: ENEMY_CLOSE.z,
+    x: FRONT_MARK.x,
+    z: FRONT_MARK.z,
     scale: 1,
   };
   const rest = (door: Lesson["door"]) =>
