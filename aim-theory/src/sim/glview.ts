@@ -23,11 +23,17 @@ export type PlateView = {
   sway?: number;
 };
 
+export type BayFigure = { x: number; y: number; z: number; scale: number; yaw: number; tone: number };
+
 export type WorldView = {
   size: () => { cssW: number; cssH: number; dpr: number };
   drawFight: (world: WorldDraw) => void;
   drawPlates: (view: PlateView) => void;
   drawHome: (t: number, lookX: number, lookY: number) => void;
+  /** The room you stand in between fights. The score board is a quad on the left wall. */
+  drawBay: (cam: Camera, figures: BayFigure[], cross: Crosshair, fov: number) => void;
+  /** Upload a new board image. The frame loop does not rebuild it. */
+  setBoard: (source: TexImageSource | null) => void;
   destroy: () => void;
 };
 
@@ -165,6 +171,36 @@ void main() {
   gl_FragColor = vec4(vColor, 1.0);
 }
 `;
+
+const BOARD_VERT = `
+attribute vec3 aPos;
+attribute vec2 aUv;
+uniform mat4 uMvp;
+varying vec2 vUv;
+void main() {
+  vUv = aUv;
+  gl_Position = uMvp * vec4(aPos, 1.0);
+}
+`;
+
+const BOARD_FRAG = `
+precision mediump float;
+uniform sampler2D uTex;
+varying vec2 vUv;
+void main() {
+  gl_FragColor = texture2D(uTex, vUv);
+}
+`;
+
+/** Left wall, facing into the room. Just clear of the plaster. */
+const BOARD_QUAD = new Float32Array([
+  -6.32, 1.12, -1.95, 0, 0,
+  -6.32, 1.12, -0.15, 1, 0,
+  -6.32, 2.22, -0.15, 1, 1,
+  -6.32, 1.12, -1.95, 0, 0,
+  -6.32, 2.22, -0.15, 1, 1,
+  -6.32, 2.22, -1.95, 0, 1,
+]);
 
 class Batch {
   data: Float32Array;
@@ -925,6 +961,29 @@ function pushImpact(batch: Batch, w: number, h: number, x: number, y: number, ki
   tick(-1.5, 16, 3, 10);
 }
 
+function linkBoard(gl: WebGL2RenderingContext): WebGLProgram {
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  if (!vs || !fs) throw new Error("shader unavailable");
+  gl.shaderSource(vs, BOARD_VERT);
+  gl.shaderSource(fs, BOARD_FRAG);
+  gl.compileShader(vs);
+  gl.compileShader(fs);
+  if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(vs) || "board vertex");
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(fs) || "board fragment");
+  const program = gl.createProgram();
+  if (!program) throw new Error("program unavailable");
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.bindAttribLocation(program, 0, "aPos");
+  gl.bindAttribLocation(program, 1, "aUv");
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "board link");
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  return program;
+}
+
 function link(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string): WebGLProgram {
   const vs = gl.createShader(gl.VERTEX_SHADER);
   const fs = gl.createShader(gl.FRAGMENT_SHADER);
@@ -963,6 +1022,9 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
 
   const program = link(gl, VERT, FRAG);
   const unlit = link(gl, UNLIT_VERT, UNLIT_FRAG);
+  const boardProg = linkBoard(gl);
+  const boardMvp = gl.getUniformLocation(boardProg, "uMvp");
+  const boardSampler = gl.getUniformLocation(boardProg, "uTex");
   const mvpLoc = gl.getUniformLocation(program, "uMvp");
   const modelLoc = gl.getUniformLocation(program, "uModel");
   const nLoc = gl.getUniformLocation(program, "uNmat");
@@ -994,6 +1056,25 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     return data.length / STRIDE;
   };
+  const boardVao = gl.createVertexArray();
+  const boardBuf = gl.createBuffer();
+  gl.bindVertexArray(boardVao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, boardBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, BOARD_QUAD, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
+  gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
+  gl.bindVertexArray(null);
+  const boardTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, boardTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([12, 16, 22, 255]));
+  let boardSource: TexImageSource | null = null;
+
   const roomCount = park(roomBuf, roomMesh());
   const humanCount = park(humanBuf, humanMesh());
   const handCount = park(handBuf, viewHandMesh());
@@ -1133,7 +1214,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
 
   type Figure = { x: number; y: number; z: number; scale: number; yaw: number; tone: number };
 
-  const frame = (cam: Camera, fov: number, fillWalls: (batch: Batch) => void, figures: Figure[], cross: Crosshair, sway: number, flash: WorldDraw["flash"]) => {
+  const frame = (cam: Camera, fov: number, fillWalls: (batch: Batch) => void, figures: Figure[], cross: Crosshair, sway: number, flash: WorldDraw["flash"], extras?: () => void) => {
     if (lost || cssW < 2 || cssH < 2) return;
     const aspect = canvas.width / canvas.height || cssW / cssH;
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1154,6 +1235,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
       yawModel(fig.x, fig.y, fig.z, fig.yaw, fig.scale);
       drawMesh(humanBuf, humanCount, mvpM, figN, modelM, fig.tone, true);
     }
+    extras?.();
     const kick = Math.min(0.05, Math.abs(sway) * 0.02);
     gun.reset();
     pushGun(gun, sway);
@@ -1278,15 +1360,54 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
         sway: Math.abs(Math.sin(t * 1.5)) * 0.7,
       });
     },
+    drawBay: (cam, figures, cross, fov) => {
+      frame(
+        cam,
+        fov,
+        (batch) => {
+          pushWall(batch, EDGE_WALL);
+          pushWall(batch, FAR_WALL);
+        },
+        figures,
+        cross,
+        0,
+        null,
+        () => {
+          if (boardSource) {
+            gl.bindTexture(gl.TEXTURE_2D, boardTex);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, boardSource);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            boardSource = null;
+          }
+          gl.useProgram(boardProg);
+          gl.uniformMatrix4fv(boardMvp, false, mvpM);
+          gl.uniform1i(boardSampler, 0);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, boardTex);
+          gl.bindVertexArray(boardVao);
+          gl.enable(gl.DEPTH_TEST);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          gl.bindVertexArray(vao);
+        },
+      );
+    },
+    setBoard: (source) => {
+      boardSource = source;
+    },
     destroy: () => {
       observer.disconnect();
       gl.deleteProgram(program);
       gl.deleteProgram(unlit);
+      gl.deleteProgram(boardProg);
       gl.deleteBuffer(roomBuf);
       gl.deleteBuffer(humanBuf);
       gl.deleteBuffer(handBuf);
       gl.deleteBuffer(dyn);
+      gl.deleteBuffer(boardBuf);
+      gl.deleteTexture(boardTex);
       gl.deleteVertexArray(vao);
+      gl.deleteVertexArray(boardVao);
     },
   };
 }

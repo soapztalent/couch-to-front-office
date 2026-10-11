@@ -33,6 +33,7 @@ export function LessonPlayer(props: {
   onExit: () => void;
   onName: (name: string) => void;
   onRecord: (score: number, complete: boolean) => { best: number; isNew: boolean };
+  paused?: boolean;
 }) {
   const cinematic = Boolean(props.lesson.pov?.length);
   const firstShot = props.lesson.pov?.[0];
@@ -288,7 +289,7 @@ export function LessonPlayer(props: {
   if (cinematic && clip && (phase === "pov" || phase === "debrief")) {
     return (
       <div data-screen="lesson" data-lesson={props.lesson.id} data-phase={phase} data-pov={povId} data-line-id={lineId}>
-        <PovCanvas key={run} clip={clip} frozen={phase === "debrief"} settings={props.settings} onLine={onClipLine} onEnd={() => handoffRef.current()} />
+        <PovCanvas key={run} clip={clip} frozen={phase === "debrief"} paused={Boolean(props.paused)} settings={props.settings} onLine={onClipLine} onEnd={() => handoffRef.current()} />
         <div className="pov-chrome">
           <button
             className="text-btn"
@@ -329,7 +330,7 @@ export function LessonPlayer(props: {
             />
             <div className="row">
               <button className="solid-btn" onClick={props.onExit}>
-                Course
+                Leave
               </button>
               <button
                 className="ghost-btn"
@@ -722,6 +723,7 @@ function DrillStage(props: {
 function PovCanvas(props: {
   clip: TimedClip;
   frozen: boolean;
+  paused: boolean;
   settings: Settings;
   onLine: (hit: ClipHit) => void;
   onEnd: () => void;
@@ -729,10 +731,12 @@ function PovCanvas(props: {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const clipRef = useRef(props.clip);
   const frozenRef = useRef(props.frozen);
+  const pausedRef = useRef(props.paused);
   const onLineRef = useRef(props.onLine);
   const onEndRef = useRef(props.onEnd);
   clipRef.current = props.clip;
   frozenRef.current = props.frozen;
+  pausedRef.current = props.paused;
   onLineRef.current = props.onLine;
   onEndRef.current = props.onEnd;
 
@@ -745,11 +749,20 @@ function PovCanvas(props: {
     let stopped = false;
     let ended = false;
     let shown = "";
+    let pausedFor = 0;
+    let pauseMark = 0;
     const tick = (now: number) => {
       if (stopped) return;
       const clip = clipRef.current;
       const frozen = frozenRef.current;
-      const elapsed = (now - started) / 1000;
+      if (pausedRef.current) {
+        if (pauseMark === 0) pauseMark = now;
+      } else if (pauseMark !== 0) {
+        pausedFor += now - pauseMark;
+        pauseMark = 0;
+      }
+      const held = pauseMark === 0 ? 0 : now - pauseMark;
+      const elapsed = (now - started - pausedFor - held) / 1000;
       const t = frozen ? Math.max(0, clip.total - 0.05) : elapsed;
       const hit = clipAt(clip, t);
       const sample = samplePov(hit.pov, hit.local);
@@ -763,11 +776,11 @@ function PovCanvas(props: {
         flash: null,
         sway: Math.abs(Math.sin(hit.local * 3.2)) * 1.6,
       });
-      if (!frozen && hit.lineId !== shown) {
+      if (!frozen && pauseMark === 0 && hit.lineId !== shown) {
         shown = hit.lineId;
         onLineRef.current(hit);
       }
-      if (!frozen && !ended && elapsed >= clip.total) {
+      if (!frozen && pauseMark === 0 && !ended && elapsed >= clip.total) {
         ended = true;
         onEndRef.current();
       }
