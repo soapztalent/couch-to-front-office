@@ -2,8 +2,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const RAW = path.join(__dirname, 'raw');
-const OUT = __dirname;
+const DIR = process.argv[2] ? path.resolve(process.argv[2]) : __dirname;
+const RAW = path.join(DIR, 'raw');
+const OUT = DIR;
 
 function money(n) {
   n = Number(n) || 0;
@@ -372,7 +373,7 @@ function main() {
   md.push('');
   md.push(sims.length + ' fresh Boston franchises. ' + trades.length + ' AI-to-AI deadline trades. ' + calls.length + ' incoming calls to Boston.');
   md.push('');
-  md.push('Ratings against real NHL deadline prices in `ref/MARKET.md`: **realistic ' + sum.by.realistic + '**, **questionable ' + sum.by.questionable + '**, **absurd ' + sum.by.absurd + '**. The write-up of totals, patterns, the ten worst deals, and the trade-code causes is in `sims/ANALYSIS.md`.');
+  md.push('Ratings against real NHL deadline prices in `ref/MARKET.md`: **realistic ' + sum.by.realistic + '**, **questionable ' + sum.by.questionable + '**, **absurd ' + sum.by.absurd + '**. The write-up of totals, patterns, and the worst deals is in `ANALYSIS.md` next to this file.');
   md.push('');
   md.push('Trades that include a 1st: ' + sum.with1.length + '. Trades that include two or more 1sts: ' + sum.two1.length + '. Trades that move a star (engine star, or 90+ OVR): ' + sum.withStar.length + '.');
   md.push('');

@@ -1,0 +1,290 @@
+[
+ {
+  "n": 1,
+  "seed": 101,
+  "seasons": 1,
+  "ok": true,
+  "trades": 1,
+  "calls": 6,
+  "ms": 49040
+ },
+ {
+  "n": 2,
+  "seed": 102,
+  "seasons": 1,
+  "ok": true,
+  "trades": 8,
+  "calls": 6,
+  "ms": 53898
+ },
+ {
+  "n": 3,
+  "seed": 103,
+  "seasons": 1,
+  "ok": true,
+  "trades": 6,
+  "calls": 6,
+  "ms": 60124
+ },
+ {
+  "n": 4,
+  "seed": 104,
+  "seasons": 1,
+  "ok": true,
+  "trades": 1,
+  "calls": 6,
+  "ms": 33200
+ },
+ {
+  "n": 5,
+  "seed": 105,
+  "seasons": 1,
+  "ok": true,
+  "trades": 6,
+  "calls": 6,
+  "ms": 61016
+ },
+ {
+  "n": 6,
+  "seed": 106,
+  "seasons": 1,
+  "ok": true,
+  "trades": 3,
+  "calls": 6,
+  "ms": 36688
+ },
+ {
+  "n": 7,
+  "seed": 107,
+  "seasons": 1,
+  "ok": true,
+  "trades": 2,
+  "calls": 6,
+  "ms": 33723
+ },
+ {
+  "n": 8,
+  "seed": 108,
+  "seasons": 1,
+  "ok": true,
+  "trades": 2,
+  "calls": 6,
+  "ms": 53184
+ },
+ {
+  "n": 9,
+  "seed": 109,
+  "seasons": 1,
+  "ok": true,
+  "trades": 4,
+  "calls": 6,
+  "ms": 41244
+ },
+ {
+  "n": 10,
+  "seed": 110,
+  "seasons": 1,
+  "ok": true,
+  "trades": 1,
+  "calls": 6,
+  "ms": 74513
+ },
+ {
+  "n": 11,
+  "seed": 111,
+  "seasons": 1,
+  "ok": true,
+  "trades": 5,
+  "calls": 6,
+  "ms": 60311
+ },
+ {
+  "n": 12,
+  "seed": 112,
+  "seasons": 1,
+  "ok": true,
+  "trades": 3,
+  "calls": 6,
+  "ms": 40508
+ },
+ {
+  "n": 13,
+  "seed": 113,
+  "seasons": 1,
+  "ok": true,
+  "trades": 3,
+  "calls": 6,
+  "ms": 43715
+ },
+ {
+  "n": 14,
+  "seed": 114,
+  "seasons": 1,
+  "ok": true,
+  "trades": 2,
+  "calls": 6,
+  "ms": 35554
+ },
+ {
+  "n": 15,
+  "seed": 201,
+  "seasons": 2,
+  "ok": true,
+  "trades": 11,
+  "calls": 6,
+  "ms": 75219
+ },
+ {
+  "n": 16,
+  "seed": 202,
+  "seasons": 2,
+  "ok": true,
+  "trades": 12,
+  "calls": 6,
+  "ms": 495549
+ },
+ {
+  "n": 17,
+  "seed": 203,
+  "seasons": 2,
+  "ok": true,
+  "trades": 12,
+  "calls": 6,
+  "ms": 64446
+ },
+ {
+  "n": 18,
+  "seed": 204,
+  "seasons": 2,
+  "ok": true,
+  "trades": 9,
+  "calls": 6,
+  "ms": 73769
+ },
+ {
+  "n": 19,
+  "seed": 205,
+  "seasons": 2,
+  "ok": true,
+  "trades": 9,
+  "calls": 6,
+  "ms": 100132
+ },
+ {
+  "n": 20,
+  "seed": 206,
+  "seasons": 2,
+  "ok": true,
+  "trades": 12,
+  "calls": 6,
+  "ms": 68060
+ },
+ {
+  "n": 21,
+  "seed": 207,
+  "seasons": 2,
+  "ok": true,
+  "trades": 16,
+  "calls": 6,
+  "ms": 74841
+ },
+ {
+  "n": 22,
+  "seed": 208,
+  "seasons": 2,
+  "ok": true,
+  "trades": 10,
+  "calls": 6,
+  "ms": 61843
+ },
+ {
+  "n": 23,
+  "seed": 301,
+  "seasons": 3,
+  "ok": true,
+  "trades": 20,
+  "calls": 6,
+  "ms": 92006
+ },
+ {
+  "n": 24,
+  "seed": 302,
+  "seasons": 3,
+  "ok": true,
+  "trades": 22,
+  "calls": 6,
+  "ms": 82739
+ },
+ {
+  "n": 25,
+  "seed": 303,
+  "seasons": 3,
+  "ok": true,
+  "trades": 21,
+  "calls": 6,
+  "ms": 82474
+ },
+ {
+  "n": 26,
+  "seed": 304,
+  "seasons": 3,
+  "ok": true,
+  "trades": 21,
+  "calls": 6,
+  "ms": 98055
+ },
+ {
+  "n": 27,
+  "seed": 305,
+  "seasons": 3,
+  "ok": true,
+  "trades": 22,
+  "calls": 6,
+  "ms": 395372
+ },
+ {
+  "n": 28,
+  "seed": 306,
+  "seasons": 3,
+  "ok": true,
+  "trades": 21,
+  "calls": 6,
+  "ms": 70628
+ },
+ {
+  "n": 29,
+  "seed": 401,
+  "seasons": 4,
+  "ok": true,
+  "trades": 29,
+  "calls": 6,
+  "ms": 116904
+ },
+ {
+  "n": 30,
+  "seed": 402,
+  "seasons": 4,
+  "ok": true,
+  "trades": 23,
+  "calls": 6,
+  "ms": 139200
+ },
+ {
+  "n": 31,
+  "seed": 403,
+  "seasons": 4,
+  "ok": true,
+  "trades": 18,
+  "calls": 6,
+  "ms": 121104
+ },
+ {
+  "n": 32,
+  "seed": 404,
+  "seasons": 4,
+  "ok": true,
+  "trades": 31,
+  "calls": 6,
+  "ms": 122079
+ }
+]

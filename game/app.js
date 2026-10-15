@@ -5448,6 +5448,98 @@ var rinkContent=active==='Special Teams & Goalies'?'<div class="ls-rink-special"
       if(out.length){var inc=(d.userPlayers||[]).map(function(id){return clubRoster(g,g.team).find(function(p){return p.id===id;});}).filter(Boolean),pk=(d.userPicks||[]).map(function(k){return clubPicks(g,g.team).find(function(p){return pickKey(p)===k;});}).filter(Boolean);
         if(tvPremiumN(g,inc.concat(pk))<TVS.KING_PREMIUM_N){r=Object.assign({},r,{score:Math.min(r.score,30),tvKing:out[0].name+' is a franchise player: only a king\u2019s ransom (two or more premium assets) gets a deal.'});}}}catch(e){}return r;};
   if(typeof window!=='undefined')window.CTFOTradeValue={TV:TV,TVS:TVS,curve:tvCurve,cred:tvCred,depth:tvDepth,price:tvPriceTable,protDisc:tvProtDisc,stars:function(g){var S=tvStars(g);return {thr:S.thr,line:tvStarLine(g)};},isStar:tvIsStar,isFranchise:tvIsFranchise,trigger:tvTrigger,premiumN:tvPremiumN,kingRansom:tvKingRansom,deskLine:tvDeskLine};
+  /* ===== DEADLINE SANITY v10.3.1 — one block, wrappers only (port this whole section) =====
+     Stars with 2+ years stay on the king's-ransom rule. Signed 85+ costs more than a rental.
+     Cap relief cannot force a dump through. No same-season flips. Young core is protected.
+     Reasons describe the package. Phone calls, counters, the 2-first cap, Center +15%, and pick values are untouched. */
+  function tvYears(p){return Number(p&&p.years)||0;}
+  function tvAge(p){return Number(p&&p.age)||0;}
+  function tvOvr(p){return Number(p&&p.ovr)||0;}
+  function tvPot(p){return Math.max(tvOvr(p),Number(p&&p.potential)||0);}
+  function tvRental(g,p){if(!p||p.round)return false;if(tvYears(p)<=1)return true;try{var si=aiStatusInfo(g,p);if(si&&si.rental)return true;}catch(e){}return false;}
+  // Clearly declining: 36+ or already 4 OVR under his own potential at 33+.
+  function tvDeclining(p){if(!p||p.round)return false;var age=tvAge(p),o=tvOvr(p),pot=tvPot(p);return age>=36||(age>=33&&pot>=o+4);}
+  function tvSweet(a){return !!(a&&(a.round||aiIsProspect(a)||a.__group==='prospect'||a.__group==='reserve'));}
+  function tvYoungAsset(a){if(!a||a.round)return false;if(aiIsProspect(a)||a.__group==='prospect'||a.__group==='reserve')return tvPot(a)>=84&&tvOvr(a)>=70;return tvAge(a)<=25&&(tvOvr(a)>=78||tvPot(a)>=86);}
+  function tvYoungCore(p){if(!p||p.round||aiIsProspect(p))return false;return tvAge(p)<=25&&tvYears(p)>=3&&(tvOvr(p)>=82||tvPot(p)>=88);}
+  // A ceiling (potential well above today's OVR, or a prospect) is not a proven star.
+  function tvCeilingOnly(a){if(!a||a.round)return false;if(aiIsProspect(a)||a.__group==='prospect'||a.__group==='reserve')return true;return tvAge(a)<=25&&tvPot(a)>=tvOvr(a)+6&&tvOvr(a)<90;}
+  function tvProvenOvr(a){if(!a||a.round||tvCeilingOnly(a))return tvOvr(a);return tvOvr(a);}
+  function tvMovedKey(a){if(!a)return '';if(a.round)return 'pk|'+(a.id||pickKey(a));return 'pl|'+a.id;}
+  function tvMoved(g,a){if(!g||!a)return false;var season=Number(g.season);if(!a.round&&Number(a.aiTradeLockSeason)===season)return true;var bag=g.tvMoved&&g.tvMoved[season];return !!(bag&&bag[tvMovedKey(a)]);}
+  function tvShopKey(id,g,assetId){return id+'|'+(g&&g.season)+'|'+assetId;}
+  // Signed impact with term: a 1st plus a real young piece or an 82+ NHLer, two 1sts, or another signed impact player.
+  // A pure rental (or a 34+ player with 2 years or less) is priced at about one 1st, or one 82+ player.
+  function tvTermPaid(g,get){get=get||[];var firsts=tvN1(get),young=get.some(tvYoungAsset),real=get.some(function(a){return a&&!a.round&&!aiIsProspect(a)&&tvOvr(a)>=82&&tvYears(a)>=2&&!tvRentalPriced(g,a);}),equiv=get.some(function(a){return a&&!a.round&&!aiIsProspect(a)&&tvOvr(a)>=85&&tvYears(a)>=2&&!tvRental(g,a);}),star=get.some(function(a){return tvProvenOvr(a)>=87&&!tvCeilingOnly(a);});if(firsts>=2||equiv||star)return true;if(firsts>=1&&(young||real))return true;return false;}
+  // A second premium has to be a signed 84+, not a walk-year and not a ceiling kid. One 1st plus a rental is a rental price.
+  function tvTermPremiums(g,get){var n=tvN1(get);(get||[]).forEach(function(a){if(!a||a.round||tvRentalPriced(g,a))return;if(tvOvr(a)>=84&&!tvCeilingOnly(a))n++;});return n;}
+  function tvRentalPriced(g,p){return tvRental(g,p)||tvYears(p)<=1||(tvAge(p)>=34&&tvYears(p)<=2);}
+  function tvDealReason(g,found){try{
+    var A=found.A,B=found.B,d=found.deal||{},type=found.type||'',recv=found.receiver||B,other=recv===A?B:A;
+    var recvGets=recv===A?(d.giveB||[]):(d.giveA||[]),recvGives=recv===A?(d.giveA||[]):(d.giveB||[]);
+    var players=function(list){return (list||[]).filter(function(a){return a&&!a.round;});};
+    var best=function(list){return players(list).sort(function(a,b){return tvOvr(b)-tvOvr(a);})[0];};
+    var h=best(recvGets),out=best(recvGives),sweet=(recvGets||[]).filter(tvSweet);
+    if(type==='cap dump'){var dumped=best(d.giveA||[])||h;if(sweet.length)return team(A.id).name+' cleared '+ (dumped?dumped.name+'\'s ':'')+'cap hit and sent '+sweet.map(aiAssetLabel).join(' and ')+' to '+team(B.id).name+' for taking the contract.';return team(A.id).name+' moved '+(dumped?dumped.name+' ':'salary ')+'to '+team(B.id).name+', which had room under the cap.';}
+    if(type==='floor salary')return team(B.id).name+' was short of the cap floor and took salary on from '+team(A.id).name+'.';
+    if(type==='hockey trade'){var ha=best(d.giveA),hb=best(d.giveB);if(ha&&hb)return team(A.id).name+' sent '+ha.name+' to '+team(B.id).name+' for '+hb.name+' — each club filled the position the other had extra of.';return team(A.id).name+' and '+team(B.id).name+' swapped surplus pieces into positions they were short.';}
+    if(h&&tvRentalPriced(g,h)&&(type==='contender buy'||type==='bubble rental'||type==='retool sell'||type==='rebuild sell'||type==='youth sell'))return team(recv.id).name+' added rental '+h.name+' ('+tvOvr(h)+' OVR, age '+tvAge(h)+') for the playoff push'+(out?'; '+team(other.id).name+' cashed an expiring contract.':'.');
+    if(h&&(other.role==='RETOOL'||other.role==='REBUILD'||other.role==='YOUTH_MOVEMENT')&&tvAge(h)>=29&&tvRentalPriced(g,h))return team(other.id).name+' sold expiring veteran '+h.name+'; '+team(recv.id).name+' added him for the rest of the year.';
+    if(type==='rfa target'&&h)return team(recv.id).name+' acquired '+h.name+' ('+tvOvr(h)+' OVR, age '+tvAge(h)+') for the control years still on his deal.';
+    if((type==='rebuild sell'||type==='retool sell'||type==='youth sell')&&h)return team(other.id).name+' ('+(other.role||'')+') moved '+h.name+' ('+tvOvr(h)+' OVR, '+tvYears(h)+'y) for a return that fits that plan.';
+    if(h&&tvYoungCore(h))return team(recv.id).name+' added young core piece '+h.name+' ('+tvOvr(h)+' OVR, age '+tvAge(h)+', '+tvYears(h)+'y).';
+    if(h)return team(recv.id).name+' acquired '+h.name+' ('+tvOvr(h)+' OVR, age '+tvAge(h)+(tvRentalPriced(g,h)?', rental':', '+tvYears(h)+'y left')+').';
+    return team(recv.id).name+' and '+team(other.id).name+' completed a '+type+' deal.';
+  }catch(e){return 'League trade completed.';}}
+  // 1. Aging-star trigger: 2+ years left stays under the king's-ransom rule unless he is clearly declining.
+  //    Cap trouble, a true walk year, an unaffordable RFA, and a trade request still open the door.
+  var tvPrevTriggerFix=tvTrigger;tvTrigger=function(g,id,p,ctx){var why=tvPrevTriggerFix.apply(this,arguments);if(!why||String(why).indexOf('aging star')!==0)return why;if(tvYears(p)<=1||tvRental(g,p))return why;if(tvDeclining(p))return 'declining star on a club that is not built around him';return '';};
+  // 4. Young core on a contender or retool is protected the way a star is, unless the club is in cap trouble.
+  var tvPrevCtxFix=aiTeamCtx;aiTeamCtx=function(g,id,kind){var ctx=tvPrevCtxFix.apply(this,arguments);try{if(ctx&&g&&id!==g.team&&(ctx.role==='WIN_NOW'||ctx.role==='CONTENDER'||ctx.role==='RETOOL')&&!ctx.capTrouble){(ctx.club.roster||[]).forEach(function(p){if(tvYoungCore(p))ctx.protectedIds[p.id]=1;});}}catch(e){}return ctx;};
+  var tvPrevSellerFix=aiSellerAvailable;aiSellerAvailable=function(g,ctx,p,buyer){if(tvMoved(g,p))return false;if(ctx&&ctx.kind==='deadline'&&p&&g&&g.tvShopTry&&g.tvShopTry[tvShopKey(ctx.id,g,p.id)])return false;if(tvYoungCore(p)&&(ctx.role==='WIN_NOW'||ctx.role==='CONTENDER'||ctx.role==='RETOOL')&&!ctx.capTrouble)return false;return tvPrevSellerFix.apply(this,arguments);};
+  var tvPrevAssetsFix=aiTradeableAssets;aiTradeableAssets=function(g,ctx,kind,opts){var list=tvPrevAssetsFix.apply(this,arguments);try{list=list.filter(function(a){return !tvMoved(g,a);});}catch(e){}return list;};
+  // 2, 3, 5. Term price, dump cap, role fit, no same-season flips. AI package builder only — phone-call math is untouched.
+  var tvDealType=null;
+  var tvPrevSideFix=aiSideScore;aiSideScore=function(g,ctx,give,get){var s=tvPrevSideFix.apply(this,arguments);var type=tvDealType;if(!type||!ctx||!g)return s;try{
+    give=give||[];get=get||[];var why='';
+    var ban=function(msg){if(!why)why=msg;};
+    if(give.some(function(a){return tvMoved(g,a);}))ban('that player already changed clubs this season');
+    give.forEach(function(p){if(why||!p||p.round||aiIsProspect(p))return;var o=tvOvr(p),yrs=tvYears(p);
+      if(o>=90&&!tvCeilingOnly(p)&&!tvRentalPriced(g,p)){var proven=get.some(function(a){return tvProvenOvr(a)>=87&&!tvCeilingOnly(a);});if(!proven&&!tvTermPaid(g,get))ban(p.name+' is a proven '+o+' with '+yrs+' years left — a ceiling prospect cannot stand in for him');}
+      else if(o>=87&&yrs>=3&&!tvRentalPriced(g,p)&&tvTermPremiums(g,get)<2&&!get.some(function(a){return tvProvenOvr(a)>=87&&!tvCeilingOnly(a);}))ban(p.name+' ('+o+' OVR, '+yrs+'y) is signed impact — one 1st and a rental is a rental price');
+      else if(o>=85&&yrs>=2&&!tvRentalPriced(g,p)&&!tvTermPaid(g,get))ban(p.name+' ('+o+' OVR, '+yrs+'y) is signed impact — the return has to be a 1st plus a real piece, or another impact player');
+      else if(o>=87&&tvRentalPriced(g,p)&&tvN1(get)<1)ban(p.name+' is an '+o+' rental — the going rate is about one 1st');
+      else if(o>=85&&tvRentalPriced(g,p)&&tvN1(get)<1&&!get.some(function(a){return a&&!a.round&&!aiIsProspect(a)&&tvOvr(a)>=82;}))ban(p.name+' is an '+o+' rental — the going rate is about one 1st');
+    });
+    if((ctx.role==='WIN_NOW'||ctx.role==='CONTENDER'||ctx.role==='RETOOL')&&give.some(tvYoungCore)){var core=give.filter(tvYoungCore)[0];var okBack=tvTermPaid(g,get)||get.some(function(a){return a&&!a.round&&!aiIsProspect(a)&&tvAge(a)<=30&&tvYears(a)>=3&&tvOvr(a)>=Math.max(80,tvOvr(core)-2);});if(!okBack)ban(ctx.role+' keeps '+core.name+' (young core) unless the return is a real young piece');}
+    if((ctx.role==='REBUILD'||ctx.role==='YOUTH_MOVEMENT')&&type!=='cap dump'){get.forEach(function(a){if(why||!a||a.round||aiIsProspect(a))return;if(tvAge(a)<30||tvYears(a)<2||tvRental(g,a))return;var similar=give.some(function(b){return b&&!b.round&&!aiIsProspect(b)&&tvAge(b)>=28&&Math.abs(tvOvr(b)-tvOvr(a))<=3;});if(!similar&&!get.some(tvSweet))ban(ctx.role+' does not take '+a.name+' ('+tvAge(a)+', '+tvYears(a)+'y) on without a pick or a prospect');});}
+    if(type==='cap dump'){var dumping=!!ctx.capTrouble;if(!dumping){var otherHit=0;/* taker side: still refuse a package that robs them */}
+      var nGive=aiNeutral(g,give),nGet=aiNeutral(g,get),ratio=nGet/Math.max(1,nGive);
+      var givesSweet=give.some(tvSweet),getsSweet=get.some(tvSweet);
+      var useful=give.some(function(a){return a&&!a.round&&!tvSweet(a)&&tvOvr(a)>=83&&tvYears(a)>=2&&!tvRental(g,a);});
+      var rentalDump=give.some(function(a){return a&&!a.round&&!tvSweet(a)&&tvRental(g,a);});
+      if(dumping&&getsSweet&&!givesSweet)ban('the club taking the salary is the one that should receive the sweetener');
+      if(dumping&&givesSweet&&rentalDump&&!useful)ban('a walk-year deal does not need a pick attached to dump it');
+      if(dumping){var floor=0.80;if(givesSweet&&!useful&&!rentalDump)floor=0;if(floor&&ratio<floor)ban('cap relief cannot paper over a dump that gives away '+(ratio).toFixed(2)+'x the hockey value');}
+      if(!dumping&&ratio<0.80)ban('the club taking the contract still has to come out at 0.80x or better');
+    }
+    if(!why&&type!=='cap dump'&&type!=='floor salary'){var nOut=aiNeutral(g,give),nIn=aiNeutral(g,get),gap=nIn/Math.max(1,nOut);if(gap>1.27||gap<1/1.27)ban('hockey value has to stay inside 1.27x ('+gap.toFixed(2)+'x)');}
+    if(why){s.give+=TV.BLOCK;s.tvBlock=s.tvBlock||why;aiNote(why);}
+  }catch(e){}return s;};
+  var tvPrevBuildFix=aiBuild;aiBuild=function(g,A,B,coreA,coreB,payer,pool,kind,type){var prev=tvDealType;tvDealType=type||'';try{return tvPrevBuildFix.apply(this,arguments);}finally{tvDealType=prev;}};
+  // 4. Cooldown: a headline already shopped by this club at this deadline is not shopped again on the next pass.
+  var tvPrevTryFix=aiTryPairs;aiTryPairs=function(g,pairs,kind,type,limit){var lim=limit||AI_TRADE.PAIR_TRIES;if(g&&kind==='deadline'){pairs=(pairs||[]).filter(function(pr){return pr&&pr.p&&pr.seller&&!(g.tvShopTry&&g.tvShopTry[tvShopKey(pr.seller.id,g,pr.p.id)]);});}var res=tvPrevTryFix.call(this,g,pairs,kind,type,lim);if(g&&kind==='deadline'){g.tvShopTry=g.tvShopTry||{};var touched=0;for(var i=0;i<(pairs||[]).length&&touched<lim;i++){var pr=pairs[i];if(!pr||(pr.buyer&&pr.buyer.__done)||(pr.seller&&pr.seller.__done))continue;if(pr.p&&pr.seller)g.tvShopTry[tvShopKey(pr.seller.id,g,pr.p.id)]=1;touched++;if(res&&res.headline&&pr.p&&res.headline===pr.p)break;}}return res;};
+  // 6. Reason from the package, and remember every asset that moved so it cannot flip this season.
+  var tvPrevExecFix=aiExecute;aiExecute=function(g,found,kind,date){try{found.tvReason=tvDealReason(g,found);}catch(e){}var r=tvPrevExecFix.apply(this,arguments);try{
+    g.tvMoved=g.tvMoved||{};var season=Number(g.season);g.tvMoved[season]=g.tvMoved[season]||{};var d=found.deal||{};
+    [d.giveA,d.giveB].forEach(function(list){(list||[]).forEach(function(a){if(!a)return;g.tvMoved[season][tvMovedKey(a)]=1;if(!a.round)a.aiTradeLockSeason=g.season;});});
+    if(g.aiLog&&g.aiLog[0]&&found.tvReason){var A=found.A,B=found.B,st=function(x){return x.st.role+(x.capTrouble?'+CAP_TROUBLE':'');};g.aiLog[0].text=team(A.id).id+' ('+st(A)+') ↔ '+team(B.id).id+' ('+st(B)+'): '+found.tvReason;}
+    var tl=g.aiTradeLog;if(tl&&tl.length)tl[tl.length-1].why=found.tvReason;
+  }catch(e){}return r;};
+  // 5. Bubble clubs shop less often. The 115–140% call floor is not touched.
+  AI_TRADE.P_DEADLINE.BUBBLE=0.40;
+  if(typeof window!=='undefined'&&window.CTFOTradeValue){window.CTFOTradeValue.trigger=tvTrigger;window.CTFOTradeValue.dealReason=tvDealReason;window.CTFOTradeValue.termPaid=tvTermPaid;window.CTFOTradeValue.youngCore=tvYoungCore;window.CTFOTradeValue.declining=tvDeclining;}
+  /* ===== END DEADLINE SANITY v10.3.1 ===== */
   /* ===== END TRADE VALUE v2 ===== */
   try{init();}catch(e){var box=$('fatal-message');box.hidden=false;$('fatal-detail').textContent='Startup error: '+e.message;}
 })();

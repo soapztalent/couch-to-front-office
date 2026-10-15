@@ -9,7 +9,8 @@ const puppeteer = require('/tmp/simdeps/node_modules/puppeteer-core');
 
 const ROOT = path.resolve(__dirname, '..');
 const GAME = path.join(ROOT, 'game');
-const OUT = path.join(ROOT, 'sims');
+const SIMS = path.join(ROOT, 'sims');
+const OUT = process.env.SIM_OUT ? path.resolve(process.env.SIM_OUT) : SIMS;
 const RAW = path.join(OUT, 'raw');
 const PORT = 8796;
 const CHROME = process.env.CHROME || '/usr/bin/google-chrome';
@@ -37,7 +38,7 @@ function serve(dir) {
 
 function buildSimHtml() {
   const src = fs.readFileSync(path.join(GAME, 'index.html'), 'utf8');
-  const hook = fs.readFileSync(path.join(OUT, 'page-hook.js'), 'utf8');
+  const hook = fs.readFileSync(path.join(SIMS, 'page-hook.js'), 'utf8');
   const anchor = "  try{init();}catch(e){var box=$('fatal-message');box.hidden=false;$('fatal-detail').textContent='Startup error: '+e.message;}\n})();";
   if (!src.includes(anchor)) throw new Error('index.html anchor missing; rebuild from parts first');
   const html = src.replace(anchor, '\n' + hook + '\n' + anchor);
@@ -110,7 +111,7 @@ async function main() {
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     headless: 'new',
-    protocolTimeout: 600000,
+    protocolTimeout: 900000,
     args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-extensions']
   });
   const list = probe ? [SPECS[0], SPECS[14]] : SPECS;
@@ -121,7 +122,14 @@ async function main() {
       const n = only != null ? only : (probe ? i : i + 1);
       if (only != null && i + 1 !== only) continue;
       process.stdout.write('SIM ' + (i + 1) + '/' + list.length + ' seed=' + spec.seed + ' seasons=' + spec.seasons + '\n');
-      const out = await runOne(browser, spec, probe ? (i === 0 ? 1 : 15) : i + 1);
+      let out;
+      try {
+        out = await runOne(browser, spec, probe ? (i === 0 ? 1 : 15) : i + 1);
+      } catch (err) {
+        process.stdout.write('  FAIL ' + (err && err.message || err) + '\n');
+        results.push({ n: i + 1, seed: spec.seed, seasons: spec.seasons, ok: false, error: String(err && err.message || err) });
+        continue;
+      }
       const trades = (out.deadline && out.deadline.trades || []).length + (out.deadline && out.deadline.earlierTrades || []).length;
       const calls = (out.deadline && out.deadline.calls || []).length;
       process.stdout.write('  ok=' + !!(out.deadline && out.deadline.ok) + ' trades=' + trades + ' calls=' + calls + ' ms=' + out.ms + ' err=' + out.errors.length + '\n');

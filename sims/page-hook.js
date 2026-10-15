@@ -52,11 +52,14 @@ function simAsset(g, a) {
   };
 }
 function simWhy(found) {
+  try {
+    if (typeof tvDealReason === 'function' && current && current.game) return tvDealReason(current.game, found);
+  } catch (e) {}
   var A = found.A, B = found.B, recv = found.receiver, other = recv === A ? B : A;
-  if (found.type === 'cap dump') return team(A.id).name + ' needed cap relief and paid a sweetener; ' + team(B.id).name + ' had room to absorb salary for assets.';
+  if (found.type === 'cap dump') return team(A.id).name + ' cleared cap and sent the sweetener to ' + team(B.id).name + ' for taking the contract.';
   if (found.type === 'floor salary') return team(B.id).name + ' was under the cap floor and took on salary from a capped-out ' + team(A.id).name + '.';
   if (found.type === 'hockey trade') return 'Both clubs swapped from a position of surplus into a position of need.';
-  return team(recv.id).name + ' filled a lineup need; ' + team(other.id).name + ' converted the asset into value that fits its org state.';
+  return team(recv.id).name + ' and ' + team(other.id).name + ' completed a ' + (found.type || 'league') + ' deal.';
 }
 aiExecute = function (g, found, kind, date) {
   var snap = null;
@@ -160,12 +163,22 @@ function simFinishSeason() {
   var played = simPlayRegular('end');
   simulateToPlayoffs();
   var guard = 0, last = '';
-  while (g.stage === 'playoffs' && guard++ < 8) {
-    var key = (g.playoff && g.playoff.round) + '|' + (g.playoff && g.playoff.complete);
-    simulatePlayoffRound(g);
-    if (g.playoff && g.playoff.complete) break;
-    if (key === last && g.stage === 'playoffs') break;
-    last = (g.playoff && g.playoff.round) + '|' + (g.playoff && g.playoff.complete);
+  while (g.stage === 'playoffs' && guard++ < 12) {
+    try {
+      if (typeof requireLegalUserRoster === 'function' && !requireLegalUserRoster(g)) {
+        var fix = simUnstick(g);
+        if (!fix.ok) break;
+      }
+    } catch (eR) {}
+    var key = (g.playoff && g.playoff.round) + '|' + (g.playoff && g.playoff.complete) + '|' + g.stage;
+    try { simulatePlayoffRound(g); } catch (eP) { break; }
+    if (g.stage !== 'offseason' && g.playoff && g.playoff.complete) {
+      try { beginOffseason(g); } catch (eO) {}
+    }
+    if (g.stage === 'offseason') break;
+    var now = (g.playoff && g.playoff.round) + '|' + (g.playoff && g.playoff.complete) + '|' + g.stage;
+    if (now === key) break;
+    last = now;
   }
   if (g.stage !== 'offseason') return { ok: false, stage: g.stage, season: g.season, note: 'did not reach offseason', played: played };
   g.offseason.phase = 'draft';
