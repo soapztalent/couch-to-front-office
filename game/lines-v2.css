@@ -1,0 +1,50 @@
+/* lines-v2: real positions, off-position penalties, PP/PK roles, injuries, waivers */
+.lv2-pos{display:inline-flex;align-items:baseline;gap:3px;white-space:nowrap}
+.lv2-pos b{font-weight:800}
+.lv2-pos i{font-style:normal;font-size:.78em;opacity:.62}
+.lv2-roles{font-size:.72em;opacity:.7;letter-spacing:.02em}
+.lv2-ovr-drop{display:inline-flex;align-items:baseline;gap:3px;color:#ff6b68!important;font-weight:800}
+.lv2-ovr-drop s{color:rgba(255,255,255,.45);font-weight:600;font-size:.85em}
+.lv2-ovr-drop i{font-style:normal;font-size:.8em}
+.lv2-flag,.lv2-flag-inline{display:inline-block;margin-top:2px;padding:1px 5px;border-radius:4px;background:rgba(255,107,104,.16);color:#ff8f8b;font-style:normal;font-size:.68em;font-weight:800;letter-spacing:.04em}
+.lv2-off .ls-player-card{box-shadow:inset 0 0 0 1px rgba(255,107,104,.55)}
+.lv2-inj{display:inline-block;margin-left:4px;padding:1px 5px;border-radius:4px;background:rgba(255,64,64,.18);color:#ff7b7b;font-style:normal;font-size:.7em;font-weight:800}
+.lv2-rust{display:inline-block;margin-left:4px;padding:1px 5px;border-radius:4px;background:rgba(255,190,80,.16);color:#ffc266;font-style:normal;font-size:.68em;font-weight:800}
+.ls-player-copy small{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline}
+.lv2-pp-grid,.lv2-pk-grid{position:relative;display:grid;gap:10px;padding:14px;border-radius:12px;background:radial-gradient(circle at 50% 0,rgba(255,255,255,.07),transparent 60%)}
+.lv2-pp-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:". nf ." "lf bump rf" ". qb ."}
+.lv2-pk-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"pkf1 pkf2" "pkd1 pkd2"}
+.lv2-qb{grid-area:qb}.lv2-lf{grid-area:lf}.lv2-rf{grid-area:rf}.lv2-bump{grid-area:bump}.lv2-nf{grid-area:nf}
+.lv2-pkf1{grid-area:pkf1}.lv2-pkf2{grid-area:pkf2}.lv2-pkd1{grid-area:pkd1}.lv2-pkd2{grid-area:pkd2}
+.lv2-cell-label{display:block;margin:0 0 4px;font-size:.68em;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.65}
+.lv2-net{position:absolute;top:2px;left:50%;transform:translateX(-50%);font-size:.6em;letter-spacing:.2em;opacity:.35}
+.lv2-unit-note{margin:8px 0 0;font-size:.76em;opacity:.65;line-height:1.4}
+.lv2-plus{color:#6fe0a0}.lv2-neg{color:#ff6b68}
+.lv2-mini-list{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0}
+.lv2-mini{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:inherit;font:inherit;font-size:.8em;cursor:grab}
+.lv2-mini strong{font-weight:700}
+.lv2-bench header{display:flex;justify-content:space-between;margin-top:6px}
+.lv2-prompt{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:rgba(0,0,0,.6)}
+.lv2-prompt-card{width:min(560px,92vw);max-height:84vh;overflow:auto;padding:18px;border-radius:14px;background:#11161d;border:1px solid rgba(255,255,255,.14);color:#e9eef3}
+.lv2-prompt-card h3{margin:4px 0}.lv2-prompt-card p{font-size:.85em;opacity:.75}
+.lv2-prompt-list{display:grid;gap:6px;margin:10px 0}
+.lv2-prompt-list button{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.lv2-prompt-list button:hover{border-color:var(--ui-accent,#c9a43c)}
+.lv2-waive{color:#ff8f8b;font-style:normal;font-size:.72em;font-weight:800}
+.lv2-exempt{color:#6fe0a0;font-style:normal;font-size:.72em;font-weight:800}
+.lv2-panel{margin-top:14px;padding:14px}
+.lv2-panel header h3{margin:2px 0 8px}
+.lv2-group-row td{padding:8px 10px 4px!important;font-size:.7em;font-weight:800;letter-spacing:.14em;opacity:.7;background:rgba(255,255,255,.03)}
+.lv2-cap-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.lv2-cap-grid span{display:flex;flex-direction:column;gap:3px;font-size:.7em;letter-spacing:.08em;opacity:.85}
+.lv2-cap-grid b{font-size:1.5em;letter-spacing:0}
+.lv2-list{margin:8px 0 0;padding-left:18px;font-size:.84em;line-height:1.5}
+.lv2-tag{font-style:normal;font-size:.7em;font-weight:800;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.08)}
+.lv2-st{font-style:normal;font-weight:800;font-size:.75em}.lv2-st-ltir{color:#ff6b68}.lv2-st-ir{color:#ffb066}.lv2-st-dtd{color:#ffd666}
+.lv2-wire label{margin-right:14px;font-size:.85em}
+.lv2-empty{opacity:.6;font-size:.85em}
+@media (max-width:760px){.lv2-cap-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* the sticky office bottom bar (Main menu / Play next game) must not cover the PP point (QB) slot */
+html body[data-view="office"] .office-content:has(.lv2-pp-grid,.lv2-pk-grid){padding-bottom:150px !important}
+.lv2-pp-grid,.lv2-pk-grid{scroll-margin-bottom:150px}
+.lv2-flag.lv2-flag-sec{background:rgba(255,255,255,.08);color:#c9d3de}
