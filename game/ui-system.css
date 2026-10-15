@@ -1,0 +1,148 @@
+/* ===== CTFO UI SYSTEM (patch25, v10.1) =====
+   One design system for every office page and modal: tokens, card, card header, section label, stat tile, table, row, button, pill.
+   Loaded last. Selectors start with `html body #app` / `#workspace-modal` (an id) so they win over theme-core's
+   `html body[data-view="office"] …!important` layer without editing generated files. Type sizes are also snapped to the scale at runtime
+   (patch25.js, p25Type) so one-off 6–10px text everywhere lands on the same steps. No game logic. */
+:root{
+  --ds-fs-label:11px;   /* caps labels, table heads, pills */
+  --ds-fs-meta:12px;    /* secondary text */
+  --ds-fs-row:13px;     /* rows, table cells */
+  --ds-fs-body:14px;    /* body copy, names */
+  --ds-fs-title:13px;   /* card titles (caps, condensed) */
+  --ds-fs-value:24px;   /* stat values */
+  --ds-fs-value-sm:18px;
+  --ds-ls-label:.12em;
+  --ds-gap:16px; --ds-pad:18px; --ds-pad-sm:12px; --ds-radius:8px; --ds-radius-sm:6px; --ds-row-h:36px;
+  --ds-line:rgba(255,255,255,.075); --ds-line-strong:rgba(255,255,255,.14);
+  --ds-card-bg:linear-gradient(180deg,#0e1216 0%,#0a0d10 100%);
+  --ds-tile-bg:rgba(255,255,255,.025);
+  --ds-accent:var(--t-gold,#FFB81C);
+  --ds-text:var(--t-text,#eef1f4); --ds-muted:var(--t-muted,#8b9198);
+  --ds-display:var(--t-display,"Barlow Condensed","Arial Narrow",sans-serif);
+}
+/* ---------- layout: use the width ---------- */
+html body #app{max-width:min(2600px,100%) !important;}
+html body #app .office-layout{max-width:none !important;padding-left:clamp(14px,1.6vw,40px) !important;padding-right:clamp(14px,1.6vw,40px) !important;}
+html body #app #office-content{min-width:0 !important;}
+
+/* ---------- card ---------- */
+html body :is(#app,#workspace-modal) :is(.home-card,.fo-panel,.panel,.detail-panel,.sc2-panel,.front-office-card,.stats-role-card,.division-standings,.lv2-panel){
+  background:var(--ds-card-bg) !important;border:1px solid var(--ds-line) !important;border-top:2px solid var(--ds-accent) !important;border-radius:var(--ds-radius) !important;box-shadow:none !important;}
+html body :is(#app,#workspace-modal) :is(.home-card,.fo-panel,.front-office-card,.sc2-panel){padding:var(--ds-pad) !important;}
+/* nested cards: no second accent */
+html body :is(#app,#workspace-modal) :is(.home-card,.fo-panel,.panel,.detail-panel,.sc2-panel,.division-standings,.lv2-panel) :is(.fo-panel,.panel,.detail-panel,.sc2-panel,.lv2-panel){border-top:1px solid var(--ds-line) !important;}
+html body :is(#app,#workspace-modal) :is(.home-card,.fo-panel,.panel,.detail-panel,.sc2-panel,.front-office-card,.stat-card)::before{display:none !important;}
+
+/* ---------- card header + section label ---------- */
+html body :is(#app,#workspace-modal) :is(.home-card>header,.panel-head,.sc2-ph){display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;min-height:30px !important;}
+html body #app .home-card>header{margin:0 0 14px !important;padding:0 0 12px !important;border-bottom:1px solid var(--ds-line) !important;}
+html body :is(#app,#workspace-modal) :is(.home-card-label,.section-kicker,.sc2-kicker,.front-office-tag){font-family:var(--ds-display) !important;font-size:var(--ds-fs-title) !important;font-weight:700 !important;letter-spacing:var(--ds-ls-label) !important;text-transform:uppercase !important;color:var(--ds-accent) !important;line-height:1.2 !important;}
+html body :is(#app,#workspace-modal) .front-office-tag{font-size:var(--ds-fs-label) !important;color:var(--ds-muted) !important;}
+html body #app .home-card-note{font-size:var(--ds-fs-label) !important;font-weight:700 !important;letter-spacing:var(--ds-ls-label) !important;color:var(--ds-muted) !important;text-transform:uppercase !important;}
+/* header link arrow: one size, always top-right */
+html body #app :is(.home-more,.home-news-mark){width:28px !important;height:28px !important;min-width:28px !important;margin-left:auto !important;display:inline-grid !important;place-items:center !important;border:1px solid var(--ds-line-strong) !important;border-radius:var(--ds-radius-sm) !important;background:transparent !important;font-size:13px !important;padding:0 !important;color:var(--ds-accent) !important;}
+html body #app .home-news-mark .ui-team-mark,html body #app .home-news-mark svg{width:18px !important;height:18px !important;}
+/* card footer action: pinned to the bottom */
+html body #app .home-text-action{margin-top:auto !important;width:100% !important;display:flex !important;justify-content:space-between !important;align-items:center !important;padding:12px 0 0 !important;border:0 !important;border-top:1px solid var(--ds-line) !important;background:none !important;font-family:var(--ds-display) !important;font-size:var(--ds-fs-meta) !important;font-weight:700 !important;letter-spacing:var(--ds-ls-label) !important;color:var(--ds-accent) !important;text-transform:uppercase !important;}
+html body #app .home-news-foot{margin-top:auto !important;padding-top:12px !important;border-top:1px solid var(--ds-line) !important;font-size:var(--ds-fs-label) !important;letter-spacing:var(--ds-ls-label) !important;color:var(--ds-muted) !important;}
+
+/* ---------- home grid: 4 equal columns, rows line up, no dead space ---------- */
+html body #app .home-dashboard{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr)) !important;grid-auto-rows:auto !important;grid-template-rows:none !important;gap:var(--ds-gap) !important;align-items:stretch !important;border:0 !important;background:none !important;}
+html body #app .home-dashboard>.home-hero{display:none !important;}
+html body #app .home-dashboard>.home-card{grid-column:auto !important;grid-row:auto !important;display:flex !important;flex-direction:column !important;min-height:0 !important;height:auto !important;max-height:none !important;overflow:hidden !important;}
+html body #app .home-dashboard>.home-card>:is(.home-standings-list,.home-schedule-list,.home-news-list,.home-task-list,.home-stat-grid){flex:1 1 auto !important;}
+@media (max-width:1499px){html body #app .home-dashboard{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
+@media (max-width:899px){html body #app .home-dashboard{grid-template-columns:minmax(0,1fr) !important;}}
+
+/* ---------- rows (standings, schedule, news, tasks, prospects) ---------- */
+html body #app :is(.home-standing-row,.home-standings-head){display:grid !important;grid-template-columns:22px 24px minmax(0,1fr) 34px 74px 38px !important;align-items:center !important;gap:8px !important;padding:0 8px !important;font-size:var(--ds-fs-row) !important;font-variant-numeric:tabular-nums !important;}
+html body #app .home-standing-row{min-height:var(--ds-row-h) !important;border:0 !important;border-bottom:1px solid var(--ds-line) !important;border-radius:0 !important;background:transparent !important;}
+html body #app .home-standing-row.user-team{background:rgba(255,184,28,.07) !important;box-shadow:inset 2px 0 0 var(--ds-accent) !important;}
+html body #app .home-standing-row>*{font-size:var(--ds-fs-row) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}
+html body #app .home-standing-row>strong{font-weight:600 !important;color:var(--ds-text) !important;}
+html body #app .home-standing-row>span:nth-of-type(n+2),html body #app .home-standing-row>b{text-align:right !important;}
+html body #app .home-standing-row>b{color:var(--ds-accent) !important;font-weight:700 !important;}
+html body #app .home-standings-head{min-height:28px !important;}
+html body #app .home-standings-head>span{font-size:var(--ds-fs-label) !important;font-weight:700 !important;letter-spacing:.08em !important;color:var(--ds-muted) !important;text-transform:uppercase !important;}
+html body #app .home-standings-head>span:nth-child(2){grid-column:2 / span 2 !important;}
+html body #app .home-standings-head>span:nth-child(n+3){text-align:right !important;}
+html body #app .home-rank{color:var(--ds-muted) !important;text-align:right !important;}
+html body #app .home-schedule-item{display:grid !important;grid-template-columns:60px 24px minmax(0,1fr) auto !important;align-items:center !important;gap:8px !important;min-height:var(--ds-row-h) !important;padding:0 8px !important;border:0 !important;border-bottom:1px solid var(--ds-line) !important;border-radius:0 !important;background:transparent !important;font-variant-numeric:tabular-nums !important;}
+html body #app .home-schedule-item>*{font-size:var(--ds-fs-row) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}
+html body #app .home-schedule-item>time{color:var(--ds-muted) !important;font-weight:600 !important;}
+html body #app .home-schedule-item>strong{font-weight:600 !important;}
+html body #app .home-schedule-item>small{color:var(--ds-muted) !important;text-align:right !important;}
+html body #app .home-last-five{display:flex !important;justify-content:space-between !important;align-items:center !important;padding:12px 8px !important;font-size:var(--ds-fs-label) !important;letter-spacing:var(--ds-ls-label) !important;color:var(--ds-muted) !important;}
+html body #app :is(.home-news-item,.home-task-row,.home-prospect){display:grid !important;align-items:center !important;gap:12px !important;min-height:52px !important;padding:10px 8px !important;border:0 !important;border-bottom:1px solid var(--ds-line) !important;border-radius:0 !important;background:transparent !important;text-align:left !important;width:100% !important;}
+html body #app .home-news-item{grid-template-columns:24px minmax(0,1fr) !important;}
+html body #app .home-task-row{grid-template-columns:32px minmax(0,1fr) 14px !important;cursor:pointer !important;}
+html body #app .home-prospect{grid-template-columns:32px minmax(0,1fr) auto !important;}
+html body #app :is(.home-news-item,.home-task-row,.home-prospect) strong{display:block !important;font-size:var(--ds-fs-body) !important;font-weight:600 !important;color:var(--ds-text) !important;line-height:1.3 !important;}
+html body #app :is(.home-news-item,.home-task-row,.home-prospect) small{display:block !important;font-size:var(--ds-fs-meta) !important;color:var(--ds-muted) !important;line-height:1.35 !important;letter-spacing:normal !important;}
+html body #app .home-news-item strong{font-family:var(--ds-display) !important;font-size:var(--ds-fs-label) !important;letter-spacing:var(--ds-ls-label) !important;color:var(--ds-accent) !important;text-transform:uppercase !important;}
+html body #app .home-news-item small{color:var(--ds-text) !important;font-size:var(--ds-fs-row) !important;}
+html body #app .home-prospect>span>small:first-child{font-size:var(--ds-fs-label) !important;letter-spacing:.08em !important;text-transform:uppercase !important;}
+html body #app .home-prospect>b{font-size:var(--ds-fs-value-sm) !important;font-weight:700 !important;color:var(--t-green,#34d399) !important;text-align:right !important;font-variant-numeric:tabular-nums !important;}
+html body #app .home-prospect>b small{font-size:var(--ds-fs-label) !important;color:var(--ds-muted) !important;}
+html body #app :is(.home-task-icon,.scout-radar){width:32px !important;height:32px !important;display:grid !important;place-items:center !important;border:1px solid var(--ds-line-strong) !important;border-radius:var(--ds-radius-sm) !important;}
+html body #app :is(.home-tasks-intro,.home-scout-note,.home-muted){font-size:var(--ds-fs-meta) !important;color:var(--ds-muted) !important;margin:0 0 8px !important;}
+html body #app .home-scout-note{margin:10px 0 12px !important;}
+
+/* ---------- stat tiles ---------- */
+html body #app .home-stat-grid{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr)) !important;grid-auto-rows:1fr !important;gap:10px !important;border:0 !important;background:none !important;}
+html body #app :is(.home-stat-grid>div,.stat-card,.stats-kpi,.home-record>span,.home-grades>span,.home-team-extras>span,.roster-overview-metrics>div,.pp-cap-metrics>div){background:var(--ds-tile-bg) !important;border:1px solid var(--ds-line) !important;border-radius:var(--ds-radius-sm) !important;padding:var(--ds-pad-sm) !important;box-shadow:none !important;min-width:0 !important;}
+html body #app .home-stat-grid>div{display:flex !important;flex-direction:column !important;justify-content:space-between !important;gap:6px !important;min-height:96px !important;}
+html body #app :is(.home-stat-grid>div>span,.stat-card>span,.stats-kpi>span,.roster-overview-metrics span,.pp-cap-metrics span){font-family:var(--ds-display) !important;font-size:var(--ds-fs-label) !important;font-weight:700 !important;letter-spacing:var(--ds-ls-label) !important;color:var(--ds-muted) !important;text-transform:uppercase !important;}
+html body #app :is(.home-stat-grid>div>strong,.stat-card>strong,.home-record strong){font-size:var(--ds-fs-value) !important;font-weight:700 !important;line-height:1.1 !important;color:var(--ds-text) !important;font-variant-numeric:tabular-nums !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}
+html body #app .home-stat-grid>div>strong.p25-name{font-size:var(--ds-fs-body) !important;white-space:normal !important;}
+html body #app :is(.home-stat-grid>div>small,.home-record small,.home-grades small,.home-team-extras small){font-size:var(--ds-fs-label) !important;letter-spacing:.08em !important;color:var(--ds-muted) !important;text-transform:uppercase !important;line-height:1.3 !important;}
+html body #app .home-record{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:8px !important;}
+html body #app .home-record strong{font-size:var(--ds-fs-value-sm) !important;}
+html body #app .home-grades{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:8px !important;}
+html body #app .home-grades b{font-size:var(--ds-fs-value-sm) !important;color:var(--ds-accent) !important;}
+html body #app .home-team-extras{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;margin-top:auto !important;}
+html body #app .home-team-extras strong{font-size:var(--ds-fs-body) !important;}
+html body #app .home-team-card{gap:12px !important;}
+html body #app .home-team-card>header{margin-bottom:2px !important;}
+/* next game */
+html body #app .home-next-card .home-matchup{flex:1 1 auto !important;min-height:0 !important;max-height:220px !important;}
+html body #app .home-matchup-note{display:flex !important;flex-direction:column !important;align-items:center !important;gap:4px !important;margin:14px 0 !important;text-align:center !important;letter-spacing:normal !important;text-transform:none !important;}
+html body #app .home-matchup-note strong{font-size:var(--ds-fs-body) !important;font-weight:700 !important;color:var(--ds-text) !important;white-space:nowrap !important;}
+html body #app .home-matchup-note span{font-size:var(--ds-fs-meta) !important;color:var(--ds-muted) !important;white-space:nowrap !important;font-variant-numeric:tabular-nums !important;}
+html body #app .home-live-tag{font-size:var(--ds-fs-label) !important;}
+
+/* ---------- pills / badges ---------- */
+html body :is(#app,#workspace-modal) :is(.small-badge,.home-live-tag,.stats-role-pill,.playoff-seed-tag,.wild-card-tag,.sc2-tag,.priority){display:inline-flex !important;align-items:center !important;gap:5px !important;padding:3px 8px !important;border-radius:999px !important;font-size:var(--ds-fs-label) !important;font-weight:700 !important;letter-spacing:.06em !important;line-height:1.2 !important;white-space:nowrap !important;text-transform:uppercase !important;}
+
+/* ---------- tables ---------- */
+html body :is(#app,#workspace-modal) :is(.player-table,.standing-table,table) th{font-family:var(--ds-display) !important;font-size:var(--ds-fs-label) !important;font-weight:700 !important;letter-spacing:.08em !important;color:var(--ds-muted) !important;text-transform:uppercase !important;white-space:nowrap !important;}
+html body :is(#app,#workspace-modal) :is(.player-table,.standing-table,table) td{font-size:var(--ds-fs-row) !important;font-variant-numeric:tabular-nums !important;}
+html body :is(#app,#workspace-modal) :is(.player-table,.standing-table) :is(td,th){padding-top:8px !important;padding-bottom:8px !important;border-bottom:1px solid var(--ds-line) !important;}
+
+/* ---------- buttons ---------- */
+html body :is(#app,#workspace-modal) :is(.button,.sc2-btn,.home-sim-action){border-radius:var(--ds-radius-sm) !important;font-family:var(--ds-display) !important;font-size:var(--ds-fs-meta) !important;font-weight:700 !important;letter-spacing:.1em !important;text-transform:uppercase !important;min-height:36px !important;}
+html body #app .home-primary-action{border-radius:var(--ds-radius-sm) !important;font-family:var(--ds-display) !important;font-size:var(--ds-fs-body) !important;letter-spacing:.12em !important;min-height:44px !important;}
+
+/* ---------- page pieces ---------- */
+html body #app .metric-row{display:grid !important;grid-template-columns:repeat(auto-fit,minmax(220px,1fr)) !important;gap:var(--ds-gap) !important;}
+html body #app .stat-card{border-left:1px solid var(--ds-line) !important;border-top:2px solid var(--ds-accent) !important;}
+html body #app .front-office-hub{display:grid !important;grid-template-columns:repeat(auto-fit,minmax(240px,1fr)) !important;gap:var(--ds-gap) !important;}
+html body #app .future-grid{gap:var(--ds-gap) !important;}
+html body #app .panel-subtitle{font-size:var(--ds-fs-meta) !important;color:var(--ds-muted) !important;}
+/* the sticky bottom bar never covers the last row */
+html body[data-view="office"] #app .office-content:not(:has(.lv2-pp-grid,.lv2-pk-grid)){padding-bottom:96px !important;}
+html body[data-view="office"] #app .office-content:has(.lv2-pp-grid,.lv2-pk-grid){padding-bottom:150px !important;}
+html body #app .home-dashboard{margin-bottom:8px !important;}
+/* crest + team name on one line in standings/stat tables */
+html body :is(#app,#workspace-modal) td>.standings-crest{display:inline-grid !important;vertical-align:middle !important;margin:0 8px 0 0 !important;}
+html body :is(#app,#workspace-modal) td:has(>.standings-crest){white-space:nowrap !important;}
+html body :is(#app,#workspace-modal) td:has(>.standings-crest)>:is(span,strong,a,b):not(.standings-crest){display:inline !important;vertical-align:middle !important;}
+/* standings division header: no dead space */
+html body #app .division-standings>header{min-height:0 !important;height:auto !important;padding:14px 16px 12px 44px !important;}
+html body #app .division-standings>header :is(h2,h3){margin:0 0 4px !important;}
+/* metric tiles everywhere look like stat tiles */
+html body #app .metric-row>div:not(.stat-card){background:var(--ds-tile-bg) !important;border:1px solid var(--ds-line) !important;border-top:2px solid var(--ds-accent) !important;border-radius:var(--ds-radius-sm) !important;padding:var(--ds-pad-sm) !important;box-shadow:none !important;}
+html body #app .metric-row>div>span{font-family:var(--ds-display) !important;font-size:var(--ds-fs-label) !important;font-weight:700 !important;letter-spacing:var(--ds-ls-label) !important;color:var(--ds-muted) !important;text-transform:uppercase !important;}
+html body #app .metric-row>div>strong{font-size:var(--ds-fs-value) !important;font-weight:700 !important;font-variant-numeric:tabular-nums !important;}
+html body #app .metric-row>div::before{display:none !important;}
+/* ===== end CTFO UI SYSTEM ===== */
