@@ -558,23 +558,27 @@ function addHair(mesh: Mesh): void {
     }
     const color = seed > 0.82 ? HAIR_LIFT : HAIR;
     const width = 0.0016 + seed * 0.0011;
-    for (let i = 0; i < pts.length - 1; i += 1) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      const tan = n3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]);
+    const edge: number[] = [];
+    for (let i = 0; i < pts.length; i += 1) {
+      const prev = pts[Math.max(0, i - 1)];
+      const next = pts[Math.min(pts.length - 1, i + 1)];
+      const tan = n3([next[0] - prev[0], next[1] - prev[1], next[2] - prev[2]]);
       let side = cross(tan, [0, 1, 0]);
-      if (Math.hypot(side[0], side[1], side[2]) < 0.2) side = cross(tan, [1, 0, 0]);
+      if (side[0] * side[0] + side[1] * side[1] + side[2] * side[2] < 0.04) side = cross(tan, [1, 0, 0]);
       side = n3(side);
-      const w = width * (1 - i / pts.length);
-      const a0 = add3(a, side, w);
-      const a1 = add3(a, side, -w);
-      const b0 = add3(b, side, w * 0.92);
-      const b1 = add3(b, side, -w * 0.92);
-      const n = n3(cross([b0[0] - a0[0], b0[1] - a0[1], b0[2] - a0[2]], [a1[0] - a0[0], a1[1] - a0[1], a1[2] - a0[2]]));
-      const i0 = mesh.vert(a0[0], a0[1], a0[2], n[0], n[1], n[2], color, M_CLOTH);
-      const i1 = mesh.vert(a1[0], a1[1], a1[2], n[0], n[1], n[2], color, M_CLOTH);
-      const i2 = mesh.vert(b0[0], b0[1], b0[2], n[0], n[1], n[2], color, M_CLOTH);
-      const i3 = mesh.vert(b1[0], b1[1], b1[2], n[0], n[1], n[2], color, M_CLOTH);
+      const n = n3(cross(tan, side));
+      const w = width * (1 - i / (pts.length - 1 || 1));
+      const a = pts[i];
+      edge.push(
+        mesh.vert(a[0] + side[0] * w, a[1] + side[1] * w, a[2] + side[2] * w, n[0], n[1], n[2], color, M_CLOTH),
+        mesh.vert(a[0] - side[0] * w, a[1] - side[1] * w, a[2] - side[2] * w, n[0], n[1], n[2], color, M_CLOTH),
+      );
+    }
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const i0 = edge[i * 2];
+      const i1 = edge[i * 2 + 1];
+      const i2 = edge[(i + 1) * 2];
+      const i3 = edge[(i + 1) * 2 + 1];
       mesh.tri(i0, i2, i1);
       mesh.tri(i1, i2, i3);
     }

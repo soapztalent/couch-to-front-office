@@ -81,6 +81,39 @@ const HOME_CROSS: Crosshair = {
   dotSize: 1,
 };
 
+/** Same inputs as the room shader, without the spec chain. The figure is the million-triangle mesh. */
+const HUMAN_VERT = `
+attribute vec3 aPos;
+attribute vec3 aNrm;
+attribute vec3 aColor;
+attribute float aMat;
+uniform mat4 uMvp;
+uniform mat4 uModel;
+uniform mat3 uNmat;
+uniform float uTone;
+uniform vec3 uKey;
+uniform vec3 uFill;
+uniform vec3 uUp;
+varying vec3 vColor;
+varying float vMat;
+varying float vY;
+void main() {
+  vec4 world = uModel * vec4(aPos, 1.0);
+  vec3 N = uNmat * aNrm;
+  float ndl = dot(N, uKey);
+  float skin = step(aMat, 0.5);
+  float lit = mix(max(ndl, 0.0), clamp(ndl * 0.5 + 0.5, 0.0, 1.0), skin);
+  float hemi = clamp(dot(N, uUp) * 0.5 + 0.5, 0.0, 1.0);
+  float fill = max(dot(N, uFill), 0.0);
+  vec3 albedo = aColor * uTone;
+  vec3 amb = mix(vec3(0.08, 0.084, 0.09), vec3(0.2, 0.21, 0.23), hemi);
+  vColor = albedo * (amb + lit * vec3(0.78, 0.74, 0.66) + fill * vec3(0.22, 0.24, 0.28));
+  vMat = aMat;
+  vY = world.y;
+  gl_Position = uMvp * world;
+}
+`;
+
 const VERT = `
 attribute vec3 aPos;
 attribute vec3 aNrm;
@@ -876,6 +909,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   if (!gl) throw new Error("webgl2 unavailable");
 
   const program = link(gl, VERT, FRAG);
+  const humanProg = link(gl, HUMAN_VERT, FRAG);
   const unlit = link(gl, UNLIT_VERT, UNLIT_FRAG);
   const boardProg = linkBoard(gl);
   const boardMvp = gl.getUniformLocation(boardProg, "uMvp");
@@ -887,6 +921,13 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   const keyLoc = gl.getUniformLocation(program, "uKey");
   const fillLoc = gl.getUniformLocation(program, "uFill");
   const upLoc = gl.getUniformLocation(program, "uUp");
+  const hMvp = gl.getUniformLocation(humanProg, "uMvp");
+  const hModel = gl.getUniformLocation(humanProg, "uModel");
+  const hN = gl.getUniformLocation(humanProg, "uNmat");
+  const hTone = gl.getUniformLocation(humanProg, "uTone");
+  const hKey = gl.getUniformLocation(humanProg, "uKey");
+  const hFill = gl.getUniformLocation(humanProg, "uFill");
+  const hUp = gl.getUniformLocation(humanProg, "uUp");
   const hudMvp = gl.getUniformLocation(unlit, "uMvp");
 
   const roomBuf = gl.createBuffer();
@@ -938,6 +979,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, person.indices, gl.STATIC_DRAW);
   const humanIndexCount = person.indices.length;
   canvas.dataset.tris = String(person.triangles);
+  canvas.dataset.verts = String(person.verts.length / STRIDE);
   const handCount = park(handBuf, viewHandMesh());
   gl.bindVertexArray(null);
 
@@ -1006,14 +1048,14 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
 
   const drawHuman = (mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number) => {
     if (humanIndexCount < 3) return;
-    gl.useProgram(program);
-    gl.uniformMatrix4fv(mvpLoc, false, mvp);
-    gl.uniformMatrix4fv(modelLoc, false, model);
-    gl.uniformMatrix3fv(nLoc, false, nrm);
-    gl.uniform1f(toneLoc, tone);
-    gl.uniform3fv(keyLoc, key);
-    gl.uniform3fv(fillLoc, fill);
-    gl.uniform3fv(upLoc, up);
+    gl.useProgram(humanProg);
+    gl.uniformMatrix4fv(hMvp, false, mvp);
+    gl.uniformMatrix4fv(hModel, false, model);
+    gl.uniformMatrix3fv(hN, false, nrm);
+    gl.uniform1f(hTone, tone);
+    gl.uniform3fv(hKey, key);
+    gl.uniform3fv(hFill, fill);
+    gl.uniform3fv(hUp, up);
     bindMesh(humanBuf);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, humanElem);
     gl.enable(gl.DEPTH_TEST);
@@ -1275,6 +1317,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     destroy: () => {
       observer.disconnect();
       gl.deleteProgram(program);
+      gl.deleteProgram(humanProg);
       gl.deleteProgram(unlit);
       gl.deleteProgram(boardProg);
       gl.deleteBuffer(roomBuf);
