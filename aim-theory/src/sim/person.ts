@@ -484,30 +484,30 @@ function addHands(mesh: Mesh): void {
   for (const side of [-1, 1]) {
     const x = side * 0.2;
     const y = 0.84;
-    const z = 0.155;
-    addSphere(mesh, [x, y - 0.015, z], [0.05, 0.055, 0.014], 16, 18, SKIN, M_SKIN);
-    const lengths = [0.07, 0.086, 0.08, 0.062];
+    const z = 0.16;
+    addSphere(mesh, [x, y - 0.01, z], [0.078, 0.05, 0.014], 16, 18, SKIN, M_SKIN);
+    const lengths = [0.078, 0.096, 0.09, 0.07];
     for (let i = 0; i < 4; i += 1) {
-      const fx = x + (i - 1.5) * 0.026;
+      const fx = x + (i - 1.5) * 0.042;
       const len = lengths[i];
-      const spread = (i - 1.5) * 0.008;
-      const y0 = y - 0.04;
-      const z0 = z + 0.012;
-      addTube(mesh, [fx, y0, z0], [fx + spread, y0 - len, z0 + 0.02], 10, 12, (t) => mix(0.0072, 0.0052, t), SKIN, M_SKIN);
-      addSphere(mesh, [fx + spread, y0 - len - 0.002, z0 + 0.022], [0.006, 0.005, 0.004], 6, 8, NAIL, M_SKIN);
+      const spread = (i - 1.5) * 0.012;
+      const y0 = y - 0.038;
+      const z0 = z + 0.016;
+      addTube(mesh, [fx, y0, z0], [fx + spread, y0 - len, z0 + 0.028], 10, 12, (t) => mix(0.0085, 0.0064, t), SKIN, M_SKIN);
+      addSphere(mesh, [fx + spread, y0 - len - 0.004, z0 + 0.03], [0.0075, 0.006, 0.005], 6, 8, NAIL, M_SKIN);
     }
-    const tx = x + side * 0.046;
+    const tx = x + side * 0.09;
     addTube(
       mesh,
-      [tx, y + 0.012, z + 0.006],
-      [tx + side * 0.032, y - 0.045, z + 0.032],
+      [tx, y + 0.02, z + 0.01],
+      [tx + side * 0.04, y - 0.05, z + 0.04],
       8,
       10,
-      (t) => mix(0.011, 0.0075, t),
+      (t) => mix(0.012, 0.008, t),
       SKIN,
       M_SKIN,
     );
-    addSphere(mesh, [tx + side * 0.034, y - 0.05, z + 0.034], [0.008, 0.007, 0.006], 6, 8, NAIL, M_SKIN);
+    addSphere(mesh, [tx + side * 0.042, y - 0.056, z + 0.042], [0.01, 0.008, 0.007], 6, 8, NAIL, M_SKIN);
   }
 }
 

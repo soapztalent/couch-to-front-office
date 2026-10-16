@@ -512,8 +512,8 @@ function portraitQuad(): Float32Array {
   const u = (x: number) => (hx - x) / (hx * 2);
   const v = (y: number) => (y - y0) / (y1 - y0);
   const z = PORTRAIT_Z;
-  const xL = 0.34;
-  const xR = -0.34;
+  const xL = 0.42;
+  const xR = -0.42;
   const yB = -0.01;
   const yT = 1.8;
   return new Float32Array([
