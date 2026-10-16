@@ -1,7 +1,8 @@
 /**
- * The shared person is public/person.glb: a clothed adult (field jacket, shirt,
- * jeans, hair, eyes, hands) shipped as one file. Density comes from that mesh.
- * This module only reads it.
+ * The shared person is public/person.glb: a photogrammetry scan of a clothed
+ * adult (jacket, jeans, hair, eyes, hands). Triangle count is the scan itself,
+ * decimated from the 5-million-triangle capture. Albedo, normal, and roughness
+ * are read here and shaded in the view. See public/person-credits.txt.
  */
 
 export type PersonImage = { mime: string; bytes: Uint8Array };
@@ -13,6 +14,10 @@ export type PersonPrim = {
   uvs: Float32Array;
   indices: Uint32Array;
   image: number;
+  /** Image index of the tangent-space normal, or -1. */
+  normal: number;
+  /** Image index of the metallic-roughness map (roughness in G), or -1. */
+  rough: number;
   /** 0 draws opaque. Otherwise alpha-test at this cutoff. */
   alphaCutoff: number;
 };
@@ -41,7 +46,11 @@ type Gltf = {
     name?: string;
     alphaMode?: string;
     alphaCutoff?: number;
-    pbrMetallicRoughness?: { baseColorTexture?: { index: number } };
+    normalTexture?: { index: number };
+    pbrMetallicRoughness?: {
+      baseColorTexture?: { index: number };
+      metallicRoughnessTexture?: { index: number };
+    };
   }[];
   textures?: { source?: number }[];
   images?: { mimeType?: string; bufferView?: number }[];
@@ -168,12 +177,18 @@ export function parsePerson(buffer: ArrayBuffer): PersonMesh {
         if (y > 1.45 && y < 1.75 && z > face) face = z;
       }
       const mat = json.materials?.[prim.material ?? 0];
-      const texIndex = mat?.pbrMetallicRoughness?.baseColorTexture?.index ?? 0;
-      const image = json.textures?.[texIndex]?.source ?? 0;
+      const sourceOf = (index: number | undefined) => {
+        if (index == null) return -1;
+        const source = json.textures?.[index]?.source;
+        return source == null ? -1 : source;
+      };
+      const image = sourceOf(mat?.pbrMetallicRoughness?.baseColorTexture?.index);
+      const normal = sourceOf(mat?.normalTexture?.index);
+      const rough = sourceOf(mat?.pbrMetallicRoughness?.metallicRoughnessTexture?.index);
       const cutoff = mat?.alphaMode === "MASK" ? (mat.alphaCutoff ?? 0.5) : 0;
       triangles += indices.length / 3;
       verts += pos.length / 3;
-      primitives.push({ name: mesh.name ?? "person", positions: pos, normals: nrm, uvs: uv, indices, image, alphaCutoff: cutoff });
+      primitives.push({ name: mesh.name ?? "person", positions: pos, normals: nrm, uvs: uv, indices, image, normal, rough, alphaCutoff: cutoff });
     }
   }
   primitives.sort((a, b) => a.alphaCutoff - b.alphaCutoff);

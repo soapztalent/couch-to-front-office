@@ -1,0 +1,16 @@
+person.glb is adapted from scan HSR0040-Body-012 ("David") in the HSRD-100
+dataset by Digital Reality Lab / Human Scan Repository.
+
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+https://huggingface.co/datasets/digitalrealitylab/HSRD-100
+
+The shipped mesh keeps 1,649,999 triangles from the original 4,999,906-triangle
+photogrammetry scan. It is not a subdivided mannequin. The albedo is the scan
+photograph. The normal map is the high-frequency surface of that photograph
+(skin grain, jacket quilting, denim). Roughness separates skin, the jacket,
+and the jeans so the light responds differently on each.
+
+Changes: decimated for the real-time file size, oriented to face +Z with feet
+on the floor, and given a normal map and a roughness map. No endorsement by
+the subject or Digital Reality Lab is implied.

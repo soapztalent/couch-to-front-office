@@ -124,7 +124,7 @@ export function App() {
     );
   }
 
-  if (shot === "front" || shot === "back" || shot === "drill") screen = <FigureShot view={shot} />;
+  if (shot === "front" || shot === "back" || shot === "face" || shot === "drill") screen = <FigureShot view={shot} />;
 
   return (
     <>

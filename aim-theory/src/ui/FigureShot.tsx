@@ -14,8 +14,8 @@ const CROSS: Crosshair = {
   dotSize: 1,
 };
 
-/** Fixed cameras for the front and back stills. The figure faces +Z. */
-export function FigureShot({ view }: { view: "front" | "back" | "drill" }) {
+/** Fixed cameras for the front, back, and face stills. The figure faces +Z. */
+export function FigureShot({ view }: { view: "front" | "back" | "face" | "drill" }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -24,14 +24,19 @@ export function FigureShot({ view }: { view: "front" | "back" | "drill" }) {
     const figure = { x: 1.15, y: 0, z: 3.1, scale: 1, yaw: 0, tone: 1 };
     const cam: Camera =
       view === "back"
-        ? { x: 1.15, y: 1.2, z: -1.7, yaw: 0, pitch: -0.06 }
-        : view === "drill"
-          ? { x: -0.55, y: 1.58, z: 0.15, yaw: 0.48, pitch: -0.05 }
-          : { x: 1.15, y: 1.2, z: 7.9, yaw: Math.PI, pitch: -0.06 };
+        ? { x: 1.15, y: 1.05, z: -1.55, yaw: 0, pitch: -0.02 }
+        : view === "face"
+          ? { x: 1.2, y: 1.62, z: 4.05, yaw: Math.PI, pitch: -0.04 }
+          : view === "drill"
+            ? { x: 1.15, y: 1.6, z: 0.55, yaw: 0, pitch: -0.04 }
+            : { x: 1.15, y: 1.05, z: 7.55, yaw: Math.PI, pitch: -0.02 };
+    const fov = view === "face" ? 32 : view === "drill" ? 74 : 42;
     let raf = 0;
+    let shown = 0;
     const tick = () => {
-      world.drawBay(cam, [figure], CROSS, view === "drill" ? 74 : 54);
-      raf = requestAnimationFrame(tick);
+      world.drawBay(cam, [figure], CROSS, fov, view !== "drill");
+      if (canvas.dataset.ready === "1") shown += 1;
+      if (view === "drill" || shown < 2) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => {
