@@ -509,14 +509,20 @@ function portraitQuad(): Float32Array {
   const hy = hx / (PORTRAIT_W / PORTRAIT_H);
   const y0 = BAKE_Y - hy;
   const y1 = BAKE_Y + hy;
+  const u = (x: number) => (hx - x) / (hx * 2);
+  const v = (y: number) => (y - y0) / (y1 - y0);
   const z = PORTRAIT_Z;
+  const xL = 0.34;
+  const xR = -0.34;
+  const yB = -0.01;
+  const yT = 1.8;
   return new Float32Array([
-    hx, y0, z, 0, 0,
-    -hx, y0, z, 1, 0,
-    -hx, y1, z, 1, 1,
-    hx, y0, z, 0, 0,
-    -hx, y1, z, 1, 1,
-    hx, y1, z, 0, 1,
+    xL, yB, z, u(xL), v(yB),
+    xR, yB, z, u(xR), v(yB),
+    xR, yT, z, u(xR), v(yT),
+    xL, yB, z, u(xL), v(yB),
+    xR, yT, z, u(xR), v(yT),
+    xL, yT, z, u(xL), v(yT),
   ]);
 }
 
@@ -1111,12 +1117,19 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   let cssH = 0;
   let dpr = 1;
   let lost = false;
+  const rendererInfo = gl.getExtension("WEBGL_debug_renderer_info");
+  const rendererName = rendererInfo ? String(gl.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)) : "";
+  const softwareGl = /swiftshader|llvmpipe|softpipe|basic render/i.test(rendererName);
 
   const apply = () => {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     if (w < 2 || h < 2) return;
-    const scale = playfieldScale(w, h, window.devicePixelRatio || 1);
+    let scale = playfieldScale(w, h, window.devicePixelRatio || 1);
+    if (softwareGl) {
+      const fit = Math.sqrt((1280 * 720) / (w * h));
+      scale = Math.min(scale, fit);
+    }
     const bw = Math.max(1, Math.round(w * scale));
     const bh = Math.max(1, Math.round(h * scale));
     if (canvas.width !== bw || canvas.height !== bh) {
@@ -1205,6 +1218,8 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     yawModel(0, 0, 0, 0, 1);
     drawHuman(mvpM, figN, modelM, 1.25);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     gl.clearColor(0.02, 0.025, 0.032, 1);
     gl.bindVertexArray(null);
   };
@@ -1283,6 +1298,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
 
   const frame = (cam: Camera, fov: number, fillWalls: (batch: Batch) => void, figures: Figure[], cross: Crosshair, sway: number, flash: WorldDraw["flash"], extras?: () => void) => {
     if (lost || cssW < 2 || cssH < 2) return;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     const aspect = canvas.width / canvas.height || cssW / cssH;
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.02, 0.025, 0.032, 1);
