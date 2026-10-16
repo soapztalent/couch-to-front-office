@@ -1,4 +1,5 @@
 import type { Crosshair } from "../persist/storage";
+import { buildPersonMesh } from "./person";
 import type { WorldDraw } from "./draw";
 import { cameraBasis, forward, lineOfSight, type Camera, type Seg, type V3 } from "./geom";
 import type { Actor } from "./lane";
@@ -40,15 +41,7 @@ export type WorldView = {
 type RGB = [number, number, number];
 
 const SKIN: RGB = [0.74, 0.56, 0.46];
-const SKIN_DEEP: RGB = [0.52, 0.36, 0.3];
-const HAIR: RGB = [0.06, 0.055, 0.05];
-const SCLERA: RGB = [0.72, 0.69, 0.64];
-const IRIS: RGB = [0.08, 0.07, 0.06];
-const LIP_COLOR: RGB = [0.46, 0.26, 0.24];
 const JACKET: RGB = [0.46, 0.49, 0.54];
-const JACKET_DARK: RGB = [0.28, 0.3, 0.34];
-const PANTS: RGB = [0.18, 0.19, 0.22];
-const BOOT: RGB = [0.07, 0.07, 0.08];
 const PLASTER: RGB = [0.28, 0.3, 0.33];
 const PLASTER_DIM: RGB = [0.2, 0.22, 0.25];
 const CONCRETE: RGB = [0.16, 0.165, 0.175];
@@ -445,166 +438,28 @@ function tube(fig: Fig, ax: number, ay: number, az: number, bx: number, by: numb
   }
 }
 
-function ring(fig: Fig, y: number, rx: number, rz: number, z: number, slices: number, color: RGB, mat: number): number[] {
-  const row: number[] = [];
-  for (let i = 0; i < slices; i += 1) {
-    const t = (i / slices) * Math.PI * 2;
-    row.push(fig.add(Math.cos(t) * rx, y, z + Math.sin(t) * rz, color, mat));
-  }
-  row.push(row[0]);
-  return row;
-}
-
-function loft(fig: Fig, rows: number[][], cx: number, cy: number, cz: number): void {
-  const slices = rows[0].length - 1;
-  for (let r = 0; r < rows.length - 1; r += 1) {
-    for (let i = 0; i < slices; i += 1) {
-      fig.triOut(rows[r][i], rows[r][i + 1], rows[r + 1][i], cx, cy, cz);
-      fig.triOut(rows[r][i + 1], rows[r + 1][i + 1], rows[r + 1][i], cx, cy, cz);
-    }
-  }
-}
-
-function cap(fig: Fig, row: number[], cx: number, cy: number, cz: number, color: RGB, mat: number, insideY: number): void {
-  const center = fig.add(cx, cy, cz, color, mat);
-  const slices = row.length - 1;
-  for (let i = 0; i < slices; i += 1) fig.triOut(center, row[i], row[i + 1], cx, insideY, cz);
-}
-
 function limb(fig: Fig, ax: number, ay: number, az: number, bx: number, by: number, bz: number, radius: number, color: RGB, mat: number): void {
   tube(fig, ax, ay, az, bx, by, bz, radius, 11, color, mat);
 }
 
-function buildHuman(fig: Fig): void {
-  const slices = 12;
-  const headY = 1.6;
-  ellipsoid(fig, 0, headY, 0, 0.084, 0.108, 0.092, 14, 10, SKIN, M_SKIN);
-  ellipsoid(fig, 0, headY - 0.035, 0.02, 0.07, 0.052, 0.078, 12, 6, SKIN, M_SKIN);
-  ellipsoid(fig, 0, 1.66, -0.028, 0.102, 0.086, 0.11, 12, 8, HAIR, M_CLOTH, (y, z) => y > 1.69 || z < 0.015);
-  ellipsoid(fig, -0.078, 1.55, 0.01, 0.018, 0.045, 0.02, 6, 4, HAIR, M_CLOTH);
-  ellipsoid(fig, 0.078, 1.55, 0.01, 0.018, 0.045, 0.02, 6, 4, HAIR, M_CLOTH);
-
-  const eye = (x: number) => {
-    ellipsoid(fig, x, 1.612, 0.086, 0.016, 0.012, 0.01, 7, 4, SKIN_DEEP, M_SKIN);
-    ellipsoid(fig, x, 1.61, 0.093, 0.013, 0.009, 0.008, 8, 4, SCLERA, M_SKIN);
-    ellipsoid(fig, x, 1.61, 0.1, 0.0065, 0.0065, 0.004, 6, 3, IRIS, M_CLOTH);
-    ellipsoid(fig, x, 1.62, 0.094, 0.015, 0.006, 0.01, 6, 3, SKIN, M_SKIN);
-    ellipsoid(fig, x, 1.626, 0.09, 0.018, 0.005, 0.01, 6, 3, HAIR, M_CLOTH);
-  };
-  eye(-0.03);
-  eye(0.03);
-  ellipsoid(fig, 0, 1.578, 0.096, 0.011, 0.024, 0.014, 7, 5, SKIN_DEEP, M_SKIN);
-  ellipsoid(fig, 0, 1.552, 0.104, 0.013, 0.011, 0.012, 6, 4, SKIN, M_SKIN);
-  ellipsoid(fig, 0, 1.526, 0.096, 0.022, 0.006, 0.008, 6, 3, LIP_COLOR, M_CLOTH);
-  ellipsoid(fig, -0.09, headY - 0.01, 0, 0.014, 0.03, 0.01, 6, 4, SKIN, M_SKIN);
-  ellipsoid(fig, 0.09, headY - 0.01, 0, 0.014, 0.03, 0.01, 6, 4, SKIN, M_SKIN);
-  limb(fig, 0, 1.45, 0.008, 0, 1.53, 0.01, 0.044, SKIN, M_SKIN);
-  tube(fig, 0, 1.44, 0.012, 0, 1.5, 0.014, 0.062, 8, JACKET, M_CLOTH);
-
-  const jacket: [number, number, number, number][] = [
-    [0.98, 0.15, 0.092, 0.012],
-    [1.12, 0.175, 0.105, 0.02],
-    [1.26, 0.2, 0.115, 0.028],
-    [1.38, 0.23, 0.105, 0.016],
-    [1.46, 0.13, 0.075, 0.008],
-  ];
-  const pants: [number, number, number, number][] = [
-    [0.68, 0.155, 0.1, 0],
-    [0.82, 0.162, 0.105, 0.002],
-    [0.96, 0.148, 0.09, 0.006],
-  ];
-  const jacketRows = jacket.map(([y, rx, rz, z]) => ring(fig, y, rx, rz, z, slices, JACKET, M_CLOTH));
-  const pantRows = pants.map(([y, rx, rz, z]) => ring(fig, y, rx, rz, z, slices, PANTS, M_CLOTH));
-  loft(fig, jacketRows, 0, 1.22, 0);
-  loft(fig, pantRows, 0, 0.82, 0);
-  cap(fig, pantRows[0], 0, 0.68, 0, PANTS, M_CLOTH, 0.9);
-  tube(fig, 0, 0.96, 0.02, 0, 1.0, 0.022, 0.155, 10, JACKET_DARK, M_CLOTH);
-  tube(fig, 0, 1.04, 0.1, 0, 1.3, 0.13, 0.007, 5, JACKET_DARK, M_CLOTH);
-  ellipsoid(fig, -0.07, 1.28, 0.09, 0.07, 0.05, 0.04, 8, 4, JACKET, M_CLOTH);
-  ellipsoid(fig, 0.07, 1.28, 0.09, 0.07, 0.05, 0.04, 8, 4, JACKET, M_CLOTH);
-  ellipsoid(fig, -0.22, 1.38, 0.015, 0.08, 0.055, 0.07, 8, 5, JACKET, M_CLOTH);
-  ellipsoid(fig, 0.22, 1.38, 0.015, 0.08, 0.055, 0.07, 8, 5, JACKET, M_CLOTH);
-
-  const arm = (s: number) => {
-    limb(fig, s * 0.24, 1.36, 0.02, s * 0.32, 1.04, 0.08, 0.058, JACKET, M_CLOTH);
-    ellipsoid(fig, s * 0.29, 1.2, 0.06, 0.04, 0.07, 0.04, 6, 4, JACKET, M_CLOTH);
-    limb(fig, s * 0.32, 1.04, 0.08, s * 0.26, 0.74, 0.1, 0.042, JACKET_DARK, M_CLOTH);
-    ellipsoid(fig, s * 0.3, 1.02, 0.08, 0.046, 0.046, 0.046, 6, 4, JACKET_DARK, M_CLOTH);
-    ellipsoid(fig, s * 0.25, 0.71, 0.11, 0.03, 0.02, 0.042, 6, 3, SKIN, M_SKIN);
-    ellipsoid(fig, s * 0.22, 0.72, 0.12, 0.012, 0.012, 0.016, 5, 3, SKIN, M_SKIN);
-  };
-  arm(-1);
-  arm(1);
-
-  const leg = (s: number) => {
-    limb(fig, s * 0.1, 0.74, 0.01, s * 0.12, 0.42, 0.03, 0.078, PANTS, M_CLOTH);
-    ellipsoid(fig, s * 0.12, 0.42, 0.03, 0.055, 0.05, 0.055, 6, 4, PANTS, M_CLOTH);
-    limb(fig, s * 0.12, 0.42, 0.03, s * 0.1, 0.07, 0.02, 0.05, PANTS, M_CLOTH);
-    ellipsoid(fig, s * 0.1, 0.05, 0.015, 0.05, 0.045, 0.07, 6, 4, BOOT, M_CLOTH);
-    ellipsoid(fig, s * 0.1, 0.038, 0.09, 0.046, 0.026, 0.075, 6, 3, BOOT, M_CLOTH);
-  };
-  leg(-1);
-  leg(1);
-}
-
-let bakedHuman: Float32Array | null = null;
-
-function humanMesh(): Float32Array {
-  if (bakedHuman) return bakedHuman;
-  const fig = new Fig();
-  buildHuman(fig);
-  const body = fig.pack();
-  const shadow = new Batch(4096);
-  pushContact(shadow, 0, 0.02, 0, 0.34, 0.22);
-  const out = new Float32Array(body.length + shadow.n);
-  out.set(body, 0);
-  out.set(shadow.data.subarray(0, shadow.n), body.length);
-  bakedHuman = out;
-  return bakedHuman;
-}
-
-/** Head, face, and feet of the baked figure. Used to keep the aim silhouette honest. */
-export function humanSpan(): { minY: number; maxY: number; face: number; verts: number } {
-  const mesh = humanMesh();
+/** Head, face, and feet of the shared figure. Triangle count is the indexed mesh. */
+export function humanSpan(): { minY: number; maxY: number; face: number; verts: number; triangles: number } {
+  const mesh = buildPersonMesh();
   let minY = 99;
   let maxY = -99;
   let face = 0;
-  for (let i = 0; i < mesh.length; i += STRIDE) {
-    const y = mesh[i + 1];
-    const z = mesh[i + 2];
+  for (let i = 0; i < mesh.verts.length; i += STRIDE) {
+    const y = mesh.verts[i + 1];
+    const z = mesh.verts[i + 2];
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
     if (y > 1.45 && y < 1.75 && z > face) face = z;
   }
-  return { minY, maxY, face, verts: mesh.length / STRIDE };
+  return { minY, maxY, face, verts: mesh.verts.length / STRIDE, triangles: mesh.triangles };
 }
 
-function pushContact(batch: Batch, x: number, y: number, z: number, rx: number, rz: number): void {
-  const slices = 12;
-  const rings = 4;
-  const tone = (t: number): RGB => {
-    return [0.01 + t * 0.05, 0.01 + t * 0.052, 0.012 + t * 0.054];
-  };
-  let inner: number[][] | null = null;
-  const center = [x, y, z];
-  for (let r = 1; r <= rings; r += 1) {
-    const t = r / rings;
-    const row: number[][] = [];
-    for (let i = 0; i <= slices; i += 1) {
-      const a = (i / slices) * Math.PI * 2;
-      row.push([x + Math.cos(a) * rx * t, y, z + Math.sin(a) * rz * t]);
-    }
-    const color = tone(t);
-    const prev = inner ?? row.map(() => center);
-    for (let i = 0; i < slices; i += 1) {
-      const a = prev[i];
-      const b = prev[i + 1] ?? prev[0];
-      const c = row[i + 1];
-      const d = row[i];
-      batch.face(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2], 0, 1, 0, color, M_EMIT);
-    }
-    inner = row;
-  }
+export function humanTriangles(): number {
+  return buildPersonMesh().triangles;
 }
 
 function pushBox(batch: Batch, x: number, y: number, z: number, w: number, h: number, d: number, color: RGB, mat: number): void {
@@ -1076,7 +931,13 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   let boardSource: TexImageSource | null = null;
 
   const roomCount = park(roomBuf, roomMesh());
-  const humanCount = park(humanBuf, humanMesh());
+  const person = buildPersonMesh();
+  park(humanBuf, person.verts);
+  const humanElem = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, humanElem);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, person.indices, gl.STATIC_DRAW);
+  const humanIndexCount = person.indices.length;
+  canvas.dataset.tris = String(person.triangles);
   const handCount = park(handBuf, viewHandMesh());
   gl.bindVertexArray(null);
 
@@ -1141,6 +1002,22 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     if (depth) gl.enable(gl.DEPTH_TEST);
     else gl.disable(gl.DEPTH_TEST);
     gl.drawArrays(gl.TRIANGLES, 0, count);
+  };
+
+  const drawHuman = (mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number) => {
+    if (humanIndexCount < 3) return;
+    gl.useProgram(program);
+    gl.uniformMatrix4fv(mvpLoc, false, mvp);
+    gl.uniformMatrix4fv(modelLoc, false, model);
+    gl.uniformMatrix3fv(nLoc, false, nrm);
+    gl.uniform1f(toneLoc, tone);
+    gl.uniform3fv(keyLoc, key);
+    gl.uniform3fv(fillLoc, fill);
+    gl.uniform3fv(upLoc, up);
+    bindMesh(humanBuf);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, humanElem);
+    gl.enable(gl.DEPTH_TEST);
+    gl.drawElements(gl.TRIANGLES, humanIndexCount, gl.UNSIGNED_INT, 0);
   };
 
   const drawDyn = (batch: Batch, mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number, depth: boolean) => {
@@ -1233,7 +1110,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     drawDyn(world, mvpM, viewN, IDENTITY, 1, true);
     for (const fig of figures) {
       yawModel(fig.x, fig.y, fig.z, fig.yaw, fig.scale);
-      drawMesh(humanBuf, humanCount, mvpM, figN, modelM, fig.tone, true);
+      drawHuman(mvpM, figN, modelM, fig.tone);
     }
     extras?.();
     const kick = Math.min(0.05, Math.abs(sway) * 0.02);
@@ -1402,6 +1279,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
       gl.deleteProgram(boardProg);
       gl.deleteBuffer(roomBuf);
       gl.deleteBuffer(humanBuf);
+      gl.deleteBuffer(humanElem);
       gl.deleteBuffer(handBuf);
       gl.deleteBuffer(dyn);
       gl.deleteBuffer(boardBuf);

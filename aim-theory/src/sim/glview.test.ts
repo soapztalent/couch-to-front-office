@@ -26,8 +26,8 @@ describe("first person projection", () => {
     expect(span.maxY).toBeLessThan(1.95);
     expect(span.face).toBeGreaterThan(0.1);
     expect(span.verts).toBeGreaterThan(800);
-    expect(span.verts).toBeLessThan(22000);
-  });
+    expect(span.triangles).toBeGreaterThan(1_000_000);
+  }, 120_000);
 
   it("follows a yaw toward +x", () => {
     const cam = { x: 0, y: 0, z: 0, yaw: Math.PI / 2, pitch: 0 };
