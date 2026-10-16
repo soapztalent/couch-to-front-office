@@ -24,7 +24,6 @@ const BOOT: RGB = [0.07, 0.07, 0.08];
 
 const M_SKIN = 0;
 const M_CLOTH = 1;
-const M_EMIT = 5;
 
 type RGB = [number, number, number];
 type V3 = [number, number, number];
@@ -34,9 +33,6 @@ export type PersonMesh = {
   indices: Uint32Array;
   triangles: number;
 };
-
-const HAIR_STRANDS = 25000;
-const HAIR_SEGS = 18;
 
 class Mesh {
   private v: Float32Array;
@@ -91,13 +87,6 @@ class Mesh {
   }
 }
 
-function hash(n: number): number {
-  let x = Math.imul(n | 0, 0x6d2b79f5);
-  x = Math.imul(x ^ (x >>> 15), 1 | x);
-  x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
-  return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-}
-
 function smooth(a: number, b: number, t: number): number {
   const u = Math.max(0, Math.min(1, (t - a) / (b - a || 1)));
   return u * u * (3 - 2 * u);
@@ -118,10 +107,6 @@ function n3(v: V3): V3 {
 
 function cross(a: V3, b: V3): V3 {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-}
-
-function add3(a: V3, b: V3, s = 1): V3 {
-  return [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
 }
 
 type Sample = { x: number; y: number; z: number; color: RGB; mat: number };
@@ -304,317 +289,244 @@ function addSphere(mesh: Mesh, c: V3, r: V3, stacks: number, slices: number, col
   );
 }
 
-const HEAD_Y = 1.575;
-
-function sampleHead(iy: number, ix: number, stacks: number, slices: number): Sample {
-  const v = iy / stacks;
-  const ang = (ix / slices) * Math.PI * 2;
-  const front = Math.cos(ang);
-  const side = Math.sin(ang);
-  const phi = v * Math.PI;
-  const up = Math.cos(phi);
-  const rad = Math.sin(phi);
-  const jaw = smooth(0.52, 0.9, v);
-  let rx = 0.086 * (1 - jaw * 0.3);
-  let ry = 0.11;
-  let rz = 0.094 * (1 - jaw * 0.1);
-  const chin = Math.exp(-((v - 0.9) ** 2) / 0.0035) * Math.exp(-(ang * ang) / 0.22);
-  ry *= 1 + chin * 0.05;
-  let x = side * rad * rx;
-  let y = HEAD_Y + up * ry;
-  let z = front * rad * rz;
-  const face = Math.max(0, front);
-  const brow = Math.exp(-((v - 0.34) ** 2) / 0.0016) * face;
-  z += 0.011 * brow * (1 - Math.min(1, Math.abs(ang) * 0.7));
-  const eye = (shift: number) => Math.exp(-((ang - shift) ** 2) / 0.018) * Math.exp(-((v - 0.4) ** 2) / 0.0026);
-  const socket = eye(0.36) + eye(-0.36);
-  z -= 0.018 * socket;
-  const nose = Math.exp(-(ang * ang) / 0.04) * Math.exp(-((v - 0.52) ** 2) / 0.011);
-  z += 0.036 * nose;
-  x *= 1 - 0.22 * nose;
-  const nostril = Math.exp(-((Math.abs(ang) - 0.2) ** 2) / 0.006) * Math.exp(-((v - 0.6) ** 2) / 0.0014);
-  z -= 0.009 * nostril;
-  const mouth = Math.exp(-(ang * ang) / 0.08) * Math.exp(-((v - 0.69) ** 2) / 0.002);
-  z += 0.011 * mouth;
-  const lipLine = Math.exp(-(ang * ang) / 0.06) * Math.exp(-((v - 0.705) ** 2) / 0.00035);
-  z -= 0.005 * lipLine;
-  const cheek = Math.exp(-((Math.abs(ang) - 0.75) ** 2) / 0.09) * Math.exp(-((v - 0.55) ** 2) / 0.018) * face;
-  z += 0.01 * cheek;
-  let color = SKIN;
-  color = mixc(color, LIP, Math.min(1, mouth * 1.15));
-  color = mixc(color, SKIN_DEEP, Math.min(1, socket * 0.9 + nostril * 0.6 + lipLine));
-  color = mixc(color, [0.42, 0.3, 0.24], Math.min(1, brow * 0.35));
-  return { x, y, z, color, mat: M_SKIN };
+function bell(v: number, center: number, width: number): number {
+  const d = (v - center) / width;
+  return Math.exp(-d * d);
 }
 
-function addEar(mesh: Mesh, side: number): void {
-  addSurfaceReal(
-    mesh,
-    16,
-    18,
-    (iy, ix) => {
-      const v = iy / 16;
-      const u = ix / 18;
-      const ang = u * Math.PI * 1.15 - 0.2;
-      const lift = Math.sin(v * Math.PI);
-      const curl = Math.sin(ang) * 0.012 * lift;
-      return {
-        x: side * (0.09 + curl + (v - 0.5) * 0.01),
-        y: 1.56 + Math.cos(ang) * 0.028 * lift + (v - 0.45) * 0.01,
-        z: -0.005 + Math.sin(v * Math.PI) * 0.012 + (1 - lift) * 0.004,
-        color: mixc(SKIN, SKIN_DEEP, 0.25 + 0.2 * (1 - lift)),
-        mat: M_SKIN,
-      };
-    },
-    (x) => [Math.sign(side) || 1, 0, x === 0 ? 0.2 : 0.2],
-  );
-}
+/** Crown sits near 1.75. Eyes are at the midline so the face reads at a glance. */
+const HY = 1.6;
+const HZ = 0.02;
 
-function addClothBody(mesh: Mesh): void {
-  const rings = 180;
-  const slices = 220;
+function addHead(mesh: Mesh): void {
+  const stacks = 120;
+  const slices = 160;
   addSurfaceReal(
     mesh,
-    rings,
+    stacks,
     slices,
     (iy, ix) => {
-      const t = iy / rings;
+      const phi = (iy / stacks) * Math.PI;
       const ang = (ix / slices) * Math.PI * 2;
-      const y = 1.46 - t * 0.48;
-      const shoulder = Math.exp(-((t - 0.16) ** 2) / 0.012);
-      const waist = smooth(0.42, 0.68, t);
-      let rx = 0.075 + shoulder * 0.145 + smooth(0.2, 0.4, t) * 0.04 - waist * 0.025 + smooth(0.78, 1, t) * 0.02;
-      let rz = 0.058 + shoulder * 0.04 + smooth(0.25, 0.5, t) * 0.03 - waist * 0.01;
-      const fold = Math.sin(ang * 7 + t * 11);
-      rx += fold * 0.007 * (0.25 + t);
-      rz += Math.cos(ang * 5 + t * 8) * 0.006 * (0.2 + t);
-      const lapel = Math.exp(-(ang * ang) / 0.12) * (1 - t * 0.65);
-      rz += 0.012 * lapel;
-      const shade = 0.5 + 0.5 * fold;
-      return {
-        x: Math.sin(ang) * rx,
-        y,
-        z: Math.cos(ang) * rz + 0.015,
-        color: mixc(JACKET, JACKET_DARK, shade * 0.45 * (0.3 + t) + lapel * 0.15),
-        mat: M_CLOTH,
-      };
+      const sp = Math.sin(phi);
+      const ux = Math.cos(ang) * sp;
+      const uy = Math.cos(phi);
+      const uz = Math.sin(ang) * sp;
+      const x0 = ux * 0.08;
+      const y0 = uy * 0.112;
+      const z0 = uz * 0.092;
+      let x = x0;
+      let y = y0;
+      let z = z0;
+      const facing = smooth(0.01, 0.07, z0);
+      const jaw = smooth(-0.015, -0.085, y0) * facing;
+      x *= 1 - jaw * 0.2;
+      const socket =
+        (bell(x0, 0.03, 0.013) + bell(x0, -0.03, 0.013)) * bell(y0, 0.004, 0.011) * facing;
+      z -= socket * 0.016;
+      const ridge = bell(x0, 0, 0.011) * bell(y0, -0.008, 0.032) * facing;
+      z += ridge * 0.02;
+      const tip = bell(x0, 0, 0.013) * bell(y0, -0.026, 0.013) * facing;
+      z += tip * 0.02;
+      y -= tip * 0.004;
+      const nostril = (bell(x0, 0.011, 0.0055) + bell(x0, -0.011, 0.0055)) * bell(y0, -0.034, 0.0055) * facing;
+      z -= nostril * 0.007;
+      const lips = bell(x0, 0, 0.022) * bell(y0, -0.05, 0.011) * facing;
+      z += lips * 0.009;
+      const groove = bell(x0, 0, 0.016) * bell(y0, -0.052, 0.0036) * facing;
+      z -= groove * 0.008;
+      const chin = bell(x0, 0, 0.018) * bell(y0, -0.078, 0.014) * facing;
+      z += chin * 0.01;
+      const brow = (bell(x0, 0.032, 0.015) + bell(x0, -0.032, 0.015)) * bell(y0, 0.02, 0.0055) * facing;
+      z += brow * 0.005;
+      y += brow * 0.002;
+      const cheek = (bell(x0, 0.038, 0.018) + bell(x0, -0.038, 0.018)) * bell(y0, -0.018, 0.022) * facing;
+      z += cheek * 0.006;
+      const under = smooth(-0.04, -0.1, y0) * (1 - facing);
+      y += under * 0.03;
+      let color = SKIN;
+      color = mixc(color, [0.8, 0.5, 0.42], Math.min(0.45, cheek * 0.55));
+      color = mixc(color, LIP, Math.min(1, Math.max(0, lips - 0.25) * 1.8));
+      color = mixc(color, HAIR, Math.min(1, Math.max(0, brow - 0.35) * 2.4));
+      color = mixc(color, SKIN_DEEP, Math.min(1, nostril * 1.3));
+      color = mixc(color, [0.07, 0.02, 0.018], Math.min(1, Math.max(0, groove - 0.25) * 3));
+      return { x, y: y + HY, z: z + HZ, color, mat: M_SKIN };
     },
-    (x, _y, z) => [x, 0.15, z - 0.015],
+    (x, y, z) => [x, y - HY, z - HZ],
   );
 }
 
-function addLeg(mesh: Mesh, side: number): void {
-  const hip: V3 = [side * 0.09, 1.0, 0.01];
-  const ankle: V3 = [side * 0.1, 0.08, 0.02];
-  addTube(mesh, hip, ankle, 140, 48, (t, ang) => {
-    const knee = Math.exp(-((t - 0.48) ** 2) / 0.008);
-    const calf = Math.exp(-((t - 0.72) ** 2) / 0.02);
-    const fold = 1 + Math.sin(ang * 5 + t * 9) * 0.04 * t;
-    return (0.078 - t * 0.028 + knee * 0.012 + calf * 0.01) * fold;
-  }, (t, ang) => mixc(PANTS, [0.1, 0.11, 0.13], (0.5 + 0.5 * Math.sin(ang * 5 + t * 9)) * 0.35), M_CLOTH);
-  const bootTop: V3 = [side * 0.1, 0.09, 0.02];
-  const bootSole: V3 = [side * 0.1, 0.018, 0.045];
-  addTube(mesh, bootTop, bootSole, 28, 24, (t, ang) => {
-    const toe = Math.max(0, Math.cos(ang)) * 0.012 * t;
-    return 0.048 + t * 0.012 + toe;
-  }, BOOT, M_CLOTH);
-}
-
-function addSleeve(mesh: Mesh, side: number): { wrist: V3; down: V3; palm: V3; across: V3 } {
-  const shoulder: V3 = [side * 0.2, 1.36, 0.02];
-  const elbow: V3 = [side * 0.3, 1.08, 0.07];
-  const wrist: V3 = [side * 0.26, 0.8, 0.12];
-  const cloth = (t: number, ang: number) => mixc(JACKET, JACKET_DARK, (0.5 + 0.5 * Math.sin(ang * 4 + t * 7)) * 0.4);
-  addTube(mesh, shoulder, elbow, 70, 28, (t, ang) => (0.055 - t * 0.012) * (1 + Math.sin(ang * 3) * 0.05), cloth, M_CLOTH);
-  addTube(mesh, elbow, wrist, 64, 28, (t, ang) => (0.042 - t * 0.008) * (1 + Math.sin(ang * 4 + t * 5) * 0.06), cloth, M_CLOTH);
-  const down = n3([side * 0.06, -0.95, 0.22]);
-  const palm = n3([-side, 0.08, 0.25]);
-  const across = n3(cross(down, palm));
-  const palmN = n3(cross(across, down));
-  return { wrist, down, palm: palmN, across };
-}
-
-function addFinger(mesh: Mesh, root: V3, along: V3, up: V3, length: number, radius: number): void {
-  let cursor = root;
-  let dir = along;
-  const bones = [0.4, 0.33, 0.27];
-  for (let b = 0; b < bones.length; b += 1) {
-    const next = add3(cursor, dir, length * bones[b]);
-    const r0 = radius * (1 - b * 0.16);
-    const r1 = radius * (1 - (b + 1) * 0.16);
-    addTube(mesh, cursor, next, 12, 10, (t) => {
-      const knuckle = t < 0.18 ? 1.2 : 1;
-      return (r0 + (r1 - r0) * t) * knuckle;
-    }, SKIN, M_SKIN);
-    if (b === bones.length - 1) {
-      const nailC = add3(add3(cursor, dir, length * bones[b] * 0.62), up, r1 * 0.95);
-      addSurfaceReal(
-        mesh,
-        6,
-        8,
-        (iy, ix) => {
-          const u = ix / 8 - 0.5;
-          const v = iy / 6 - 0.5;
-          return {
-            x: nailC[0] + up[0] * 0.0015 + dir[0] * v * length * 0.16 + (cross(dir, up)[0]) * u * r1 * 0.7,
-            y: nailC[1] + up[1] * 0.0015 + dir[1] * v * length * 0.16 + (cross(dir, up)[1]) * u * r1 * 0.7,
-            z: nailC[2] + up[2] * 0.0015 + dir[2] * v * length * 0.16 + (cross(dir, up)[2]) * u * r1 * 0.7,
-            color: NAIL,
-            mat: M_SKIN,
-          };
-        },
-        () => up,
-      );
-    }
-    cursor = next;
-    dir = n3(add3(dir, up, -0.28));
+function addEars(mesh: Mesh): void {
+  for (const side of [-1, 1]) {
+    addSphere(mesh, [side * 0.098, HY - 0.006, HZ - 0.012], [0.014, 0.034, 0.02], 16, 18, SKIN, M_SKIN);
+    addSphere(mesh, [side * 0.094, HY - 0.006, HZ - 0.006], [0.006, 0.018, 0.008], 8, 10, SKIN_DEEP, M_SKIN);
   }
-}
-
-function addHand(mesh: Mesh, wrist: V3, down: V3, palm: V3, across: V3): void {
-  const center = add3(wrist, down, 0.034);
-  addSurfaceReal(
-    mesh,
-    16,
-    18,
-    (iy, ix) => {
-      const phi = (iy / 16) * Math.PI;
-      const ang = (ix / 18) * Math.PI * 2;
-      const sr = Math.sin(phi);
-      const sy = Math.cos(phi);
-      const thenar = Math.exp(-((ang - Math.PI * 0.5) ** 2) / 0.4) * sr;
-      const rx = 0.034 + thenar * 0.008;
-      const ry = 0.046;
-      const rz = 0.015;
-      const lx = Math.cos(ang) * sr;
-      const lz = Math.sin(ang) * sr;
-      return {
-        x: center[0] + across[0] * lx * rx + down[0] * sy * ry + palm[0] * lz * rz,
-        y: center[1] + across[1] * lx * rx + down[1] * sy * ry + palm[1] * lz * rz,
-        z: center[2] + across[2] * lx * rx + down[2] * sy * ry + palm[2] * lz * rz,
-        color: thenar > 0.4 ? mixc(SKIN, SKIN_DEEP, 0.2) : SKIN,
-        mat: M_SKIN,
-      };
-    },
-    (x, y, z) => [x - center[0], y - center[1], z - center[2]],
-  );
-  const spreads = [-0.1, -0.035, 0.03, 0.095];
-  const lengths = [0.078, 0.086, 0.08, 0.064];
-  for (let f = 0; f < 4; f += 1) {
-    const root = add3(add3(center, down, 0.04), across, spreads[f]);
-    const dir = n3(add3(down, across, spreads[f] * 1.6));
-    addFinger(mesh, root, dir, palm, lengths[f], 0.009 - f * 0.0006);
-  }
-  const thumbRoot = add3(add3(center, across, -0.03), down, 0.008);
-  const thumbDir = n3(add3([-across[0], -across[1], -across[2]], down, 0.35));
-  addFinger(mesh, thumbRoot, thumbDir, palm, 0.058, 0.011);
-}
-
-function addNeck(mesh: Mesh): void {
-  addTube(mesh, [0, 1.48, 0.01], [0, 1.38, 0.02], 24, 28, (t) => 0.042 + t * 0.01, SKIN, M_SKIN);
 }
 
 function addEyes(mesh: Mesh): void {
-  for (const x of [-0.031, 0.031]) {
-    addSphere(mesh, [x, 1.608, 0.078], [0.013, 0.011, 0.01], 14, 16, SCLERA, M_SKIN);
-    addSphere(mesh, [x, 1.608, 0.086], [0.0065, 0.0065, 0.004], 10, 12, IRIS, M_CLOTH);
-    addSphere(mesh, [x, 1.608, 0.089], [0.0032, 0.0032, 0.002], 8, 8, PUPIL, M_CLOTH);
+  for (const side of [-1, 1]) {
+    const x = side * 0.031;
+    const y = HY + 0.004;
+    const z = HZ + 0.078;
+    addSphere(mesh, [x, y, z], [0.015, 0.012, 0.012], 20, 24, SCLERA, M_SKIN);
+    addSphere(mesh, [x, y, z + 0.01], [0.008, 0.008, 0.004], 14, 16, IRIS, M_SKIN);
+    addSphere(mesh, [x, y, z + 0.014], [0.0038, 0.0038, 0.002], 8, 10, PUPIL, M_SKIN);
+    addTube(mesh, [x - 0.014, y + 0.008, z + 0.008], [x + 0.014, y + 0.008, z + 0.01], 3, 6, () => 0.0045, SKIN, M_SKIN);
   }
+}
+
+function addBrows(mesh: Mesh): void {
+  const y = HY + 0.022;
+  const z = HZ + 0.096;
+  addTube(mesh, [-0.052, y, z], [-0.012, y + 0.007, z + 0.004], 4, 7, () => 0.0048, HAIR, M_SKIN);
+  addTube(mesh, [0.012, y + 0.007, z + 0.004], [0.052, y, z], 4, 7, () => 0.0048, HAIR, M_SKIN);
+}
+
+function addNose(mesh: Mesh): void {
+  addSphere(mesh, [0, HY - 0.012, HZ + 0.108], [0.012, 0.028, 0.016], 16, 18, SKIN, M_SKIN);
+  addSphere(mesh, [0, HY - 0.03, HZ + 0.118], [0.014, 0.012, 0.012], 12, 14, SKIN, M_SKIN);
+}
+
+function addMouth(mesh: Mesh): void {
+  addSphere(mesh, [0, HY - 0.05, HZ + 0.1], [0.026, 0.011, 0.012], 14, 18, LIP, M_SKIN);
+  addSphere(mesh, [0, HY - 0.052, HZ + 0.112], [0.016, 0.0042, 0.007], 10, 14, [0.05, 0.015, 0.014], M_SKIN);
 }
 
 function addHair(mesh: Mesh): void {
-  const scalp = (ang: number, phi: number): V3 => {
-    const front = Math.cos(ang);
-    const side = Math.sin(ang);
-    const sr = Math.sin(phi);
-    const up = Math.cos(phi);
-    return [side * sr * 0.09, HEAD_Y + up * 0.112, front * sr * 0.098];
-  };
-  for (let s = 0; s < HAIR_STRANDS; s += 1) {
-    const ang = hash(s * 3 + 1) * Math.PI * 2;
-    let phi = 0.06 + hash(s * 3 + 2) * 1.15;
-    const front = Math.cos(ang);
-    const bang = front > 0.35 && hash(s * 3 + 5) > 0.42;
-    if (front > 0.15) phi *= bang ? 0.42 : 0.62;
-    if (!bang && phi > 1.05 && front > 0) continue;
-    const root = scalp(ang, Math.min(phi, 1.2));
-    const seed = hash(s * 3 + 4);
-    const length = (bang ? 0.045 : 0.07 + seed * 0.14) * (0.85 + hash(s * 3 + 6) * 0.3);
-    let dir = n3([
-      root[0] * 0.35 + Math.sin(seed * 12) * 0.08,
-      -1,
-      root[2] * 0.2 + (bang ? 0.85 : -0.25),
-    ]);
-    const pts: V3[] = [root];
-    let p = root;
-    const step = length / HAIR_SEGS;
-    for (let i = 0; i < HAIR_SEGS; i += 1) {
-      const curl = Math.sin(i * 0.65 + seed * 20) * 0.18;
-      const side: V3 = [Math.cos(ang + 1.2), 0, Math.sin(ang)];
-      dir = n3(add3(add3(dir, [0, -0.12, 0]), side, curl));
-      p = add3(p, dir, step);
-      if (p[1] < 1.28) p = [p[0], 1.28, p[2]];
-      pts.push(p);
-    }
-    const color = seed > 0.82 ? HAIR_LIFT : HAIR;
-    const width = 0.0016 + seed * 0.0011;
-    const edge: number[] = [];
-    for (let i = 0; i < pts.length; i += 1) {
-      const prev = pts[Math.max(0, i - 1)];
-      const next = pts[Math.min(pts.length - 1, i + 1)];
-      const tan = n3([next[0] - prev[0], next[1] - prev[1], next[2] - prev[2]]);
-      let side = cross(tan, [0, 1, 0]);
-      if (side[0] * side[0] + side[1] * side[1] + side[2] * side[2] < 0.04) side = cross(tan, [1, 0, 0]);
-      side = n3(side);
-      const n = n3(cross(tan, side));
-      const w = width * (1 - i / (pts.length - 1 || 1));
-      const a = pts[i];
-      edge.push(
-        mesh.vert(a[0] + side[0] * w, a[1] + side[1] * w, a[2] + side[2] * w, n[0], n[1], n[2], color, M_CLOTH),
-        mesh.vert(a[0] - side[0] * w, a[1] - side[1] * w, a[2] - side[2] * w, n[0], n[1], n[2], color, M_CLOTH),
-      );
-    }
-    for (let i = 0; i < pts.length - 1; i += 1) {
-      const i0 = edge[i * 2];
-      const i1 = edge[i * 2 + 1];
-      const i2 = edge[(i + 1) * 2];
-      const i3 = edge[(i + 1) * 2 + 1];
-      mesh.tri(i0, i2, i1);
-      mesh.tri(i1, i2, i3);
-    }
+  const layers = 9;
+  const stacks = 200;
+  const slices = 280;
+  for (let layer = 0; layer < layers; layer += 1) {
+    const lift = 0.008 + layer * 0.0036;
+    const color = mixc(HAIR, HAIR_LIFT, layer / (layers - 1));
+    addSurfaceReal(
+      mesh,
+      stacks,
+      slices,
+      (iy, ix) => {
+        const ang = (ix / slices) * Math.PI * 2;
+        const front = Math.max(0, Math.sin(ang));
+        const back = Math.max(0, -Math.sin(ang));
+        const side = Math.abs(Math.cos(ang));
+        let phi = 1.17 + side * 0.16 + back * 0.98;
+        phi += Math.exp(-(Math.cos(ang) * Math.cos(ang)) / 0.22) * front * 0.08;
+        phi += back * layer * 0.012;
+        const t = iy / stacks;
+        const p = phi * t;
+        const sp = Math.sin(p);
+        const ux = Math.cos(ang) * sp;
+        const uy = Math.cos(p);
+        const uz = Math.sin(ang) * sp;
+        return {
+          x: ux * 0.082 + ux * lift,
+          y: HY + uy * 0.114 + uy * lift,
+          z: HZ + uz * 0.094 + uz * lift,
+          color,
+          mat: M_CLOTH,
+        };
+      },
+      (x, y, z) => [x, y - HY, z - HZ],
+    );
   }
 }
 
-function addContact(mesh: Mesh): void {
-  const slices = 18;
-  const rings = 5;
-  const center = mesh.vert(0, 0.02, 0.02, 0, 1, 0, [0.02, 0.02, 0.024], M_EMIT);
-  let prev: number[] = [];
-  for (let r = 1; r <= rings; r += 1) {
-    const row: number[] = [];
-    const t = r / rings;
-    const tone = 0.012 + t * 0.05;
-    for (let i = 0; i <= slices; i += 1) {
-      const a = (i / slices) * Math.PI * 2;
-      row.push(
-        mesh.vert(
-          Math.cos(a) * 0.34 * t,
-          0.02,
-          0.02 + Math.sin(a) * 0.22 * t,
-          0,
-          1,
-          0,
-          [tone, tone, tone + 0.004],
-          M_EMIT,
-        ),
-      );
+function addNeck(mesh: Mesh): void {
+  addTube(mesh, [0, 1.46, 0.02], [0, 1.55, HZ], 10, 20, (t) => mix(0.058, 0.046, t), SKIN, M_SKIN);
+}
+
+function addJacket(mesh: Mesh): void {
+  addSurfaceReal(
+    mesh,
+    64,
+    128,
+    (iy, ix) => {
+      const t = iy / 64;
+      const ang = (ix / 128) * Math.PI * 2;
+      const ca = Math.cos(ang);
+      const sa = Math.sin(ang);
+      const y = mix(0.86, 1.46, t);
+      let rx = 0.15;
+      rx += Math.exp(-((t - 0.2) ** 2) / 0.028) * -0.018;
+      rx += Math.exp(-((t - 0.6) ** 2) / 0.05) * 0.032;
+      rx += smooth(0.72, 1, t) * 0.085;
+      let rz = 0.092 + smooth(0.35, 0.72, t) * 0.028;
+      const front = Math.max(0, sa);
+      rz += front * 0.022 * smooth(0.4, 0.78, t);
+      const side = ca * ca;
+      const yUse = y - smooth(0.78, 1, t) * side * 0.06;
+      const seam = Math.exp(-(ca * ca) / 0.008) * front;
+      let color = mixc(JACKET, JACKET_DARK, seam * 0.92 + (1 - t) * 0.28);
+      color = mixc(color, [0.62, 0.65, 0.7], smooth(0.72, 1, t) * 0.4);
+      return { x: ca * rx, y: yUse, z: sa * rz, color, mat: M_CLOTH };
+    },
+    (x, _y, z) => [x, 0, z],
+  );
+  addTube(mesh, [0, 1.42, 0.02], [0, 1.5, 0.028], 6, 28, (t) => 0.064 + t * 0.012, JACKET_DARK, M_CLOTH);
+}
+
+function addLimb(mesh: Mesh, a: V3, b: V3, r0: number, r1: number, color: RGB, mat: number): void {
+  addTube(mesh, a, b, 16, 22, (t) => mix(r0, r1, t), color, mat);
+  addSphere(mesh, a, [r0, r0, r0], 12, 14, color, mat);
+  addSphere(mesh, b, [r1, r1, r1], 12, 14, color, mat);
+}
+
+function addArms(mesh: Mesh): void {
+  for (const side of [-1, 1]) {
+    const shoulder: V3 = [side * 0.19, 1.38, 0.03];
+    const elbow: V3 = [side * 0.23, 1.1, 0.07];
+    const wrist: V3 = [side * 0.2, 0.88, 0.13];
+    addLimb(mesh, shoulder, elbow, 0.052, 0.042, JACKET, M_CLOTH);
+    addLimb(mesh, elbow, wrist, 0.04, 0.032, JACKET, M_CLOTH);
+  }
+}
+
+function addHands(mesh: Mesh): void {
+  for (const side of [-1, 1]) {
+    const x = side * 0.2;
+    const y = 0.84;
+    const z = 0.155;
+    addSphere(mesh, [x, y - 0.015, z], [0.05, 0.055, 0.014], 16, 18, SKIN, M_SKIN);
+    const lengths = [0.07, 0.086, 0.08, 0.062];
+    for (let i = 0; i < 4; i += 1) {
+      const fx = x + (i - 1.5) * 0.026;
+      const len = lengths[i];
+      const spread = (i - 1.5) * 0.008;
+      const y0 = y - 0.04;
+      const z0 = z + 0.012;
+      addTube(mesh, [fx, y0, z0], [fx + spread, y0 - len, z0 + 0.02], 10, 12, (t) => mix(0.0072, 0.0052, t), SKIN, M_SKIN);
+      addSphere(mesh, [fx + spread, y0 - len - 0.002, z0 + 0.022], [0.006, 0.005, 0.004], 6, 8, NAIL, M_SKIN);
     }
-    const inner = prev.length ? prev : row.map(() => center);
-    for (let i = 0; i < slices; i += 1) {
-      mesh.tri(inner[i], row[i], inner[i + 1] ?? inner[0]);
-      mesh.tri(inner[i + 1] ?? inner[0], row[i], row[i + 1]);
-    }
-    prev = row;
+    const tx = x + side * 0.046;
+    addTube(
+      mesh,
+      [tx, y + 0.012, z + 0.006],
+      [tx + side * 0.032, y - 0.045, z + 0.032],
+      8,
+      10,
+      (t) => mix(0.011, 0.0075, t),
+      SKIN,
+      M_SKIN,
+    );
+    addSphere(mesh, [tx + side * 0.034, y - 0.05, z + 0.034], [0.008, 0.007, 0.006], 6, 8, NAIL, M_SKIN);
+  }
+}
+
+function addLegs(mesh: Mesh): void {
+  addSphere(mesh, [0, 0.98, 0.0], [0.13, 0.05, 0.075], 12, 16, PANTS, M_CLOTH);
+  for (const side of [-1, 1]) {
+    const hip: V3 = [side * 0.09, 0.9, 0.01];
+    const knee: V3 = [side * 0.1, 0.5, 0.045];
+    const ankle: V3 = [side * 0.085, 0.16, 0.025];
+    addLimb(mesh, hip, knee, 0.074, 0.052, PANTS, M_CLOTH);
+    addLimb(mesh, knee, ankle, 0.05, 0.038, PANTS, M_CLOTH);
+  }
+}
+
+function addBoots(mesh: Mesh): void {
+  for (const side of [-1, 1]) {
+    const x = side * 0.085;
+    addTube(mesh, [x, 0.18, 0.03], [x, 0.055, 0.05], 10, 14, (t) => mix(0.046, 0.05, t), BOOT, M_CLOTH);
+    addSphere(mesh, [x, 0.055, 0.12], [0.046, 0.032, 0.06], 12, 14, BOOT, M_CLOTH);
   }
 }
 
@@ -623,20 +535,20 @@ let baked: PersonMesh | null = null;
 export function buildPersonMesh(): PersonMesh {
   if (baked) return baked;
   const mesh = new Mesh();
-  addSurfaceReal(mesh, 200, 280, (iy, ix) => sampleHead(iy, ix, 200, 280), (x, y, z) => [x, y - HEAD_Y, z]);
-  addEar(mesh, -1);
-  addEar(mesh, 1);
+  addHead(mesh);
+  addEars(mesh);
   addEyes(mesh);
-  addNeck(mesh);
+  addBrows(mesh);
+  addNose(mesh);
+  addMouth(mesh);
   addHair(mesh);
-  addClothBody(mesh);
-  addLeg(mesh, -1);
-  addLeg(mesh, 1);
-  for (const side of [-1, 1]) {
-    const arm = addSleeve(mesh, side);
-    addHand(mesh, arm.wrist, arm.down, arm.palm, arm.across);
-  }
-  addContact(mesh);
+  addNeck(mesh);
+  addJacket(mesh);
+  addArms(mesh);
+  addHands(mesh);
+  addLegs(mesh);
+  addBoots(mesh);
   baked = mesh.finish();
   return baked;
 }
+

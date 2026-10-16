@@ -68,6 +68,14 @@ const ROOM = { x0: -6.6, x1: 7.4, z0: -4.4, z1: 12.6, y1: 3.55 };
 const STAND = { x: -0.85, y: 1.62, z: -1.15 };
 const FIGURE_H = 1.7;
 
+/** Tight full-body frame. The card uses this same frustum, so the portrait is life size. */
+const PORTRAIT_W = 896;
+const PORTRAIT_H = 2048;
+const PORTRAIT_FOV = 19.2;
+const BAKE_Y = 0.9;
+const BAKE_Z = 2.56;
+const PORTRAIT_Z = 0.06;
+
 const HOME_ACTOR: Actor = { x: ENEMY_CLOSE.x, z: ENEMY_CLOSE.z, alive: true, role: "near" };
 const HOME_WALLS: Seg[] = [EDGE_WALL, FAR_WALL];
 const HOME_CROSS: Crosshair = {
@@ -81,36 +89,28 @@ const HOME_CROSS: Crosshair = {
   dotSize: 1,
 };
 
-/** Same inputs as the room shader, without the spec chain. The figure is the million-triangle mesh. */
-const HUMAN_VERT = `
+/** The looked-at person is the dense mesh baked once into this card. */
+const PORTRAIT_VERT = `
 attribute vec3 aPos;
-attribute vec3 aNrm;
-attribute vec3 aColor;
-attribute float aMat;
+attribute vec2 aUv;
 uniform mat4 uMvp;
 uniform mat4 uModel;
-uniform mat3 uNmat;
-uniform float uTone;
-uniform vec3 uKey;
-uniform vec3 uFill;
-uniform vec3 uUp;
-varying vec3 vColor;
-varying float vMat;
-varying float vY;
+varying vec2 vUv;
 void main() {
-  vec4 world = uModel * vec4(aPos, 1.0);
-  vec3 N = uNmat * aNrm;
-  float ndl = dot(N, uKey);
-  float skin = step(aMat, 0.5);
-  float lit = mix(max(ndl, 0.0), clamp(ndl * 0.5 + 0.5, 0.0, 1.0), skin);
-  float hemi = clamp(dot(N, uUp) * 0.5 + 0.5, 0.0, 1.0);
-  float fill = max(dot(N, uFill), 0.0);
-  vec3 albedo = aColor * uTone;
-  vec3 amb = mix(vec3(0.08, 0.084, 0.09), vec3(0.2, 0.21, 0.23), hemi);
-  vColor = albedo * (amb + lit * vec3(0.78, 0.74, 0.66) + fill * vec3(0.22, 0.24, 0.28));
-  vMat = aMat;
-  vY = world.y;
-  gl_Position = uMvp * world;
+  vUv = aUv;
+  gl_Position = uMvp * uModel * vec4(aPos, 1.0);
+}
+`;
+
+const PORTRAIT_FRAG = `
+precision mediump float;
+uniform sampler2D uTex;
+uniform float uTone;
+varying vec2 vUv;
+void main() {
+  vec4 c = texture2D(uTex, vUv);
+  if (c.a < 0.45) discard;
+  gl_FragColor = vec4(c.rgb * uTone, 1.0);
 }
 `;
 
@@ -473,6 +473,71 @@ function tube(fig: Fig, ax: number, ay: number, az: number, bx: number, by: numb
 
 function limb(fig: Fig, ax: number, ay: number, az: number, bx: number, by: number, bz: number, radius: number, color: RGB, mat: number): void {
   tube(fig, ax, ay, az, bx, by, bz, radius, 11, color, mat);
+}
+
+/** Cheap stand-in for everyone the player is not looking at. One shared buffer. */
+function crowdMesh(): Float32Array {
+  const fig = new Fig();
+  const skin: RGB = [0.74, 0.56, 0.46];
+  const hair: RGB = [0.05, 0.045, 0.042];
+  const jacket: RGB = [0.46, 0.49, 0.54];
+  const pants: RGB = [0.16, 0.17, 0.2];
+  const boot: RGB = [0.07, 0.07, 0.08];
+  const sclera: RGB = [0.92, 0.92, 0.9];
+  const pupil: RGB = [0.04, 0.04, 0.045];
+  ellipsoid(fig, 0, 1.6, 0.02, 0.09, 0.11, 0.1, 10, 8, skin, M_SKIN);
+  ellipsoid(fig, 0, 1.7, 0.0, 0.096, 0.07, 0.1, 8, 6, hair, M_CLOTH);
+  ellipsoid(fig, -0.03, 1.61, 0.11, 0.014, 0.012, 0.01, 6, 4, sclera, M_SKIN);
+  ellipsoid(fig, 0.03, 1.61, 0.11, 0.014, 0.012, 0.01, 6, 4, sclera, M_SKIN);
+  ellipsoid(fig, -0.03, 1.61, 0.118, 0.006, 0.006, 0.004, 5, 4, pupil, M_SKIN);
+  ellipsoid(fig, 0.03, 1.61, 0.118, 0.006, 0.006, 0.004, 5, 4, pupil, M_SKIN);
+  limb(fig, 0, 1.42, 0.02, 0, 0.9, 0.02, 0.16, jacket, M_CLOTH);
+  limb(fig, -0.18, 1.38, 0.04, -0.28, 1.05, 0.08, 0.045, jacket, M_CLOTH);
+  limb(fig, 0.18, 1.38, 0.04, 0.28, 1.05, 0.08, 0.045, jacket, M_CLOTH);
+  limb(fig, -0.28, 1.05, 0.08, -0.22, 0.78, 0.12, 0.035, jacket, M_CLOTH);
+  limb(fig, 0.28, 1.05, 0.08, 0.22, 0.78, 0.12, 0.035, jacket, M_CLOTH);
+  limb(fig, -0.08, 0.9, 0.02, -0.09, 0.16, 0.02, 0.06, pants, M_CLOTH);
+  limb(fig, 0.08, 0.9, 0.02, 0.09, 0.16, 0.02, 0.06, pants, M_CLOTH);
+  limb(fig, -0.09, 0.16, 0.02, -0.09, 0.04, 0.08, 0.045, boot, M_CLOTH);
+  limb(fig, 0.09, 0.16, 0.02, 0.09, 0.04, 0.08, 0.045, boot, M_CLOTH);
+  return fig.pack();
+}
+
+function portraitQuad(): Float32Array {
+  const dist = BAKE_Z - PORTRAIT_Z;
+  const hx = dist * Math.tan((PORTRAIT_FOV * Math.PI) / 360);
+  const hy = hx / (PORTRAIT_W / PORTRAIT_H);
+  const y0 = BAKE_Y - hy;
+  const y1 = BAKE_Y + hy;
+  const z = PORTRAIT_Z;
+  return new Float32Array([
+    hx, y0, z, 0, 0,
+    -hx, y0, z, 1, 0,
+    -hx, y1, z, 1, 1,
+    hx, y0, z, 0, 0,
+    -hx, y1, z, 1, 1,
+    hx, y1, z, 0, 1,
+  ]);
+}
+
+/** The figure whose chest is nearest the view axis. Everyone else stays cheap. */
+function focusIndex(cam: Camera, figures: BayFigure[]): number {
+  const look = forward(cam.yaw, cam.pitch);
+  let best = -1;
+  let bestDot = 0.2;
+  for (let i = 0; i < figures.length; i += 1) {
+    const fig = figures[i];
+    const dx = fig.x - cam.x;
+    const dy = fig.y + 0.95 * fig.scale - cam.y;
+    const dz = fig.z - cam.z;
+    const dist = Math.hypot(dx, dy, dz) || 1;
+    const dot = (dx * look.x + dy * look.y + dz * look.z) / dist;
+    if (dot > bestDot) {
+      bestDot = dot;
+      best = i;
+    }
+  }
+  return best;
 }
 
 /** Head, face, and feet of the shared figure. Triangle count is the indexed mesh. */
@@ -849,6 +914,29 @@ function pushImpact(batch: Batch, w: number, h: number, x: number, y: number, ki
   tick(-1.5, 16, 3, 10);
 }
 
+function linkSampled(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string, label: string): WebGLProgram {
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  if (!vs || !fs) throw new Error("shader unavailable");
+  gl.shaderSource(vs, vertSrc);
+  gl.shaderSource(fs, fragSrc);
+  gl.compileShader(vs);
+  gl.compileShader(fs);
+  if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(vs) || label);
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(fs) || label);
+  const program = gl.createProgram();
+  if (!program) throw new Error("program unavailable");
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.bindAttribLocation(program, 0, "aPos");
+  gl.bindAttribLocation(program, 1, "aUv");
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || label);
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  return program;
+}
+
 function linkBoard(gl: WebGL2RenderingContext): WebGLProgram {
   const vs = gl.createShader(gl.VERTEX_SHADER);
   const fs = gl.createShader(gl.FRAGMENT_SHADER);
@@ -909,7 +997,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   if (!gl) throw new Error("webgl2 unavailable");
 
   const program = link(gl, VERT, FRAG);
-  const humanProg = link(gl, HUMAN_VERT, FRAG);
+  const portraitProg = linkSampled(gl, PORTRAIT_VERT, PORTRAIT_FRAG, "portrait");
   const unlit = link(gl, UNLIT_VERT, UNLIT_FRAG);
   const boardProg = linkBoard(gl);
   const boardMvp = gl.getUniformLocation(boardProg, "uMvp");
@@ -921,17 +1009,15 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   const keyLoc = gl.getUniformLocation(program, "uKey");
   const fillLoc = gl.getUniformLocation(program, "uFill");
   const upLoc = gl.getUniformLocation(program, "uUp");
-  const hMvp = gl.getUniformLocation(humanProg, "uMvp");
-  const hModel = gl.getUniformLocation(humanProg, "uModel");
-  const hN = gl.getUniformLocation(humanProg, "uNmat");
-  const hTone = gl.getUniformLocation(humanProg, "uTone");
-  const hKey = gl.getUniformLocation(humanProg, "uKey");
-  const hFill = gl.getUniformLocation(humanProg, "uFill");
-  const hUp = gl.getUniformLocation(humanProg, "uUp");
+  const pMvp = gl.getUniformLocation(portraitProg, "uMvp");
+  const pModel = gl.getUniformLocation(portraitProg, "uModel");
+  const pTone = gl.getUniformLocation(portraitProg, "uTone");
+  const pSampler = gl.getUniformLocation(portraitProg, "uTex");
   const hudMvp = gl.getUniformLocation(unlit, "uMvp");
 
   const roomBuf = gl.createBuffer();
   const humanBuf = gl.createBuffer();
+  const crowdBuf = gl.createBuffer();
   const handBuf = gl.createBuffer();
   const dyn = gl.createBuffer();
   const vao = gl.createVertexArray();
@@ -980,7 +1066,33 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   const humanIndexCount = person.indices.length;
   canvas.dataset.tris = String(person.triangles);
   canvas.dataset.verts = String(person.verts.length / STRIDE);
+  const crowdCount = park(crowdBuf, crowdMesh());
   const handCount = park(handBuf, viewHandMesh());
+  const portraitVao = gl.createVertexArray();
+  const portraitBuf = gl.createBuffer();
+  gl.bindVertexArray(portraitVao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, portraitBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, portraitQuad(), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
+  gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
+  const portraitTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, portraitTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, PORTRAIT_W, PORTRAIT_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  const portraitRb = gl.createRenderbuffer();
+  gl.bindRenderbuffer(gl.RENDERBUFFER, portraitRb);
+  gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, PORTRAIT_W, PORTRAIT_H);
+  const portraitFbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, portraitFbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, portraitTex, 0);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, portraitRb);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error("portrait framebuffer");
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.bindVertexArray(null);
 
   const world = new Batch(65536);
@@ -1048,18 +1160,53 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
 
   const drawHuman = (mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number) => {
     if (humanIndexCount < 3) return;
-    gl.useProgram(humanProg);
-    gl.uniformMatrix4fv(hMvp, false, mvp);
-    gl.uniformMatrix4fv(hModel, false, model);
-    gl.uniformMatrix3fv(hN, false, nrm);
-    gl.uniform1f(hTone, tone);
-    gl.uniform3fv(hKey, key);
-    gl.uniform3fv(hFill, fill);
-    gl.uniform3fv(hUp, up);
+    gl.useProgram(program);
+    gl.uniformMatrix4fv(mvpLoc, false, mvp);
+    gl.uniformMatrix4fv(modelLoc, false, model);
+    gl.uniformMatrix3fv(nLoc, false, nrm);
+    gl.uniform1f(toneLoc, tone);
+    gl.uniform3fv(keyLoc, key);
+    gl.uniform3fv(fillLoc, fill);
+    gl.uniform3fv(upLoc, up);
     bindMesh(humanBuf);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, humanElem);
     gl.enable(gl.DEPTH_TEST);
     gl.drawElements(gl.TRIANGLES, humanIndexCount, gl.UNSIGNED_INT, 0);
+  };
+
+  const drawPortrait = (tone: number) => {
+    gl.useProgram(portraitProg);
+    gl.uniformMatrix4fv(pMvp, false, mvpM);
+    gl.uniformMatrix4fv(pModel, false, modelM);
+    gl.uniform1f(pTone, tone);
+    gl.uniform1i(pSampler, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, portraitTex);
+    gl.bindVertexArray(portraitVao);
+    gl.enable(gl.DEPTH_TEST);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.bindVertexArray(vao);
+  };
+
+  const bakePortrait = () => {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, portraitFbo);
+    gl.viewport(0, 0, PORTRAIT_W, PORTRAIT_H);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.disable(gl.BLEND);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+    gl.bindVertexArray(vao);
+    const bakeCam: Camera = { x: 0, y: BAKE_Y, z: BAKE_Z, yaw: Math.PI, pitch: 0 };
+    viewOf(bakeCam, viewM);
+    perspective(projM, PORTRAIT_FOV, PORTRAIT_W / PORTRAIT_H);
+    multiply(mvpM, projM, viewM);
+    lights(viewM);
+    yawModel(0, 0, 0, 0, 1);
+    drawHuman(mvpM, figN, modelM, 1.25);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.clearColor(0.02, 0.025, 0.032, 1);
+    gl.bindVertexArray(null);
   };
 
   const drawDyn = (batch: Batch, mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number, depth: boolean) => {
@@ -1130,6 +1277,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     rot(0, 1, 0, 3);
     rot(sy, 0, cy, 6);
   };
+  bakePortrait();
 
   type Figure = { x: number; y: number; z: number; scale: number; yaw: number; tone: number };
 
@@ -1150,9 +1298,12 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     world.reset();
     fillWalls(world);
     drawDyn(world, mvpM, viewN, IDENTITY, 1, true);
-    for (const fig of figures) {
+    const focus = focusIndex(cam, figures);
+    for (let i = 0; i < figures.length; i += 1) {
+      const fig = figures[i];
       yawModel(fig.x, fig.y, fig.z, fig.yaw, fig.scale);
-      drawHuman(mvpM, figN, modelM, fig.tone);
+      if (i === focus) drawPortrait(fig.tone);
+      else drawMesh(crowdBuf, crowdCount, mvpM, figN, modelM, fig.tone, true);
     }
     extras?.();
     const kick = Math.min(0.05, Math.abs(sway) * 0.02);
@@ -1317,18 +1468,24 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     destroy: () => {
       observer.disconnect();
       gl.deleteProgram(program);
-      gl.deleteProgram(humanProg);
+      gl.deleteProgram(portraitProg);
       gl.deleteProgram(unlit);
       gl.deleteProgram(boardProg);
       gl.deleteBuffer(roomBuf);
       gl.deleteBuffer(humanBuf);
       gl.deleteBuffer(humanElem);
+      gl.deleteBuffer(crowdBuf);
       gl.deleteBuffer(handBuf);
       gl.deleteBuffer(dyn);
       gl.deleteBuffer(boardBuf);
+      gl.deleteBuffer(portraitBuf);
       gl.deleteTexture(boardTex);
+      gl.deleteTexture(portraitTex);
+      gl.deleteFramebuffer(portraitFbo);
+      gl.deleteRenderbuffer(portraitRb);
       gl.deleteVertexArray(vao);
       gl.deleteVertexArray(boardVao);
+      gl.deleteVertexArray(portraitVao);
     },
   };
 }
