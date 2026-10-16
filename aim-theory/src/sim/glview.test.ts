@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { humanSpan, ndcOf } from "./glview";
+
+const personFile = readFileSync(new URL("../../public/person.glb", import.meta.url));
+const personGlb = personFile.buffer.slice(personFile.byteOffset, personFile.byteOffset + personFile.byteLength);
 
 describe("first person projection", () => {
   it("puts a point on the look axis at the center", () => {
@@ -19,7 +23,7 @@ describe("first person projection", () => {
   });
 
   it("stands a human with a face in front of the skull", () => {
-    const span = humanSpan();
+    const span = humanSpan(personGlb);
     expect(span.minY).toBeGreaterThan(-0.02);
     expect(span.minY).toBeLessThan(0.08);
     expect(span.maxY).toBeGreaterThan(1.65);

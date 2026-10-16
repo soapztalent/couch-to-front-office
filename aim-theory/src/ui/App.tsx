@@ -9,6 +9,7 @@ import { SkillPlayer } from "../skill/SkillPlayer";
 import type { StepId } from "../skill/steps";
 import { nextFight, type WorldCall } from "../world/bay";
 import { Bay } from "./Bay";
+import { FigureShot } from "./FigureShot";
 import { Settings as SettingsPanel } from "./Settings";
 
 type Route =
@@ -74,6 +75,7 @@ export function App() {
     return <Bay settings={settings} done={done} paused={held} onCall={startCall} />;
   }
 
+  const shot = new URLSearchParams(window.location.search).get("shot");
   let screen = world();
   if (route.name === "lesson") {
     const lesson = lessonById(route.id);
@@ -121,6 +123,8 @@ export function App() {
       />
     );
   }
+
+  if (shot === "front" || shot === "back" || shot === "drill") screen = <FigureShot view={shot} />;
 
   return (
     <>

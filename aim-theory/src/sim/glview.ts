@@ -1,5 +1,5 @@
 import type { Crosshair } from "../persist/storage";
-import { buildPersonMesh } from "./person";
+import { parsePerson } from "./person";
 import type { WorldDraw } from "./draw";
 import { cameraBasis, forward, lineOfSight, type Camera, type Seg, type V3 } from "./geom";
 import type { Actor } from "./lane";
@@ -69,12 +69,11 @@ const STAND = { x: -0.85, y: 1.62, z: -1.15 };
 const FIGURE_H = 1.7;
 
 /** Tight full-body frame. The card uses this same frustum, so the portrait is life size. */
-const PORTRAIT_W = 896;
-const PORTRAIT_H = 2048;
-const PORTRAIT_FOV = 19.2;
-const BAKE_Y = 0.9;
-const BAKE_Z = 2.56;
-const PORTRAIT_Z = 0.06;
+const PORTRAIT_W = 1024;
+const PORTRAIT_H = 2304;
+const PORTRAIT_FOV = 22;
+const BAKE_Y = 0.86;
+const BAKE_Z = 2.35;
 
 const HOME_ACTOR: Actor = { x: ENEMY_CLOSE.x, z: ENEMY_CLOSE.z, alive: true, role: "near" };
 const HOME_WALLS: Seg[] = [EDGE_WALL, FAR_WALL];
@@ -89,7 +88,7 @@ const HOME_CROSS: Crosshair = {
   dotSize: 1,
 };
 
-/** The looked-at person is the dense mesh baked once into this card. */
+/** Front and back of the shipped person, baked once from the dense GLB. */
 const PORTRAIT_VERT = `
 attribute vec3 aPos;
 attribute vec2 aUv;
@@ -104,13 +103,54 @@ void main() {
 
 const PORTRAIT_FRAG = `
 precision mediump float;
-uniform sampler2D uTex;
+uniform sampler2D uFront;
+uniform sampler2D uBack;
 uniform float uTone;
 varying vec2 vUv;
 void main() {
-  vec4 c = texture2D(uTex, vUv);
-  if (c.a < 0.45) discard;
+  vec2 uv = vUv;
+  vec4 c;
+  if (gl_FrontFacing) c = texture2D(uFront, uv);
+  else {
+    uv.x = 1.0 - uv.x;
+    c = texture2D(uBack, uv);
+  }
+  if (c.a < 0.4) discard;
   gl_FragColor = vec4(c.rgb * uTone, 1.0);
+}
+`;
+
+const PERSON_VERT = `
+attribute vec3 aPos;
+attribute vec3 aNrm;
+attribute vec2 aUv;
+uniform mat4 uMvp;
+uniform mat3 uNmat;
+varying vec2 vUv;
+varying vec3 vN;
+void main() {
+  vUv = aUv;
+  vN = normalize(uNmat * aNrm);
+  gl_Position = uMvp * vec4(aPos, 1.0);
+}
+`;
+
+const PERSON_FRAG = `
+precision mediump float;
+uniform sampler2D uTex;
+uniform float uCutoff;
+varying vec2 vUv;
+varying vec3 vN;
+void main() {
+  vec4 tex = texture2D(uTex, vUv);
+  if (uCutoff > 0.0 && tex.a < uCutoff) discard;
+  vec3 N = normalize(vN);
+  vec3 key = normalize(vec3(0.28, 0.74, 0.82));
+  vec3 fill = normalize(vec3(-0.55, 0.2, 0.35));
+  float wrap = clamp(dot(N, key) * 0.55 + 0.45, 0.0, 1.0);
+  float soft = clamp(dot(N, fill) * 0.45 + 0.55, 0.0, 1.0);
+  vec3 color = tex.rgb * (vec3(0.34, 0.32, 0.3) + vec3(0.62, 0.58, 0.52) * wrap + vec3(0.18, 0.2, 0.24) * soft);
+  gl_FragColor = vec4(color, 1.0);
 }
 `;
 
@@ -475,96 +515,24 @@ function limb(fig: Fig, ax: number, ay: number, az: number, bx: number, by: numb
   tube(fig, ax, ay, az, bx, by, bz, radius, 11, color, mat);
 }
 
-/** Cheap stand-in for everyone the player is not looking at. One shared buffer. */
-function crowdMesh(): Float32Array {
-  const fig = new Fig();
-  const skin: RGB = [0.74, 0.56, 0.46];
-  const hair: RGB = [0.05, 0.045, 0.042];
-  const jacket: RGB = [0.46, 0.49, 0.54];
-  const pants: RGB = [0.16, 0.17, 0.2];
-  const boot: RGB = [0.07, 0.07, 0.08];
-  const sclera: RGB = [0.92, 0.92, 0.9];
-  const pupil: RGB = [0.04, 0.04, 0.045];
-  ellipsoid(fig, 0, 1.6, 0.02, 0.09, 0.11, 0.1, 10, 8, skin, M_SKIN);
-  ellipsoid(fig, 0, 1.7, 0.0, 0.096, 0.07, 0.1, 8, 6, hair, M_CLOTH);
-  ellipsoid(fig, -0.03, 1.61, 0.11, 0.014, 0.012, 0.01, 6, 4, sclera, M_SKIN);
-  ellipsoid(fig, 0.03, 1.61, 0.11, 0.014, 0.012, 0.01, 6, 4, sclera, M_SKIN);
-  ellipsoid(fig, -0.03, 1.61, 0.118, 0.006, 0.006, 0.004, 5, 4, pupil, M_SKIN);
-  ellipsoid(fig, 0.03, 1.61, 0.118, 0.006, 0.006, 0.004, 5, 4, pupil, M_SKIN);
-  limb(fig, 0, 1.42, 0.02, 0, 0.9, 0.02, 0.16, jacket, M_CLOTH);
-  limb(fig, -0.18, 1.38, 0.04, -0.28, 1.05, 0.08, 0.045, jacket, M_CLOTH);
-  limb(fig, 0.18, 1.38, 0.04, 0.28, 1.05, 0.08, 0.045, jacket, M_CLOTH);
-  limb(fig, -0.28, 1.05, 0.08, -0.22, 0.78, 0.12, 0.035, jacket, M_CLOTH);
-  limb(fig, 0.28, 1.05, 0.08, 0.22, 0.78, 0.12, 0.035, jacket, M_CLOTH);
-  limb(fig, -0.08, 0.9, 0.02, -0.09, 0.16, 0.02, 0.06, pants, M_CLOTH);
-  limb(fig, 0.08, 0.9, 0.02, 0.09, 0.16, 0.02, 0.06, pants, M_CLOTH);
-  limb(fig, -0.09, 0.16, 0.02, -0.09, 0.04, 0.08, 0.045, boot, M_CLOTH);
-  limb(fig, 0.09, 0.16, 0.02, 0.09, 0.04, 0.08, 0.045, boot, M_CLOTH);
-  return fig.pack();
-}
-
 function portraitQuad(): Float32Array {
-  const dist = BAKE_Z - PORTRAIT_Z;
-  const hx = dist * Math.tan((PORTRAIT_FOV * Math.PI) / 360);
+  const hx = BAKE_Z * Math.tan((PORTRAIT_FOV * Math.PI) / 360);
   const hy = hx / (PORTRAIT_W / PORTRAIT_H);
   const y0 = BAKE_Y - hy;
   const y1 = BAKE_Y + hy;
-  const u = (x: number) => (hx - x) / (hx * 2);
-  const v = (y: number) => (y - y0) / (y1 - y0);
-  const z = PORTRAIT_Z;
-  const xL = 0.42;
-  const xR = -0.42;
-  const yB = -0.01;
-  const yT = 1.8;
+  const xPos = hx;
+  const xNeg = -hx;
   return new Float32Array([
-    xL, yB, z, u(xL), v(yB),
-    xR, yB, z, u(xR), v(yB),
-    xR, yT, z, u(xR), v(yT),
-    xL, yB, z, u(xL), v(yB),
-    xR, yT, z, u(xR), v(yT),
-    xL, yT, z, u(xL), v(yT),
+    xPos, y0, 0, 0, 0,
+    xNeg, y0, 0, 1, 0,
+    xNeg, y1, 0, 1, 1,
+    xPos, y0, 0, 0, 0,
+    xNeg, y1, 0, 1, 1,
+    xPos, y1, 0, 0, 1,
   ]);
 }
 
-/** The figure whose chest is nearest the view axis. Everyone else stays cheap. */
-function focusIndex(cam: Camera, figures: BayFigure[]): number {
-  const look = forward(cam.yaw, cam.pitch);
-  let best = -1;
-  let bestDot = 0.2;
-  for (let i = 0; i < figures.length; i += 1) {
-    const fig = figures[i];
-    const dx = fig.x - cam.x;
-    const dy = fig.y + 0.95 * fig.scale - cam.y;
-    const dz = fig.z - cam.z;
-    const dist = Math.hypot(dx, dy, dz) || 1;
-    const dot = (dx * look.x + dy * look.y + dz * look.z) / dist;
-    if (dot > bestDot) {
-      bestDot = dot;
-      best = i;
-    }
-  }
-  return best;
-}
-
-/** Head, face, and feet of the shared figure. Triangle count is the indexed mesh. */
-export function humanSpan(): { minY: number; maxY: number; face: number; verts: number; triangles: number } {
-  const mesh = buildPersonMesh();
-  let minY = 99;
-  let maxY = -99;
-  let face = 0;
-  for (let i = 0; i < mesh.verts.length; i += STRIDE) {
-    const y = mesh.verts[i + 1];
-    const z = mesh.verts[i + 2];
-    if (y < minY) minY = y;
-    if (y > maxY) maxY = y;
-    if (y > 1.45 && y < 1.75 && z > face) face = z;
-  }
-  return { minY, maxY, face, verts: mesh.verts.length / STRIDE, triangles: mesh.triangles };
-}
-
-export function humanTriangles(): number {
-  return buildPersonMesh().triangles;
-}
+export { humanSpan, humanTriangles } from "./person";
 
 function pushBox(batch: Batch, x: number, y: number, z: number, w: number, h: number, d: number, color: RGB, mat: number): void {
   const x1 = x + w;
@@ -966,6 +934,30 @@ function linkBoard(gl: WebGL2RenderingContext): WebGLProgram {
   return program;
 }
 
+function linkPerson(gl: WebGL2RenderingContext): WebGLProgram {
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  if (!vs || !fs) throw new Error("shader unavailable");
+  gl.shaderSource(vs, PERSON_VERT);
+  gl.shaderSource(fs, PERSON_FRAG);
+  gl.compileShader(vs);
+  gl.compileShader(fs);
+  if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(vs) || "person vertex");
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(fs) || "person fragment");
+  const program = gl.createProgram();
+  if (!program) throw new Error("program unavailable");
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.bindAttribLocation(program, 0, "aPos");
+  gl.bindAttribLocation(program, 1, "aNrm");
+  gl.bindAttribLocation(program, 2, "aUv");
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "person link");
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  return program;
+}
+
 function link(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string): WebGLProgram {
   const vs = gl.createShader(gl.VERTEX_SHADER);
   const fs = gl.createShader(gl.FRAGMENT_SHADER);
@@ -1004,6 +996,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
 
   const program = link(gl, VERT, FRAG);
   const portraitProg = linkSampled(gl, PORTRAIT_VERT, PORTRAIT_FRAG, "portrait");
+  const personProg = linkPerson(gl);
   const unlit = link(gl, UNLIT_VERT, UNLIT_FRAG);
   const boardProg = linkBoard(gl);
   const boardMvp = gl.getUniformLocation(boardProg, "uMvp");
@@ -1018,12 +1011,15 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   const pMvp = gl.getUniformLocation(portraitProg, "uMvp");
   const pModel = gl.getUniformLocation(portraitProg, "uModel");
   const pTone = gl.getUniformLocation(portraitProg, "uTone");
-  const pSampler = gl.getUniformLocation(portraitProg, "uTex");
+  const pFront = gl.getUniformLocation(portraitProg, "uFront");
+  const pBack = gl.getUniformLocation(portraitProg, "uBack");
+  const personMvp = gl.getUniformLocation(personProg, "uMvp");
+  const personN = gl.getUniformLocation(personProg, "uNmat");
+  const personTex = gl.getUniformLocation(personProg, "uTex");
+  const personCut = gl.getUniformLocation(personProg, "uCutoff");
   const hudMvp = gl.getUniformLocation(unlit, "uMvp");
 
   const roomBuf = gl.createBuffer();
-  const humanBuf = gl.createBuffer();
-  const crowdBuf = gl.createBuffer();
   const handBuf = gl.createBuffer();
   const dyn = gl.createBuffer();
   const vao = gl.createVertexArray();
@@ -1064,15 +1060,6 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   let boardSource: TexImageSource | null = null;
 
   const roomCount = park(roomBuf, roomMesh());
-  const person = buildPersonMesh();
-  park(humanBuf, person.verts);
-  const humanElem = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, humanElem);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, person.indices, gl.STATIC_DRAW);
-  const humanIndexCount = person.indices.length;
-  canvas.dataset.tris = String(person.triangles);
-  canvas.dataset.verts = String(person.verts.length / STRIDE);
-  const crowdCount = park(crowdBuf, crowdMesh());
   const handCount = park(handBuf, viewHandMesh());
   const portraitVao = gl.createVertexArray();
   const portraitBuf = gl.createBuffer();
@@ -1083,23 +1070,30 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
   gl.enableVertexAttribArray(1);
   gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
   gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
-  const portraitTex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, portraitTex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, PORTRAIT_W, PORTRAIT_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  const allocPortrait = () => {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, PORTRAIT_W, PORTRAIT_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    return tex;
+  };
+  const frontTex = allocPortrait();
+  const backTex = allocPortrait();
   const portraitRb = gl.createRenderbuffer();
   gl.bindRenderbuffer(gl.RENDERBUFFER, portraitRb);
   gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, PORTRAIT_W, PORTRAIT_H);
   const portraitFbo = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, portraitFbo);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, portraitTex, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, frontTex, 0);
   gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, portraitRb);
   if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error("portrait framebuffer");
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.bindVertexArray(null);
+  let personReady = false;
+  const gpuPrims: { vao: WebGLVertexArrayObject; count: number; tex: WebGLTexture; cutoff: number }[] = [];
 
   const world = new Batch(65536);
   const gun = new Batch(8192);
@@ -1171,57 +1165,53 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     gl.drawArrays(gl.TRIANGLES, 0, count);
   };
 
-  const drawHuman = (mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number) => {
-    if (humanIndexCount < 3) return;
-    gl.useProgram(program);
-    gl.uniformMatrix4fv(mvpLoc, false, mvp);
-    gl.uniformMatrix4fv(modelLoc, false, model);
-    gl.uniformMatrix3fv(nLoc, false, nrm);
-    gl.uniform1f(toneLoc, tone);
-    gl.uniform3fv(keyLoc, key);
-    gl.uniform3fv(fillLoc, fill);
-    gl.uniform3fv(upLoc, up);
-    bindMesh(humanBuf);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, humanElem);
-    gl.enable(gl.DEPTH_TEST);
-    gl.drawElements(gl.TRIANGLES, humanIndexCount, gl.UNSIGNED_INT, 0);
-  };
-
   const drawPortrait = (tone: number) => {
+    if (!personReady) return;
     gl.useProgram(portraitProg);
     gl.uniformMatrix4fv(pMvp, false, mvpM);
     gl.uniformMatrix4fv(pModel, false, modelM);
     gl.uniform1f(pTone, tone);
-    gl.uniform1i(pSampler, 0);
+    gl.uniform1i(pFront, 0);
+    gl.uniform1i(pBack, 1);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, portraitTex);
+    gl.bindTexture(gl.TEXTURE_2D, frontTex);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, backTex);
     gl.bindVertexArray(portraitVao);
     gl.enable(gl.DEPTH_TEST);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.bindVertexArray(vao);
+    gl.activeTexture(gl.TEXTURE0);
   };
 
-  const bakePortrait = () => {
+  const bakeSide = (tex: WebGLTexture, cam: Camera) => {
     gl.bindFramebuffer(gl.FRAMEBUFFER, portraitFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     gl.viewport(0, 0, PORTRAIT_W, PORTRAIT_H);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.disable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
-    gl.bindVertexArray(vao);
-    const bakeCam: Camera = { x: 0, y: BAKE_Y, z: BAKE_Z, yaw: Math.PI, pitch: 0 };
-    viewOf(bakeCam, viewM);
+    viewOf(cam, viewM);
     perspective(projM, PORTRAIT_FOV, PORTRAIT_W / PORTRAIT_H);
     multiply(mvpM, projM, viewM);
     lights(viewM);
-    yawModel(0, 0, 0, 0, 1);
-    drawHuman(mvpM, figN, modelM, 1.25);
+    gl.useProgram(personProg);
+    gl.uniformMatrix4fv(personMvp, false, mvpM);
+    gl.uniformMatrix3fv(personN, false, viewN);
+    gl.uniform1i(personTex, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    for (const prim of gpuPrims) {
+      gl.uniform1f(personCut, prim.cutoff);
+      gl.bindTexture(gl.TEXTURE_2D, prim.tex);
+      gl.bindVertexArray(prim.vao);
+      gl.drawElements(gl.TRIANGLES, prim.count, gl.UNSIGNED_INT, 0);
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.bindVertexArray(vao);
+    gl.bindVertexArray(null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     gl.clearColor(0.02, 0.025, 0.032, 1);
-    gl.bindVertexArray(null);
   };
 
   const drawDyn = (batch: Batch, mvp: Float32Array, nrm: Float32Array, model: Float32Array, tone: number, depth: boolean) => {
@@ -1292,12 +1282,75 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     rot(0, 1, 0, 3);
     rot(sy, 0, cy, 6);
   };
-  bakePortrait();
+
+  const uploadPerson = async () => {
+    const response = await fetch("/person.glb");
+    if (!response.ok) throw new Error("person glb missing");
+    const mesh = parsePerson(await response.arrayBuffer());
+    const bitmaps = await Promise.all(
+      mesh.images.map((image) => createImageBitmap(new Blob([image.bytes.buffer.slice(image.bytes.byteOffset, image.bytes.byteOffset + image.bytes.byteLength) as ArrayBuffer], { type: image.mime }))),
+    );
+    const textures = bitmaps.map((bitmap) => {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      bitmap.close();
+      return tex;
+    });
+    for (const prim of mesh.primitives) {
+      const vao = gl.createVertexArray();
+      const buf = gl.createBuffer();
+      const elem = gl.createBuffer();
+      const interleaved = new Float32Array(prim.positions.length / 3 * 8);
+      for (let i = 0, v = 0; i < prim.positions.length; i += 3, v += 8) {
+        interleaved[v] = prim.positions[i];
+        interleaved[v + 1] = prim.positions[i + 1];
+        interleaved[v + 2] = prim.positions[i + 2];
+        interleaved[v + 3] = prim.normals[i];
+        interleaved[v + 4] = prim.normals[i + 1];
+        interleaved[v + 5] = prim.normals[i + 2];
+        const u = (i / 3) * 2;
+        interleaved[v + 6] = prim.uvs[u];
+        interleaved[v + 7] = prim.uvs[u + 1];
+      }
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.enableVertexAttribArray(1);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 32, 0);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 32, 12);
+      gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 32, 24);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elem);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, prim.indices, gl.STATIC_DRAW);
+      gpuPrims.push({ vao, count: prim.indices.length, tex: textures[prim.image], cutoff: prim.alphaCutoff });
+    }
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    const bakeStarted = performance.now();
+    bakeSide(frontTex, { x: 0, y: BAKE_Y, z: BAKE_Z, yaw: Math.PI, pitch: 0 });
+    bakeSide(backTex, { x: 0, y: BAKE_Y, z: -BAKE_Z, yaw: 0, pitch: 0 });
+    personReady = true;
+    canvas.dataset.tris = String(mesh.triangles);
+    canvas.dataset.verts = String(mesh.verts);
+    canvas.dataset.ready = "1";
+    canvas.dataset.bakeMs = (performance.now() - bakeStarted).toFixed(1);
+  };
+  void uploadPerson();
 
   type Figure = { x: number; y: number; z: number; scale: number; yaw: number; tone: number };
 
   const frame = (cam: Camera, fov: number, fillWalls: (batch: Batch) => void, figures: Figure[], cross: Crosshair, sway: number, flash: WorldDraw["flash"], extras?: () => void) => {
     if (lost || cssW < 2 || cssH < 2) return;
+    const frameStarted = performance.now();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     const aspect = canvas.width / canvas.height || cssW / cssH;
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1314,12 +1367,10 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     world.reset();
     fillWalls(world);
     drawDyn(world, mvpM, viewN, IDENTITY, 1, true);
-    const focus = focusIndex(cam, figures);
     for (let i = 0; i < figures.length; i += 1) {
       const fig = figures[i];
       yawModel(fig.x, fig.y, fig.z, fig.yaw, fig.scale);
-      if (i === focus) drawPortrait(fig.tone);
-      else drawMesh(crowdBuf, crowdCount, mvpM, figN, modelM, fig.tone, true);
+      drawPortrait(fig.tone);
     }
     extras?.();
     const kick = Math.min(0.05, Math.abs(sway) * 0.02);
@@ -1340,6 +1391,8 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     pushCross(hud, cssW, cssH, cross);
     drawHud(hud);
     gl.bindVertexArray(null);
+    if (softwareGl && personReady) gl.finish();
+    canvas.dataset.frameMs = (performance.now() - frameStarted).toFixed(2);
   };
 
   const paintFight = (scene: WorldDraw) => {
@@ -1485,23 +1538,23 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
       observer.disconnect();
       gl.deleteProgram(program);
       gl.deleteProgram(portraitProg);
+      gl.deleteProgram(personProg);
       gl.deleteProgram(unlit);
       gl.deleteProgram(boardProg);
       gl.deleteBuffer(roomBuf);
-      gl.deleteBuffer(humanBuf);
-      gl.deleteBuffer(humanElem);
-      gl.deleteBuffer(crowdBuf);
       gl.deleteBuffer(handBuf);
       gl.deleteBuffer(dyn);
       gl.deleteBuffer(boardBuf);
       gl.deleteBuffer(portraitBuf);
       gl.deleteTexture(boardTex);
-      gl.deleteTexture(portraitTex);
+      gl.deleteTexture(frontTex);
+      gl.deleteTexture(backTex);
       gl.deleteFramebuffer(portraitFbo);
       gl.deleteRenderbuffer(portraitRb);
       gl.deleteVertexArray(vao);
       gl.deleteVertexArray(boardVao);
       gl.deleteVertexArray(portraitVao);
+      for (const prim of gpuPrims) gl.deleteVertexArray(prim.vao);
     },
   };
 }
