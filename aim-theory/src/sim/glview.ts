@@ -153,29 +153,17 @@ void main() {
   vec4 tex = texture(uTex, vUv);
   if (uCutoff > 0.0 && tex.a < uCutoff) discard;
   vec3 N = normalize(vN);
-  vec3 mapN = texture(uNrm, vUv).xyz * 2.0 - 1.0;
-  mapN.xy *= 0.28;
-  vec3 dp1 = dFdx(vView);
-  vec3 dp2 = dFdy(vView);
-  vec2 duv1 = dFdx(vUv);
-  vec2 duv2 = dFdy(vUv);
-  vec3 T = dp1 * duv2.y - dp2 * duv1.y;
-  float tlen = length(T);
-  if (tlen > 1e-5) {
-    T /= tlen;
-    vec3 B = normalize(cross(N, T));
-    float hand = (duv1.x * duv2.y - duv2.x * duv1.y) < 0.0 ? -1.0 : 1.0;
-    N = normalize(mat3(T, B * hand, N) * mapN);
-  }
+  // The scan normal map is an image-space filter, not a tangent bake. Derivative
+  // tangents turn UV borders (hair, brows, collar, jacket seams) into black streaks.
   float rough = texture(uRough, vUv).g;
   vec3 V = normalize(-vView);
   vec3 key = normalize(vec3(0.42, 0.78, 0.55));
   vec3 fillL = normalize(vec3(-0.62, 0.28, 0.42));
   float ndl = dot(N, key);
   float lambert = clamp(ndl, 0.0, 1.0);
-  float wrap = clamp(ndl * 0.45 + 0.55, 0.0, 1.0);
+  float wrap = clamp(ndl * 0.5 + 0.5, 0.0, 1.0);
   float skin = 1.0 - smoothstep(0.34, 0.62, rough);
-  float lit = mix(lambert, wrap, skin * 0.85);
+  float lit = mix(wrap, lambert, 0.35);
   float fill = clamp(dot(N, fillL) * 0.5 + 0.5, 0.0, 1.0);
   vec3 albedo = tex.rgb;
   vec3 color = albedo * (vec3(0.18, 0.17, 0.16) + vec3(0.92, 0.84, 0.74) * lit + vec3(0.16, 0.18, 0.22) * fill);
@@ -1336,7 +1324,7 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     gl.uniformMatrix4fv(personView, false, view);
     gl.uniformMatrix3fv(personN, false, nrm);
     gl.uniform1i(personTex, 0);
-    gl.uniform1i(personNrm, 1);
+    if (personNrm) gl.uniform1i(personNrm, 1);
     gl.uniform1i(personRough, 2);
     gl.uniform1f(personTone, tone);
     gl.enable(gl.DEPTH_TEST);

@@ -1,16 +1,20 @@
-person.glb is adapted from scan HSR0040-Body-012 ("David") in the HSRD-100
+person.glb is adapted from scan HSR0028-Body-093 ("Jade") in the HSRD-100
 dataset by Digital Reality Lab / Human Scan Repository.
 
 License: Creative Commons Attribution 4.0 International (CC BY 4.0)
 https://creativecommons.org/licenses/by/4.0/
 https://huggingface.co/datasets/digitalrealitylab/HSRD-100
 
-The shipped mesh keeps 1,649,999 triangles from the original 4,999,906-triangle
-photogrammetry scan. It is not a subdivided mannequin. The albedo is the scan
-photograph. The normal map is the high-frequency surface of that photograph
-(skin grain, jacket quilting, denim). Roughness separates skin, the jacket,
-and the jeans so the light responds differently on each.
+The shipped mesh keeps 1,650,000 triangles from the original 4,999,935-triangle
+photogrammetry scan. It is not a subdivided mannequin and it is not a copied
+game character. The albedo is the scan photograph. Lighting uses the scan's
+geometric normals. An image-space normal map is not shipped, because that map
+painted black streaks along hair, brows, and clothing seams.
 
-Changes: decimated for the real-time file size, oriented to face +Z with feet
-on the floor, and given a normal map and a roughness map. No endorsement by
-the subject or Digital Reality Lab is implied.
+The pose is the scan as captured: a forward run with both fists up and empty,
+eyes ahead, no phone and no prop. The rear foot is off the floor because that
+is the running stride. The mesh was decimated for the real-time file, oriented
+to face +Z with the planted foot on the floor, and scaled to 1.80 m so it
+matches the range camera (the scanned subject is 163 cm).
+
+No endorsement by the subject or Digital Reality Lab is implied.

@@ -1,8 +1,8 @@
 /**
  * The shared person is public/person.glb: a photogrammetry scan of a clothed
- * adult (jacket, jeans, hair, eyes, hands). Triangle count is the scan itself,
- * decimated from the 5-million-triangle capture. Albedo, normal, and roughness
- * are read here and shaded in the view. See public/person-credits.txt.
+ * adult (shirt, sweatpants, hair, eyes, fists). Triangle count is the scan
+ * itself, decimated from the 5-million-triangle capture. The albedo is the
+ * photograph. Lighting uses geometric normals. See public/person-credits.txt.
  */
 
 export type PersonImage = { mime: string; bytes: Uint8Array };
