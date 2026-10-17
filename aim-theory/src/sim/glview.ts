@@ -172,7 +172,8 @@ void main() {
   float lambert = clamp(ndl, 0.0, 1.0);
   float wrap = clamp(ndl * 0.5 + 0.5, 0.0, 1.0);
   float skin = 1.0 - smoothstep(0.34, 0.62, rough);
-  float lit = mix(wrap, lambert, 0.35);
+  // Lambert carries the normal. Wrap was washing pores out of the skin.
+  float lit = mix(wrap, lambert, 0.72);
   float fill = clamp(dot(N, fillL) * 0.5 + 0.5, 0.0, 1.0);
   vec3 albedo = tex.rgb;
   vec3 color = albedo * (vec3(0.18, 0.17, 0.16) + vec3(0.92, 0.84, 0.74) * lit + vec3(0.16, 0.18, 0.22) * fill);
@@ -181,8 +182,9 @@ void main() {
   float gloss = mix(10.0, 72.0, 1.0 - rough);
   float spec = pow(nh, gloss) * (1.0 - rough) * 0.12;
   color += spec * vec3(1.0, 0.97, 0.92);
+  // White rim only. Multiplying fresnel by albedo turned the iris emissive red.
   float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-  color += fres * mix(0.02, 0.1, skin) * albedo;
+  color += fres * mix(0.025, 0.045, skin);
   outColor = vec4(color * uTone, 1.0);
 }
 `;
