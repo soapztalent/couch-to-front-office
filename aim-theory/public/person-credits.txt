@@ -10,16 +10,18 @@ by Data Collection AB, Joel Palmius, and Jonas Hauquier. The character is not
 a copied game character and not a photogrammetry scan.
 
 The mesh is posed as a standing guard: both feet planted, weight even, fists
-up and empty, with each finger separate. No phone and no run cycle. After the
-color and normal maps were in place, the head, shirt, and shoes were
-Catmull-Clark subdivided with the UVs kept. The hands stay at the base mesh
-so the digits do not weld together. The shipped file has 1,278,036 triangles.
+up and empty. No phone and no run cycle. Each finger is thinned along its own
+axis so the digits stay apart. After the color and normal maps were in place,
+the head, shirt, and shoes were Catmull-Clark subdivided with the UVs kept.
+The hands stay at the base mesh so the digits do not weld together. The
+shipped file has 1,278,036 triangles.
 
 Skin, shirt, jeans, and shoes use real color maps. Skin pores were turned into
 a tangent-space normal from that color map, strong enough to read on the face.
-The shirt, jeans, and shoes use their authored tangent-space normal maps.
-The brows are painted on the skin. The irises are brown. Lighting samples
-those maps with the mesh tangents.
+The hands use that skin color without the pore normal, so the gaps between
+the fingers stay visible. The shirt, jeans, and shoes use their authored
+tangent-space normal maps. The brows are painted on the skin. The irises are
+brown. Lighting samples those maps with the mesh tangents.
 
 The figure faces +Z. The feet sit on Y = 0. Height is 1.80 m.
 

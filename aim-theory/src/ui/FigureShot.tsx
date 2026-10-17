@@ -36,7 +36,10 @@ export function FigureShot({ view }: { view: "front" | "back" | "face" | "drill"
     const tick = () => {
       const loaded = canvas.dataset.ready === "1";
       world.drawBay(cam, [figure], CROSS, fov, view !== "drill");
-      if (loaded) shown += 1;
+      const frame = Number(canvas.dataset.frameMs || 0);
+      // A background tab reports a tiny frame time. Keep drawing until the
+      // still has actually been painted.
+      if (loaded && (view === "drill" || frame > 40)) shown += 1;
       if (view === "drill" || shown < 2) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
