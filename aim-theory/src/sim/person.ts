@@ -1,8 +1,7 @@
 /**
- * The shared person is public/person.glb: a photogrammetry scan of a clothed
- * adult (shirt, sweatpants, hair, eyes, fists). Triangle count is the scan
- * itself, decimated from the 5-million-triangle capture. The albedo is the
- * photograph. Lighting uses geometric normals. See public/person-credits.txt.
+ * The shared person is public/person.glb: a CC0 game-ready adult in a shirt,
+ * jeans, and shoes, fists up, both feet planted. Color and tangent-space
+ * normal maps are on the mesh. See public/person-credits.txt.
  */
 
 export type PersonImage = { mime: string; bytes: Uint8Array };
@@ -11,6 +10,8 @@ export type PersonPrim = {
   name: string;
   positions: Float32Array;
   normals: Float32Array;
+  /** MikkTSpace tangent, xyz plus the bitangent sign in w. */
+  tangents: Float32Array;
   uvs: Float32Array;
   indices: Uint32Array;
   image: number;
@@ -161,6 +162,9 @@ export function parsePerson(buffer: ArrayBuffer): PersonMesh {
     for (const prim of mesh.primitives) {
       const pos = readFloats(json, bin, prim.attributes.POSITION);
       const nrm = readFloats(json, bin, prim.attributes.NORMAL);
+      const tangentIndex = prim.attributes.TANGENT;
+      if (tangentIndex == null) throw new Error("person glb is missing tangents");
+      const tan = readFloats(json, bin, tangentIndex);
       const uv = readFloats(json, bin, prim.attributes.TEXCOORD_0);
       const indices = readIndices(json, bin, prim.indices ?? 0);
       const [sx, sy, sz] = place.scale;
@@ -188,7 +192,7 @@ export function parsePerson(buffer: ArrayBuffer): PersonMesh {
       const cutoff = mat?.alphaMode === "MASK" ? (mat.alphaCutoff ?? 0.5) : 0;
       triangles += indices.length / 3;
       verts += pos.length / 3;
-      primitives.push({ name: mesh.name ?? "person", positions: pos, normals: nrm, uvs: uv, indices, image, normal, rough, alphaCutoff: cutoff });
+      primitives.push({ name: mesh.name ?? "person", positions: pos, normals: nrm, tangents: tan, uvs: uv, indices, image, normal, rough, alphaCutoff: cutoff });
     }
   }
   primitives.sort((a, b) => a.alphaCutoff - b.alphaCutoff);

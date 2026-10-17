@@ -124,15 +124,20 @@ const PERSON_VERT = `#version 300 es
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNrm;
 layout(location = 2) in vec2 aUv;
+layout(location = 3) in vec4 aTan;
 uniform mat4 uMvp;
 uniform mat4 uView;
 uniform mat3 uNmat;
 out vec2 vUv;
 out vec3 vN;
+out vec3 vT;
+out float vHand;
 out vec3 vView;
 void main() {
   vUv = aUv;
   vN = normalize(uNmat * aNrm);
+  vT = uNmat * aTan.xyz;
+  vHand = aTan.w;
   vView = (uView * vec4(aPos, 1.0)).xyz;
   gl_Position = uMvp * vec4(aPos, 1.0);
 }
@@ -147,14 +152,18 @@ uniform float uCutoff;
 uniform float uTone;
 in vec2 vUv;
 in vec3 vN;
+in vec3 vT;
+in float vHand;
 in vec3 vView;
 out vec4 outColor;
 void main() {
   vec4 tex = texture(uTex, vUv);
   if (uCutoff > 0.0 && tex.a < uCutoff) discard;
   vec3 N = normalize(vN);
-  // The scan normal map is an image-space filter, not a tangent bake. Derivative
-  // tangents turn UV borders (hair, brows, collar, jacket seams) into black streaks.
+  vec3 T = normalize(vT - N * dot(N, vT));
+  vec3 B = cross(N, T) * vHand;
+  vec3 ts = texture(uNrm, vUv).xyz * 2.0 - 1.0;
+  N = normalize(T * ts.x + B * ts.y + N * ts.z);
   float rough = texture(uRough, vUv).g;
   vec3 V = normalize(-vView);
   vec3 key = normalize(vec3(0.42, 0.78, 0.55));
@@ -975,6 +984,7 @@ function linkPerson(gl: WebGL2RenderingContext): WebGLProgram {
   gl.bindAttribLocation(program, 0, "aPos");
   gl.bindAttribLocation(program, 1, "aNrm");
   gl.bindAttribLocation(program, 2, "aUv");
+  gl.bindAttribLocation(program, 3, "aTan");
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "person link");
   gl.deleteShader(vs);
@@ -1356,9 +1366,11 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
     const bitmaps = await Promise.all(
       mesh.images.map(async (image, index) => {
         const blob = new Blob([image.bytes.buffer.slice(image.bytes.byteOffset, image.bytes.byteOffset + image.bytes.byteLength) as ArrayBuffer], { type: image.mime });
-        if (!linear.has(index)) return createImageBitmap(blob);
+        const options = linear.has(index)
+          ? { colorSpaceConversion: "none" as const, premultiplyAlpha: "none" as const }
+          : { premultiplyAlpha: "none" as const };
         try {
-          return await createImageBitmap(blob, { colorSpaceConversion: "none", premultiplyAlpha: "none" });
+          return await createImageBitmap(blob, options);
         } catch {
           return createImageBitmap(blob);
         }
@@ -1383,8 +1395,9 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
       const vao = gl.createVertexArray();
       const buf = gl.createBuffer();
       const elem = gl.createBuffer();
-      const interleaved = new Float32Array(prim.positions.length / 3 * 8);
-      for (let i = 0, v = 0; i < prim.positions.length; i += 3, v += 8) {
+      const count = prim.positions.length / 3;
+      const interleaved = new Float32Array(count * 12);
+      for (let i = 0, v = 0; i < prim.positions.length; i += 3, v += 12) {
         interleaved[v] = prim.positions[i];
         interleaved[v + 1] = prim.positions[i + 1];
         interleaved[v + 2] = prim.positions[i + 2];
@@ -1394,6 +1407,11 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
         const u = (i / 3) * 2;
         interleaved[v + 6] = prim.uvs[u];
         interleaved[v + 7] = prim.uvs[u + 1];
+        const t = (i / 3) * 4;
+        interleaved[v + 8] = prim.tangents[t];
+        interleaved[v + 9] = prim.tangents[t + 1];
+        interleaved[v + 10] = prim.tangents[t + 2];
+        interleaved[v + 11] = prim.tangents[t + 3];
       }
       gl.bindVertexArray(vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -1401,9 +1419,11 @@ export function attachWorld(canvas: HTMLCanvasElement): WorldView {
       gl.enableVertexAttribArray(0);
       gl.enableVertexAttribArray(1);
       gl.enableVertexAttribArray(2);
-      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 32, 0);
-      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 32, 12);
-      gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 32, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 48, 0);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 48, 12);
+      gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 48, 24);
+      gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 48, 32);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elem);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, prim.indices, gl.STATIC_DRAW);
       gpuPrims.push({

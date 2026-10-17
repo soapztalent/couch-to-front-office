@@ -34,8 +34,9 @@ export function FigureShot({ view }: { view: "front" | "back" | "face" | "drill"
     let raf = 0;
     let shown = 0;
     const tick = () => {
+      const loaded = canvas.dataset.ready === "1";
       world.drawBay(cam, [figure], CROSS, fov, view !== "drill");
-      if (canvas.dataset.ready === "1") shown += 1;
+      if (loaded) shown += 1;
       if (view === "drill" || shown < 2) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

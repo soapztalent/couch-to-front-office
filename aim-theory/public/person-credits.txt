@@ -1,20 +1,24 @@
-person.glb is adapted from scan HSR0028-Body-093 ("Jade") in the HSRD-100
-dataset by Digital Reality Lab / Human Scan Repository.
+person.glb is an original character built from MakeHuman Community assets.
 
-License: Creative Commons Attribution 4.0 International (CC BY 4.0)
-https://creativecommons.org/licenses/by/4.0/
-https://huggingface.co/datasets/digitalrealitylab/HSRD-100
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+https://static.makehumancommunity.org/licenses.html
 
-The shipped mesh keeps 1,650,000 triangles from the original 4,999,935-triangle
-photogrammetry scan. It is not a subdivided mannequin and it is not a copied
-game character. The albedo is the scan photograph. Lighting uses the scan's
-geometric normals. An image-space normal map is not shipped, because that map
-painted black streaks along hair, brows, and clothing seams.
+The body, skin, short hair, eyes, eyelashes, eyebrows, button shirt, jeans,
+belt, and shoes are MakeHuman system assets released as CC0 in September 2020
+by Data Collection AB, Joel Palmius, and Jonas Hauquier. The character is not
+a copied game character and not a photogrammetry scan.
 
-The pose is the scan as captured: a forward run with both fists up and empty,
-eyes ahead, no phone and no prop. The rear foot is off the floor because that
-is the running stride. The mesh was decimated for the real-time file, oriented
-to face +Z with the planted foot on the floor, and scaled to 1.80 m so it
-matches the range camera (the scanned subject is 163 cm).
+The mesh is posed as a standing guard: both feet planted, weight even, fists
+up and empty. No phone and no run cycle. After the color and normal maps were
+in place, the body, shirt, and shoes were Catmull-Clark subdivided with the
+UVs kept. The shipped file has 1,335,648 triangles.
 
-No endorsement by the subject or Digital Reality Lab is implied.
+Skin, shirt, jeans, and shoes use real color maps. Skin pores were turned into
+a tangent-space normal from that color map. The shirt, jeans, and shoes use
+their authored tangent-space normal maps. Lighting samples those maps with the
+mesh tangents.
+
+The figure faces +Z. The feet sit on Y = 0. Height is 1.80 m.
+
+No endorsement by the MakeHuman Community is implied.
