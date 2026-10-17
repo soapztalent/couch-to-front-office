@@ -1,5 +1,7 @@
 # Couch To Front Office
 
+Aim Theory, the mouse-and-keyboard aim course, lives in [`aim-theory/`](aim-theory/README.md). Install and run it from that folder.
+
 This is the game folder.
 
 ## Get the files
